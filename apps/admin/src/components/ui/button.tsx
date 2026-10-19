@@ -1,0 +1,54 @@
+"use client";
+/** Button — hand-written primitive (no shadcn CLI in this app). */
+import type { ButtonHTMLAttributes, ReactNode } from "react";
+
+type Variant = "primary" | "secondary" | "outline" | "ghost" | "danger";
+type Size = "sm" | "md";
+
+const VARIANT_CLASSES: Record<Variant, string> = {
+  primary: "bg-forest text-cream hover:bg-forest-dark focus-visible:outline-forest",
+  secondary: "bg-honey text-ink hover:bg-honey-dark focus-visible:outline-honey",
+  outline: "border border-sand bg-white text-ink hover:bg-cream focus-visible:outline-forest",
+  ghost: "text-forest hover:bg-cream focus-visible:outline-forest",
+  danger: "bg-red-700 text-white hover:bg-red-800 focus-visible:outline-red-700",
+};
+
+const SIZE_CLASSES: Record<Size, string> = {
+  sm: "h-9 px-3 text-xs",
+  md: "h-11 px-4 text-sm",
+};
+
+export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: Variant;
+  size?: Size;
+  loading?: boolean;
+  children?: ReactNode;
+}
+
+export function Button({
+  variant = "primary",
+  size = "md",
+  loading = false,
+  disabled,
+  className = "",
+  children,
+  type = "button",
+  ...rest
+}: ButtonProps) {
+  return (
+    <button
+      type={type}
+      disabled={disabled || loading}
+      className={`inline-flex items-center justify-center gap-2 rounded-md font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${VARIANT_CLASSES[variant]} ${SIZE_CLASSES[size]} ${className}`}
+      {...rest}
+    >
+      {loading ? (
+        <svg aria-hidden viewBox="0 0 24 24" className="h-4 w-4 animate-spin" fill="none" stroke="currentColor" strokeWidth="3">
+          <circle cx="12" cy="12" r="9" opacity="0.25" />
+          <path d="M21 12a9 9 0 0 0-9-9" strokeLinecap="round" />
+        </svg>
+      ) : null}
+      {children}
+    </button>
+  );
+}

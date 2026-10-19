@@ -10,7 +10,8 @@
  * Staff roles are resolved from the `adminUsers` collection — never from token claims submitted
  * by a browser. Customers are lazily upserted into `customers` keyed by Firebase UID.
  */
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
+import { API_ENV } from "../../data/data.module";
 import { COLLECTIONS, type AdminRole, type AdminUserDoc, type AuthPrincipal, type CustomerDoc, permissionsForRole } from "@annaadhya/contracts";
 import { AppError, type DataClient } from "@annaadhya/data-core";
 import { createHmac, timingSafeEqual } from "node:crypto";
@@ -34,7 +35,7 @@ export class AuthService {
 
   constructor(
     private readonly data: DataClient,
-    private readonly env: ApiEnv,
+    @Inject(API_ENV) private readonly env: ApiEnv,
   ) {}
 
   /** Verify a bearer token and resolve the principal (including staff role lookup). */

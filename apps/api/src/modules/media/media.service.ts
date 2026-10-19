@@ -7,7 +7,9 @@
 import { Injectable } from "@nestjs/common";
 import { createHash, createHmac } from "node:crypto";
 import { AppError, serviceUnconfigured } from "@annaadhya/data-core";
+import { Inject } from "@nestjs/common";
 import type { ApiEnv } from "../../config/env";
+import { API_ENV } from "../../data/data.module";
 
 export interface UploadSignature {
   cloudName: string;
@@ -21,7 +23,7 @@ export interface UploadSignature {
 
 @Injectable()
 export class MediaService {
-  constructor(private readonly env: ApiEnv) {}
+  constructor(@Inject(API_ENV) private readonly env: ApiEnv) {}
 
   uploadSignature(folder: string): UploadSignature {
     if (!this.env.cloudinaryConfigured) {

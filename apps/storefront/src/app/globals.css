@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+/*
+ * Annaadhya brand tokens — warm cream surfaces, deep forest green, honey-gold accents.
+ * Editable design-token system: align here first when the final brand palette is approved.
+ */
+@theme {
+  --color-cream: #fbf7ef;
+  --color-cream-deep: #f4edde;
+  --color-forest: #1e4d3b;
+  --color-forest-deep: #17402f;
+  --color-forest-soft: #2c6650;
+  --color-honey: #c99a3c;
+  --color-honey-deep: #a87c26;
+  --color-saffron: #e3a008;
+  --color-sand: #e8dfce;
+  --color-ink: #26221a;
+  --color-ink-soft: #6b6353;
+  --color-berry: #8a3324;
+
+  --font-display: Georgia, "Times New Roman", serif;
+  --font-body:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+/* Restrained elevation — soft shadows only */
+.card-soft {
+  background: #fff;
+  border: 1px solid var(--color-sand);
+  border-radius: 0.9rem;
+  box-shadow: 0 1px 2px rgb(38 34 26 / 0.04), 0 8px 24px -18px rgb(38 34 26 / 0.18);
+}
+
+.btn-primary {
+  background-color: var(--color-forest);
+  color: #fff;
+  border-radius: 9999px;
+  font-weight: 600;
+  transition:
+    background-color 0.18s ease,
+    transform 0.18s ease;
+}
+.btn-primary:hover {
+  background-color: var(--color-forest-deep);
+}
+.btn-primary:active {
+  transform: scale(0.985);
+}
+.btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-outline {
+  border: 1.5px solid var(--color-forest);
+  color: var(--color-forest);
+  border-radius: 9999px;
+  font-weight: 600;
+  transition: background-color 0.18s ease;
+}
+.btn-outline:hover {
+  background-color: color-mix(in srgb, var(--color-forest) 8%, transparent);
+}
+
+.input-base {
+  width: 100%;
+  border: 1px solid var(--color-sand);
+  border-radius: 0.65rem;
+  background: #fff;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.925rem;
+  color: var(--color-ink);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.input-base:focus {
+  border-color: var(--color-honey);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-honey) 22%, transparent);
+}
+
+/* Subtle Indian-inspired divider motif */
+.motif-divider {
+  height: 10px;
+  background-image: radial-gradient(circle at 6px 5px, var(--color-honey) 1.6px, transparent 1.9px);
+  background-size: 12px 10px;
+  background-repeat: repeat-x;
+  opacity: 0.55;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--color-forest);
+  outline-offset: 2px;
+}

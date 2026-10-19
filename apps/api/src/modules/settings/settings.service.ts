@@ -1,6 +1,7 @@
 /** Global settings singleton with safe defaults (seeded when missing). */
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { COLLECTIONS, type SettingsDoc } from "@annaadhya/contracts";
+import { DATA_CLIENT } from "../../data/data.module";
 import type { DataClient } from "@annaadhya/data-core";
 import { defaultSettings } from "@annaadhya/data-core";
 
@@ -8,7 +9,7 @@ const SETTINGS_ID = "global";
 
 @Injectable()
 export class SettingsService {
-  constructor(private readonly data: DataClient) {}
+  constructor(@Inject(DATA_CLIENT) private readonly data: DataClient) {}
 
   async get(): Promise<SettingsDoc> {
     const doc = await this.data.get<SettingsDoc>(COLLECTIONS.settings, SETTINGS_ID);

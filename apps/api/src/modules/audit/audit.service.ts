@@ -1,12 +1,13 @@
 /** AuditLog writer — every sensitive action must produce an immutable audit record. */
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { COLLECTIONS, type AuditLogDoc, type AuthPrincipal } from "@annaadhya/contracts";
+import { DATA_CLIENT } from "../../data/data.module";
 import type { DataClient } from "@annaadhya/data-core";
 import { newId } from "@annaadhya/utils";
 
 @Injectable()
 export class AuditService {
-  constructor(private readonly data: DataClient) {}
+  constructor(@Inject(DATA_CLIENT) private readonly data: DataClient) {}
 
   async record(input: {
     actor: Pick<AuthPrincipal, "uid" | "role" | "displayName"> | { uid: string; role: "system"; displayName?: string };

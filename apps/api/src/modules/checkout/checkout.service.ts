@@ -10,6 +10,7 @@
  *  - reservation expiry releases stock and cancels still-pending orders
  */
 import { Inject, Injectable } from "@nestjs/common";
+import { API_ENV } from "../../data/data.module";
 import {
   COLLECTIONS,
   ORDER_TRANSITIONS,
@@ -42,7 +43,7 @@ export class CheckoutService {
     @Inject(DATA_CLIENT) private readonly data: DataClient,
     private readonly settings: SettingsService,
     private readonly audit: AuditService,
-    private readonly env: ApiEnv,
+    @Inject(API_ENV) private readonly env: ApiEnv,
     private readonly providers: PaymentProvider[],
   ) {}
 

@@ -12,7 +12,7 @@ import { API_ENV } from "../../data/data.module";
 export class HealthController {
   constructor(
     @Inject(DATA_CLIENT) private readonly data: DataClient,
-    private readonly env: ApiEnv,
+    @Inject(API_ENV) private readonly env: ApiEnv,
   ) {}
 
   @Public()

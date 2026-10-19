@@ -1,5 +1,5 @@
 /** Catalogue service — public browsing (published only) + admin CRUD with SKU uniqueness. */
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import {
   COLLECTIONS,
   availableQty,
@@ -12,6 +12,7 @@ import {
   type ProductVariantDoc,
 } from "@annaadhya/contracts";
 import { conflict, notFound, type DataClient } from "@annaadhya/data-core";
+import { DATA_CLIENT } from "../../data/data.module";
 import { slugify } from "@annaadhya/utils";
 
 export interface ProductWithVariants extends ProductDoc {
@@ -20,7 +21,7 @@ export interface ProductWithVariants extends ProductDoc {
 
 @Injectable()
 export class CatalogueService {
-  constructor(private readonly data: DataClient) {}
+  constructor(@Inject(DATA_CLIENT) private readonly data: DataClient) {}
 
   /* ------------------------------- public -------------------------------- */
 

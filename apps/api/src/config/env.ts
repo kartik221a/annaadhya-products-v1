@@ -17,8 +17,9 @@ const envSchema = z.object({
   FIREBASE_PRIVATE_KEY: z.string().optional(),
   FIRESTORE_DATABASE_ID: z.string().optional(),
 
-  // Dev-token auth (mock mode only; ignored when Firebase credentials exist)
-  DEV_TOKEN_SECRET: z.string().min(16).optional(),
+  // Dev-token auth (mock mode only; ignored when Firebase credentials exist).
+  // Default secret keeps local mock mode frictionless — production forbids mock auth entirely.
+  DEV_TOKEN_SECRET: z.string().min(16).default("dev-only-secret-change-me-0123456789"),
 
   // Admin bootstrap
   ADMIN_SETUP_KEY: z.string().min(8).optional(),
@@ -77,10 +78,6 @@ export function loadEnv(): ApiEnv {
     throw new Error(
       "Production requires Firebase credentials (FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY).",
     );
-  }
-  if (!isProduction && !firebaseConfigured && !env.DEV_TOKEN_SECRET) {
-    // Dev convenience: default dev secret so local mock mode works out of the box.
-    process.env.DEV_TOKEN_SECRET = "dev-only-secret-change-me-0123456789";
   }
 
   cached = {

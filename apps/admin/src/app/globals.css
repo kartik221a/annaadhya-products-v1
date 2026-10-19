@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+/*
+ * Annaadhya brand theme (Tailwind CSS 4 @theme tokens):
+ *  cream #FBF7EF background · forest #1E4D3B primary (hover #17402F)
+ *  honey #C99A3C accent · sand #E8DFCE borders · ink #26221A text
+ * Display headings use a Georgia serif stack — system fonts only, no downloads.
+ */
+@theme {
+  --color-cream: #fbf7ef;
+  --color-forest: #1e4d3b;
+  --color-forest-dark: #17402f;
+  --color-honey: #c99a3c;
+  --color-honey-dark: #a87f2c;
+  --color-sand: #e8dfce;
+  --color-ink: #26221a;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: Georgia, "Times New Roman", serif;
+}
+
+html {
+  background-color: var(--color-cream);
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Slim scrollbars for the long lists (max-h + overflow-y containers). */
+.scroll-slim {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-sand) transparent;
+}
+.scroll-slim::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scroll-slim::-webkit-scrollbar-thumb {
+  background: var(--color-sand);
+  border-radius: 9999px;
+}
+.scroll-slim::-webkit-scrollbar-track {
+  background: transparent;
+}

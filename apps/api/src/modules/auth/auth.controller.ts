@@ -1,5 +1,5 @@
 /** Auth — token verification, session profile, dev-token issuance (mock mode only), owner bootstrap. */
-import { Body, Controller, Get, Post } from "@nestjs/common";
+import { Inject, Body, Controller, Get, Post } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { z } from "zod";
 import {
@@ -15,6 +15,7 @@ import { CustomersService } from "../customers/customers.service";
 import { TeamService } from "../team/team.service";
 import { SettingsService } from "../settings/settings.service";
 import type { ApiEnv } from "../../config/env";
+import { API_ENV } from "../../data/data.module";
 
 const devTokenSchema = z.object({
   uid: z.string().min(4).max(128),
@@ -33,7 +34,7 @@ export class AuthController {
     private readonly customers: CustomersService,
     private readonly team: TeamService,
     private readonly settings: SettingsService,
-    private readonly env: ApiEnv,
+    @Inject(API_ENV) private readonly env: ApiEnv,
   ) {}
 
   /** Exchange a verified credential for the app session identity; lazily provisions the customer profile. */

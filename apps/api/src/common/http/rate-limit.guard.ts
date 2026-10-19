@@ -7,7 +7,9 @@ import { type CanActivate, type ExecutionContext, Injectable, SetMetadata } from
 import { Reflector } from "@nestjs/core";
 import type { Request } from "express";
 import { rateLimited } from "@annaadhya/data-core";
+import { Inject } from "@nestjs/common";
 import type { ApiEnv } from "../../config/env";
+import { API_ENV } from "../../data/data.module";
 
 const BUCKETS = new Map<string, number[]>();
 
@@ -28,7 +30,7 @@ setInterval(() => {
 export class RateLimitGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
-    private readonly env: ApiEnv,
+    @Inject(API_ENV) private readonly env: ApiEnv,
   ) {}
 
   canActivate(ctx: ExecutionContext): boolean {

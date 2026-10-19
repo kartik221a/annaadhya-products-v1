@@ -13,7 +13,7 @@ import { Reflector } from "@nestjs/core";
 import type { Request } from "express";
 import type { AuthPrincipal, Permission } from "@annaadhya/contracts";
 import { forbidden, unauthenticated } from "@annaadhya/data-core";
-import type { AuthService } from "./auth.service";
+import { AuthService } from "./auth.service";
 import { RateLimitGuard } from "../http/rate-limit.guard";
 
 export { RateLimit, RATE_LIMIT_KEY } from "../http/rate-limit.guard";
@@ -85,10 +85,10 @@ export function Protected(...perms: Permission[]): MethodDecorator & ClassDecora
 }
 
 export const CurrentUser = createParamDecorator(
-  (_data: unknown, ctx: ExecutionContext): AuthPrincipal => {
+  (_data: unknown, ctx: ExecutionContext): AuthPrincipal | null => {
     const req = ctx.switchToHttp().getRequest<Request & { principal?: AuthPrincipal }>();
-    if (!req.principal) throw unauthenticated();
-    return req.principal;
+    // Returns null on @Public routes (e.g. guest checkout); guarded routes always have a principal.
+    return req.principal ?? null;
   },
 );
 

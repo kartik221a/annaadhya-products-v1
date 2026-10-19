@@ -15,7 +15,9 @@ import { Injectable } from "@nestjs/common";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { VerifiedEvent, PaymentProvider, ProviderPaymentInput } from "./provider.interface";
 import { AppError, serviceUnconfigured } from "@annaadhya/data-core";
+import { Inject } from "@nestjs/common";
 import type { ApiEnv } from "../../config/env";
+import { API_ENV } from "../../data/data.module";
 
 const RAZORPAY_API = "https://api.razorpay.com/v1";
 
@@ -23,7 +25,7 @@ const RAZORPAY_API = "https://api.razorpay.com/v1";
 export class RazorpayProvider implements PaymentProvider {
   readonly name = "razorpay" as const;
 
-  constructor(private readonly env: ApiEnv) {}
+  constructor(@Inject(API_ENV) private readonly env: ApiEnv) {}
 
   get configured(): boolean {
     return this.env.razorpayConfigured && Boolean(this.env.RAZORPAY_WEBHOOK_SECRET);

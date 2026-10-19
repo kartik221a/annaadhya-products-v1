@@ -1,5 +1,5 @@
 /** Checkout & payments endpoints — quotes, orders, provider webhooks, mock simulate (dev only). */
-import { Body, Controller, Get, Param, Post, Query, RawBodyRequest, Req } from "@nestjs/common";
+import { Inject, Body, Controller, Get, Param, Post, Query, RawBodyRequest, Req } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import type { Request } from "express";
 import {
@@ -18,8 +18,8 @@ import { MockPaymentProvider } from "../payments/mock.provider";
 import { RazorpayProvider } from "../payments/razorpay.provider";
 import { AuditService } from "../audit/audit.service";
 import { DATA_CLIENT } from "../../data/data.module";
-import { Inject } from "@nestjs/common";
 import type { ApiEnv } from "../../config/env";
+import { API_ENV } from "../../data/data.module";
 
 @ApiTags("checkout")
 @Controller()
@@ -29,7 +29,7 @@ export class CheckoutController {
     private readonly mockProvider: MockPaymentProvider,
     private readonly razorpay: RazorpayProvider,
     private readonly audit: AuditService,
-    private readonly env: ApiEnv,
+    @Inject(API_ENV) private readonly env: ApiEnv,
     @Inject(DATA_CLIENT) private readonly data: DataClient,
   ) {}
 
