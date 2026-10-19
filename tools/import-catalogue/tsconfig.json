@@ -1,5 +1,5 @@
 {
-  "extends": "@annaadhya/config/tsconfig.node.json",
+  "extends": "../../packages/config/tsconfig.node.json",
   "compilerOptions": { "noEmit": true, "module": "ESNext", "moduleResolution": "Bundler" },
   "include": ["src"]
 }
