@@ -1,13 +1,25 @@
-/** API access — server components read the catalogue directly from the API; browsers use NEXT_PUBLIC_API_URL. */
+/** API access — server components call the API through the Vercel service binding
+ *  (API_URL, injected at runtime); browsers call the same origin, so the default is
+ *  the relative /api/v1 prefix which the platform rewrite routes to the api service. */
 import type {
   CategoryDoc,
   Page,
   ProductWithVariantsShape,
 } from "./types";
 
-export const API_URL = process.env.API_URL ?? "http://localhost:4000/api/v1";
-export const PUBLIC_API_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? process.env.API_URL ?? "http://localhost:4000/api/v1";
+// Vercel services binding: the injected value is the api service's base URL (origin
+// only), so the global prefix /api/v1 is appended here. Locally (and for any manual
+// override) accept either an origin or an origin that already ends with /api/v1.
+const RAW_API_URL = (process.env.API_URL ?? "http://localhost:4000")
+  .trim()
+  .replace(/\/+$/, "")
+  .replace(/\/api\/v1$/, "");
+export const API_URL = `${RAW_API_URL}/api/v1`;
+
+// Browser-side base. NEXT_PUBLIC_API_URL is only needed for `next dev` against a
+// separately running API; on Vercel it must stay unset so calls are same-origin
+// (browser code cannot resolve service bindings — they are server-side only).
+export const PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL ?? "/api/v1";
 
 export interface ApiEnvelope<T> {
   ok: boolean;

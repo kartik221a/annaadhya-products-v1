@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { apiGetAuth } from "@/lib/api";
+import { PUBLIC_API_URL, apiGetAuth } from "@/lib/api";
 import { formatINR, formatDateIN } from "@/lib/format";
 import type { CustomerDoc } from "@/lib/types";
 
@@ -52,7 +52,7 @@ export default function AccountPage() {
   async function saveProfile() {
     if (!auth.token) return;
     try {
-      const updated = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1"}/auth/profile`, {
+      const updated = await fetch(`${PUBLIC_API_URL}/auth/profile`, {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${auth.token}` },
         body: JSON.stringify({ displayName: name || undefined, phone: phone || "" }),
@@ -125,7 +125,7 @@ export default function AccountPage() {
               className="mt-3 text-sm font-medium text-berry underline"
               onClick={() => {
                 if (confirm("Request account deletion? Support will contact you to confirm.")) {
-                  void fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1"}/auth/me`, { method: "DELETE", headers: { authorization: `Bearer ${auth.token}` } });
+                  void fetch(`${PUBLIC_API_URL}/auth/me`, { method: "DELETE", headers: { authorization: `Bearer ${auth.token}` } });
                 }
               }}
             >

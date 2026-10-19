@@ -1,7 +1,10 @@
 /**
  * API client for the Annaadhya admin panel.
  *
- * - Base URL comes from NEXT_PUBLIC_API_URL (defaults to the local mock-mode API).
+ * - Base URL comes from NEXT_PUBLIC_API_URL. When unset (default on Vercel), calls go to
+ *   the same origin under /api/v1 — the platform rewrite in the root vercel.json routes
+ *   them to the api service. Set NEXT_PUBLIC_API_URL only for local development against
+ *   a separately running API (e.g. http://localhost:4000/api/v1).
  * - Every response is the platform envelope `{ ok: true, data } | { ok: false, error }`;
  *   this client unwraps successes and throws a typed ApiError for failures.
  * - Auth: bearer token kept in sessionStorage (dev-token flow). sessionStorage keeps the
@@ -9,13 +12,14 @@
  *
  * NOTE: the admin panel is intentionally client-rendered (CSR) — it sits behind auth and
  * every page calls the API from the browser, so no server-side data fetching is used.
+ * (Browser calls cannot use Vercel service bindings — those resolve server-side only.)
  */
 import type { ApiErrorBody, AuthPrincipal } from "./types";
 
 export const TOKEN_KEY = "annaadhya.admin.token";
 export const PRINCIPAL_KEY = "annaadhya.admin.principal";
 
-export const API_BASE: string = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
+export const API_BASE: string = process.env.NEXT_PUBLIC_API_URL ?? "/api/v1";
 
 export class ApiError extends Error {
   readonly code: string;
@@ -86,14 +90,17 @@ interface RequestOptions {
 }
 
 function buildUrl(path: string, query?: RequestOptions["query"]): string {
-  const url = new URL(`${API_BASE}${path}`);
+  // String concatenation (not `new URL`) so a relative API_BASE (same-origin
+  // "/api/v1" on Vercel) works alongside absolute local-development URLs.
+  const params = new URLSearchParams();
   if (query) {
     for (const [key, value] of Object.entries(query)) {
       if (value === undefined || value === null || value === "") continue;
-      url.searchParams.set(key, String(value));
+      params.set(key, String(value));
     }
   }
-  return url.toString();
+  const search = params.toString();
+  return `${API_BASE}${path}${search ? `?${search}` : ""}`;
 }
 
 /** Low-level call: unwraps the envelope, throws ApiError with the server's message. */
