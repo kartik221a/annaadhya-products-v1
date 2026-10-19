@@ -35,7 +35,7 @@ export const PAYMENT_STATUSES = [
 ] as const;
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
-export const PAYMENT_PROVIDERS = ["mock", "razorpay"] as const;
+export const PAYMENT_PROVIDERS = ["mock", "razorpay", "cod"] as const;
 export type PaymentProviderName = (typeof PAYMENT_PROVIDERS)[number];
 
 /** Allowed payment status transitions. */

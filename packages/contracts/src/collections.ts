@@ -19,6 +19,7 @@ export const COLLECTIONS = {
   checkoutQuotes: "checkoutQuotes",
   exportJobs: "exportJobs",
   settings: "settings",
+  counters: "counters",
   webhookEvents: "webhookEvents",
   idempotencyKeys: "idempotencyKeys",
 } as const;

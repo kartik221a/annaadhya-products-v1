@@ -34,11 +34,11 @@ export interface QueryOptions {
 export interface TransactionClient {
   get<T>(col: string, id: string): Promise<T | null>;
   /** Queue a partial update (applied on commit). */
-  update(col: string, id: string, patch: Record<string, unknown>): void;
+  update(col: string, id: string, patch: object): void;
   /** Queue a full-document set (id required, applied on commit). */
-  set(col: string, id: string, data: Record<string, unknown>): void;
+  set(col: string, id: string, data: object): void;
   /** Queue a create with a fresh id; the id is returned immediately and applied on commit. */
-  create(col: string, data: Record<string, unknown>): string;
+  create(col: string, data: object): string;
   delete(col: string, id: string): void;
 }
 

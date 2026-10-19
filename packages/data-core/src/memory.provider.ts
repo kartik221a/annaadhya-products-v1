@@ -147,17 +147,17 @@ export class InMemoryDataClient implements DataClient {
 
   async runTransaction<T>(fn: (tx: TransactionClient) => Promise<T>): Promise<T> {
     // Sequential execution + queued writes = read-your-writes, applied atomically at commit.
-    const queued: { op: "set" | "update" | "delete"; col: string; id: string; data?: Record<string, unknown> }[] = [];
+    const queued: { op: "set" | "update" | "delete"; col: string; id: string; data?: object }[] = [];
     const createdIds = new Map<string, string>();
 
     const tx: TransactionClient = {
       get: async (col, id) => {
         const pending = [...queued].reverse().find((q) => q.col === col && q.id === id);
         if (pending?.op === "delete") return null;
-        if (pending?.op === "set") return { ...pending.data, id } as never;
+        if (pending?.op === "set") return { ...(pending.data as Record<string, unknown>), id } as never;
         const current = this.col(col).get(id);
         if (!current) return null;
-        if (pending?.op === "update") return { ...current, ...pending.data } as never;
+        if (pending?.op === "update") return { ...current, ...(pending.data as Record<string, unknown>) } as never;
         return { ...current } as never;
       },
       update: (col, id, patch) => {
@@ -187,9 +187,9 @@ export class InMemoryDataClient implements DataClient {
       } else if (q.op === "set") {
         const existing = c.get(q.id);
         c.set(q.id, {
-          ...q.data,
+          ...(q.data as Record<string, unknown> | undefined),
           id: q.id,
-          createdAt: existing?.createdAt ?? (q.data?.createdAt as number) ?? now,
+          createdAt: existing?.createdAt ?? ((q.data as Record<string, unknown> | undefined)?.createdAt as number | undefined) ?? now,
           updatedAt: now,
         } as AnyDoc);
       } else if (q.op === "update") {

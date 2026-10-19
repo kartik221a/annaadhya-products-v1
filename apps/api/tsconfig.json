@@ -1,0 +1,12 @@
+{
+  "extends": "@annaadhya/config/tsconfig.node.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": ".",
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "strictPropertyInitialization": false,
+    "types": ["node"]
+  },
+  "include": ["src", "tests"]
+}

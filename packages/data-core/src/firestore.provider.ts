@@ -218,7 +218,7 @@ export class FirestoreDataClient implements DataClient {
     const createdAt = Date.now();
 
     return db.runTransaction(async (fTx) => {
-      const queued: { op: "set" | "update" | "delete"; ref: FxDocRef; data?: Record<string, unknown> }[] = [];
+      const queued: { op: "set" | "update" | "delete"; ref: FxDocRef; data?: object }[] = [];
       const colRef = (col: string) => db.collection(col);
 
       const tx: TransactionClient = {
@@ -246,8 +246,8 @@ export class FirestoreDataClient implements DataClient {
       const now = Date.now();
       for (const q of queued) {
         if (q.op === "delete") fTx.delete(q.ref);
-        else if (q.op === "set") fTx.set(q.ref, { ...q.data, updatedAt: now }, { merge: false });
-        else fTx.set(q.ref, { ...q.data, updatedAt: now }, { merge: true });
+        else if (q.op === "set") fTx.set(q.ref, { ...(q.data as Record<string, unknown>), updatedAt: now }, { merge: false });
+        else fTx.set(q.ref, { ...(q.data as Record<string, unknown>), updatedAt: now }, { merge: true });
       }
       return result;
     });
