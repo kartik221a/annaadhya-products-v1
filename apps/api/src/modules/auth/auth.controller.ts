@@ -80,7 +80,14 @@ export class AuthController {
   @Public()
   @Post("bootstrap-owner")
   async bootstrapOwner(@Body(new ZodValidationPipe(bootstrapOwnerSchema)) dto: BootstrapOwnerDto) {
-    const staff = await this.team.bootstrapOwner(dto);
+    // Fields are validated non-empty by bootstrapOwnerSchema; explicit fallbacks
+    // keep the required-shape contract under non-strict type-checking.
+    const staff = await this.team.bootstrapOwner({
+      uid: dto.uid ?? "",
+      displayName: dto.displayName ?? "",
+      email: dto.email ?? "",
+      setupKey: dto.setupKey ?? "",
+    });
     return { created: true, staff };
   }
 

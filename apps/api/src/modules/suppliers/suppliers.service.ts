@@ -92,7 +92,15 @@ export class PurchasesService {
       supplierId: dto.supplierId,
       reference: dto.reference,
       status: dto.status,
-      items: dto.items,
+      // Normalized item snapshots (validated by zod) — keeps PurchaseItem
+      // fields non-optional under non-strict type-checking too.
+      items: dto.items.map((it) => ({
+        variantSku: it.variantSku ?? "",
+        description: it.description ?? "",
+        qtyOrdered: it.qtyOrdered ?? 0,
+        qtyReceived: it.qtyReceived ?? 0,
+        unitCostPaise: it.unitCostPaise ?? 0,
+      })),
       notes: dto.notes,
       createdByUid: existing?.createdByUid ?? "system",
       createdAt: existing?.createdAt ?? Date.now(),

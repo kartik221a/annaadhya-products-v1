@@ -47,7 +47,9 @@ export class AdminOrdersController {
   @Protected("orders:read")
   @RequirePermissions("orders:read")
   async list(@Query(new ZodValidationPipe(orderListQuerySchema)) q: OrderListQueryDto) {
-    return this.orders.listAdmin(q);
+    // page/pageSize have zod defaults; the ?? keeps the service contract
+    // satisfied even under non-strict type-checking.
+    return this.orders.listAdmin({ ...q, page: q.page ?? 1, pageSize: q.pageSize ?? 20 });
   }
 
   @Get("state-machine")

@@ -114,7 +114,11 @@ export class OrdersService {
 
     const patch: Partial<OrderDoc> = { status: dto.status, updatedAt: nowMillis() };
     if (dto.tracking) {
-      patch.tracking = { ...dto.tracking, updatedAt: nowMillis() };
+      patch.tracking = {
+        carrier: dto.tracking.carrier ?? "",
+        trackingNumber: dto.tracking.trackingNumber ?? "",
+        updatedAt: nowMillis(),
+      };
     }
     if (dto.status === "cancelled") {
       patch.cancelledReason = dto.reason ?? "cancelled_by_admin";

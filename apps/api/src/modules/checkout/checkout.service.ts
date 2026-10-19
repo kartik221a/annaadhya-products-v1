@@ -172,7 +172,13 @@ export class CheckoutService {
       id: orderId,
       orderNumber,
       customerUid: principal?.uid,
-      customerContact: dto.customer,
+      // Explicit construction (validated non-empty by zod) so the OrderDoc
+      // contract holds under both strict and non-strict type-checking.
+      customerContact: {
+        displayName: dto.customer.displayName ?? "",
+        email: dto.customer.email ?? "",
+        phone: dto.customer.phone ?? "",
+      },
       shippingAddress: { id: newId("addr"), ...dto.address } as CustomerAddress,
       items: [],
       subtotalPaise: quote.subtotalPaise,

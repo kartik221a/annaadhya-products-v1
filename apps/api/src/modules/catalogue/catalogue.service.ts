@@ -228,7 +228,16 @@ export class CatalogueService {
       categoryId: dto.categoryId,
       typeLabel: dto.typeLabel,
       status: dto.status,
-      images: dto.images,
+      // Field-level normalization: compiles identically under strict and
+      // non-strict (Vercel's node builder checks with strict:false, which makes
+      // zod-inferred props appear optional). Values are already validated.
+      images: dto.images.map((im) => ({
+        url: im.url ?? "",
+        cloudinaryPublicId: im.cloudinaryPublicId,
+        alt: im.alt ?? "",
+        width: im.width,
+        height: im.height,
+      })),
       ingredients: dto.ingredients,
       netQuantityLabel: dto.netQuantityLabel,
       storageInstructions: dto.storageInstructions,
