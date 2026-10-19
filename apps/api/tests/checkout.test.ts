@@ -9,7 +9,6 @@ import {
   availableQty,
   type AuthPrincipal,
   type CheckoutQuoteDto,
-  type CreateOrderDto,
   type OrderDoc,
   type PaymentAttemptDoc,
   type ProductVariantDoc,

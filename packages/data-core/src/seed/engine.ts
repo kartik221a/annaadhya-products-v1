@@ -191,7 +191,7 @@ export async function applySeed(data: DataClient, seedBatch = DEMO_SEED_BATCH): 
   // Suppliers
   await data.bulkSet(
     COLLECTIONS.suppliers,
-    DEMO_SUPPLIERS.map((s, i) => ({
+    DEMO_SUPPLIERS.map((s) => ({
       id: stableId("sup", s.name),
       name: s.name,
       location: s.location,

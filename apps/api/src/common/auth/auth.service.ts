@@ -176,7 +176,6 @@ export class AuthService {
       where: [{ field: "uid", op: "==", value: p.uid }],
       limit: 1,
     });
-    const now = Date.now();
     if (existing[0]) {
       const doc = existing[0];
       const providers = new Set([...(doc.providers ?? []), p.provider]);

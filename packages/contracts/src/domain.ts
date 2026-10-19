@@ -13,7 +13,6 @@ import type {
   ProductStatus,
   PurchaseStatus,
   RefundStatus,
-  SupplierQuoteStatus,
 } from "./enums";
 
 export interface BaseDoc {

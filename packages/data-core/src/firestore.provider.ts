@@ -185,7 +185,7 @@ export class FirestoreDataClient implements DataClient {
   }
 
   async bulkSet(col: string, docs: ({ id: string } & object)[]): Promise<void> {
-    const a = await admin();
+    await admin();
     if (!this.db) this.db = await getDb(this.creds);
     const writer = this.db.bulkWriter();
     const now = Date.now();
@@ -202,7 +202,7 @@ export class FirestoreDataClient implements DataClient {
   }
 
   async bulkDelete(col: string, ids: string[]): Promise<void> {
-    const a = await admin();
+    await admin();
     if (!this.db) this.db = await getDb(this.creds);
     const writer = this.db.bulkWriter();
     for (const id of ids) writer.delete(this.db.collection(col).doc(id));
@@ -212,7 +212,7 @@ export class FirestoreDataClient implements DataClient {
   /* ------------------------------ transactions ----------------------------- */
 
   async runTransaction<T>(fn: (tx: TransactionClient) => Promise<T>): Promise<T> {
-    const a = await admin();
+    await admin();
     if (!this.db) this.db = await getDb(this.creds);
     const db = this.db;
     const createdAt = Date.now();
@@ -254,7 +254,7 @@ export class FirestoreDataClient implements DataClient {
   }
 
   async stats(): Promise<{ provider: string; collections: Record<string, number> }> {
-    const a = await admin();
+    await admin();
     if (!this.db) this.db = await getDb(this.creds);
     const collections: Record<string, number> = {};
     const snap = await this.db.listCollections();

@@ -2,6 +2,7 @@
 import { z } from "zod";
 import { paiseSchema } from "@annaadhya/utils";
 import { ADMIN_ROLES, INVENTORY_MOVEMENT_TYPES } from "../enums";
+import type { ProductImage } from "../domain";
 
 const idSchema = z.string().trim().min(1).max(128);
 const skuSchema = z
@@ -11,7 +12,22 @@ const skuSchema = z
 
 /* ------------------------------------ Products ---------------------------------- */
 
-export const productImageSchema = z.object({
+/**
+ * Input accepted from admin clients (`alt` may be omitted — defaulted to "" server-side).
+ * The OUTPUT type is explicitly pinned to the domain `ProductImage` so that
+ * `ProductUpsertDto["images"]` is always exactly `ProductImage[]`. Without this
+ * annotation, zod-inferred types can drift from the domain interface and break
+ * `ProductDoc` assignment in catalogue.service (TS2322 on Vercel builds).
+ */
+interface ProductImageInput {
+  url: string;
+  cloudinaryPublicId?: string;
+  alt?: string;
+  width?: number;
+  height?: number;
+}
+
+export const productImageSchema: z.ZodType<ProductImage, z.ZodTypeDef, ProductImageInput> = z.object({
   url: z.string().url().max(600),
   cloudinaryPublicId: z.string().max(200).optional(),
   alt: z.string().trim().max(160).default(""),

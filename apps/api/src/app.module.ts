@@ -10,7 +10,6 @@ import type { ApiEnv } from "./config/env";
 import type { DataClient } from "@annaadhya/data-core";
 import type { PaymentProvider } from "./modules/payments/provider.interface";
 
-import { AuthService } from "./common/auth/auth.service";
 import { AuditService } from "./modules/audit/audit.service";
 import { SettingsService } from "./modules/settings/settings.service";
 import { CatalogueService } from "./modules/catalogue/catalogue.service";

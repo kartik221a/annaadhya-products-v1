@@ -10,7 +10,7 @@ import {
   type OrderRefundDto,
   type OrderStatusUpdateDto,
 } from "@annaadhya/contracts";
-import { CurrentUser, Protected, Public, RequirePermissions } from "../../common/auth/guards";
+import { CurrentUser, Protected, RequirePermissions } from "../../common/auth/guards";
 import { ZodValidationPipe } from "../../common/validation/zod.pipe";
 import { OrdersService } from "./orders.service";
 import { CheckoutService } from "../checkout/checkout.service";

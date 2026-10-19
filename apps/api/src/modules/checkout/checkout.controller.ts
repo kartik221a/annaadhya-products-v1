@@ -1,5 +1,5 @@
 /** Checkout & payments endpoints — quotes, orders, provider webhooks, mock simulate (dev only). */
-import { Inject, Body, Controller, Get, Param, Post, Query, RawBodyRequest, Req } from "@nestjs/common";
+import { Inject, Body, Controller, Get, Param, Post, RawBodyRequest, Req } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import type { Request } from "express";
 import {

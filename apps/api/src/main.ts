@@ -44,7 +44,7 @@ async function bootstrap(): Promise<void> {
         const productCount = await data.count("products");
         if (productCount === 0) {
           const report = await applySeed(data);
-          console.log(
+          console.info(
             `[mock-mode] Seeded demo dataset: ${report.counts.products} products, ${report.counts.variants} variants, ${report.counts.orders} demo orders.`,
           );
         }
@@ -66,8 +66,8 @@ async function bootstrap(): Promise<void> {
     }, 5 * 60 * 1000).unref?.();
   }
 
-  console.log(`Annaadhya API listening on :${env.PORT} (prefix /api/v1, docs at /api/docs)`);
-  console.log(
+  console.info(`Annaadhya API listening on :${env.PORT} (prefix /api/v1, docs at /api/docs)`);
+  console.info(
     `Mode: provider=${env.DATA_PROVIDER} auth=${env.firebaseConfigured ? "firebase" : "mock-dev-tokens"} payments=${env.PAYMENT_PROVIDER}${env.isProduction ? " PRODUCTION" : " (sandbox)"}`,
   );
 }

@@ -32,9 +32,15 @@ export class MockPaymentProvider implements PaymentProvider {
     };
   }
 
-  verifyWebhook({ rawBody }: { headers: Record<string, string | string[] | undefined>; rawBody: Buffer }): VerifiedEvent {
+  verifyWebhook({
+    headers,
+    rawBody,
+  }: {
+    headers: Record<string, string | string[] | undefined>;
+    rawBody: Buffer;
+  }): VerifiedEvent {
     const signatureHeader = "x-mock-signature";
-    const sig = asString(arguments[0].headers[signatureHeader]);
+    const sig = asString(headers[signatureHeader]);
     if (!sig) throw new AppError("bad_request", "Missing mock webhook signature", 400);
     const expected = createHmac("sha256", MOCK_WEBHOOK_SECRET).update(rawBody).digest("hex");
     if (sig !== expected) throw new AppError("unauthenticated", "Invalid webhook signature", 401);

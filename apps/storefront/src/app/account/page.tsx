@@ -42,7 +42,7 @@ export default function AccountPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load account");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [auth.token]);
 
   useEffect(() => {
