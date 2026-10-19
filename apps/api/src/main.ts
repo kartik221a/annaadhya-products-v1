@@ -1,4 +1,5 @@
 /** NestJS bootstrap — Swagger/OpenAPI, global prefix, CORS, raw-body webhooks, lifecycle jobs. */
+import * as http from "node:http";
 import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
@@ -54,7 +55,11 @@ async function bootstrap(): Promise<void> {
     }
   }
 
-  await app.listen(env.PORT, "0.0.0.0");
+  // Vercel's Node runtime probes the PORT it injects; fall back to 3000 exactly like
+  // Vercel's documented NestJS example (process.env.PORT ?? 3000). A mismatch here
+  // would look like FUNCTION_INVOCATION_FAILED with no error in the logs.
+  const port = Number(process.env.PORT) || 3000;
+  await app.listen(port, "0.0.0.0");
 
   // Reservation expiry sweeper (also callable via admin endpoint)
   const checkout = app.get(CHECKOUT_SWEEPER) as { releaseExpiredReservations(): Promise<unknown> } | undefined;
@@ -66,7 +71,7 @@ async function bootstrap(): Promise<void> {
     }, 5 * 60 * 1000).unref?.();
   }
 
-  console.info(`Annaadhya API listening on :${env.PORT} (prefix /api/v1, docs at /api/docs)`);
+  console.info(`Annaadhya API listening on :${port} (prefix /api/v1, docs at /api/docs)`);
   console.info(
     `Mode: provider=${env.DATA_PROVIDER} auth=${env.firebaseConfigured ? "firebase" : "mock-dev-tokens"} payments=${env.PAYMENT_PROVIDER}${env.isProduction ? " PRODUCTION" : " (sandbox)"}`,
   );
@@ -74,4 +79,22 @@ async function bootstrap(): Promise<void> {
 
 import { CHECKOUT_SWEEPER } from "./app.tokens";
 
-void bootstrap();
+/**
+ * Boot-error visibility: if bootstrap throws (invalid env, DI failure, listen failure),
+ * still bind the port and report the exact reason over HTTP instead of crashing with a
+ * bare 500 FUNCTION_INVOCATION_FAILED that hides the root cause from the platform.
+ * Deliberately minimal: message + first stack frames, no env values echoed back.
+ */
+bootstrap().catch((err: unknown) => {
+  const message = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+  const stack = err instanceof Error ? (err.stack ?? "").split("\n").slice(1, 6).join("\n") : "";
+  const body = `Annaadhya API failed to boot. Fix the environment and redeploy.\n\n${message}\n${stack}`;
+  console.error("[boot] API failed to start:", message, "\n", stack);
+
+  const server = http.createServer((_req, res) => {
+    res.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
+    res.end(body);
+  });
+  server.on("error", (e) => console.error("[boot] error-report server failed:", e));
+  server.listen(Number(process.env.PORT) || 3000, "0.0.0.0");
+});
