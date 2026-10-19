@@ -2,7 +2,7 @@
   "name": "annaadhya-platform",
   "version": "0.1.0",
   "private": true,
-  "description": "Annaadhya Products — Indian e-commerce platform (storefront, admin, API).",
+  "description": "Annaadhya Products \u2014 Indian e-commerce platform (storefront, admin, API).",
   "packageManager": "pnpm@9.15.9",
   "engines": {
     "node": ">=20.9.0"
