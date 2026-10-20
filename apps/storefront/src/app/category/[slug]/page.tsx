@@ -28,12 +28,13 @@ export default async function CategoryPage({ params, searchParams }: Props) {
   const sp = await searchParams;
   const sortParam = (Array.isArray(sp.sort) ? sp.sort[0] : sp.sort) ?? "relevance";
 
-  const categories = await getCategories();
+  // Parallel fetch: the products query keys off the slug directly, so it does not need to
+  // wait for the category lookup (the API resolves the slug and returns an empty page if
+  // the category is unknown/hidden).
+  const qs = new URLSearchParams({ category: slug, sort: sortParam, pageSize: "24" });
+  const [categories, result] = await Promise.all([getCategories(), getProducts(qs)]);
   const category = categories.find((c) => c.slug === slug);
   if (!category) notFound();
-
-  const qs = new URLSearchParams({ category: slug, sort: sortParam, pageSize: "24" });
-  const result = await getProducts(qs);
 
   // Not-ready categories are never indexed and clearly labelled.
   if (!category.isReady) {

@@ -3,6 +3,7 @@
  *  the relative /api/v1 prefix which the platform rewrite routes to the api service. */
 import type {
   CategoryDoc,
+  CategoryOverview,
   Page,
   ProductWithVariantsShape,
   PublicStoreSettings,
@@ -74,12 +75,25 @@ export async function getCategories(): Promise<CategoryDoc[]> {
   return (await apiGet<CategoryDoc[]>("/categories", 120)) ?? [];
 }
 
+/** One roundtrip for the shop page: every category + its sellable product count + the total.
+ *  Replaces the old pattern of one products request per category pill (N+1 fan-out). */
+export async function getCategoryOverview(): Promise<CategoryOverview | null> {
+  return apiGet<CategoryOverview>("/categories/overview", 120);
+}
+
 export async function getProducts(params: URLSearchParams): Promise<Page<ProductWithVariantsShape> | null> {
   return apiGet<Page<ProductWithVariantsShape>>(`/products?${params.toString()}`, 45);
 }
 
 export async function getProduct(slug: string): Promise<ProductWithVariantsShape | null> {
   return apiGet<ProductWithVariantsShape>(`/products/slug/${encodeURIComponent(slug)}`, 60);
+}
+
+/** Same-category companions for the product page ("You may also like"). */
+export async function getRelatedProducts(slug: string): Promise<ProductWithVariantsShape[]> {
+  return (
+    (await apiGet<ProductWithVariantsShape[]>(`/products/slug/${encodeURIComponent(slug)}/related`, 60)) ?? []
+  );
 }
 
 export async function getBestsellers(): Promise<ProductWithVariantsShape[]> {

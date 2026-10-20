@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getCategories, getProduct, getProducts } from "@/lib/api";
+import { getProduct, getRelatedProducts } from "@/lib/api";
 import { ProductGrid } from "@/components/product-card";
 import { AddToCartPanel } from "@/components/add-to-cart";
 import { availableQty, formatINR } from "@/lib/format";
@@ -33,12 +33,7 @@ export default async function ProductPage({ params }: Props) {
   const product = await getProduct(slug);
   if (!product) notFound();
 
-  const [categories, relatedResult] = await Promise.all([
-    getCategories(),
-    getProducts(new URLSearchParams({ category: "", pageSize: "8" })),
-  ]);
-  void categories;
-  const related = (relatedResult?.items ?? []).filter((p) => p.id !== product.id).slice(0, 4);
+  const related = await getRelatedProducts(slug);
   const variants = product.variants.filter((v) => v.status === "published");
   const cheapest = variants.length ? Math.min(...variants.map((v) => v.pricePaise)) : 0;
   const inStock = variants.some((v) => availableQty(v) > 0);

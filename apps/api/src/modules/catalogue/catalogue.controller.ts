@@ -26,6 +26,13 @@ export class CatalogueController {
     return this.catalogue.listCategories(false);
   }
 
+  /** Declared before categories/:slug so "overview" is not captured as a slug param. */
+  @Public()
+  @Get("categories/overview")
+  async overview() {
+    return this.catalogue.overview();
+  }
+
   @Public()
   @Get("categories/:slug")
   async category(@Param("slug") slug: string) {

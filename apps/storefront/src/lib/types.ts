@@ -10,6 +10,12 @@ export interface CategoryDoc {
   heroImage?: string;
 }
 
+/** Response of GET /categories/overview — categories + sellable counts in one roundtrip. */
+export interface CategoryOverview {
+  categories: Array<CategoryDoc & { productCount: number }>;
+  totalProducts: number;
+}
+
 export interface ProductImage {
   url: string;
   alt: string;

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getCategories, getProducts } from "@/lib/api";
+import { getCategoryOverview, getProducts } from "@/lib/api";
 import { ProductGrid, ProductCardSkeleton } from "@/components/product-card";
 import { ShopControls } from "@/components/shop-filters";
 import { PRICE_TIERS } from "@/lib/shop-pricing";
@@ -91,20 +91,13 @@ export default async function ShopPage({ searchParams }: ShopProps) {
   params.set("page", String(page));
   params.set("pageSize", String(PAGE_SIZE));
 
-  const categories = (await getCategories()).filter((c) => c.isReady);
+  // Two parallel roundtrips total: the filtered page + a single-pass overview that supplies
+  // categories, per-category pill counts and the all-products count (previously N+2 requests).
+  const [result, overview] = await Promise.all([getProducts(params), getCategoryOverview()]);
 
-  const [result, allShelf, ...categoryCounts] = await Promise.all([
-    getProducts(params),
-    getProducts(new URLSearchParams({ page: "1", pageSize: "1", includeUnavailable: "true" })),
-    ...categories.map((c) =>
-      getProducts(
-        new URLSearchParams({ category: c.slug, page: "1", pageSize: "1", includeUnavailable: "true" }),
-      ),
-    ),
-  ]);
-
-  const allCount = allShelf?.total ?? 0;
-  const countsBySlug = new Map(categories.map((c, i) => [c.slug, categoryCounts[i]?.total ?? 0]));
+  const categories = (overview?.categories ?? []).filter((c) => c.isReady);
+  const allCount = overview?.totalProducts ?? 0;
+  const countsBySlug = new Map(categories.map((c) => [c.slug, c.productCount]));
   const categoryName = categories.find((c) => c.slug === category)?.name;
 
   /** Pill hrefs swap the category while preserving the rest of the active filter set. */

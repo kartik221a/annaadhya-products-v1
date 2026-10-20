@@ -15,6 +15,7 @@ const PALETTES = {
   honey: { bg: "#F6E8C8", blob: "#E4B95B", deep: "#B07E1F", accent: "#8A5A12" },
   "dry-fruits": { bg: "#F1E4D3", blob: "#C98A4B", deep: "#8F5A28", accent: "#6B3E1B" },
   kesar: { bg: "#F8E3C0", blob: "#D97C2B", deep: "#A4531A", accent: "#7A3A10" },
+  "gift-boxes": { bg: "#F3E2D8", blob: "#A64450", deep: "#702C35", accent: "#58452F" },
 };
 
 function hexTile(x, y, r, fill, opacity = 1) {
@@ -64,7 +65,32 @@ function pouchImage(p, label, sub) {
 </svg>`;
 }
 
+/** Hamper demo art — a lidded keepsake trunk with a ribbon, distinct from jars/pouches. */
+function hamperImage(p, label, sub) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600" role="img" aria-label="${label} demo placeholder image">
+  <rect width="600" height="600" fill="${p.bg}"/>
+  ${hexTile(90, 100, 32, p.blob, 0.16)}
+  ${hexTile(515, 90, 42, p.blob, 0.2)}
+  ${hexTile(535, 515, 30, p.deep, 0.14)}
+  ${hexTile(65, 515, 36, p.blob, 0.15)}
+  <ellipse cx="300" cy="512" rx="195" ry="26" fill="${p.deep}" opacity="0.12"/>
+  <rect x="165" y="285" width="270" height="190" rx="14" fill="${p.blob}"/>
+  <rect x="165" y="285" width="270" height="190" rx="14" fill="none" stroke="${p.deep}" stroke-width="5"/>
+  <path d="M165 320 Q300 250 435 320 L435 285 Q435 262 410 262 L190 262 Q165 262 165 285 Z" fill="${p.deep}"/>
+  <rect x="272" y="252" width="56" height="34" rx="7" fill="#E9C46A" stroke="#B07E1F" stroke-width="3"/>
+  <rect x="288" y="285" width="24" height="46" rx="6" fill="#E9C46A" stroke="#B07E1F" stroke-width="3"/>
+  <rect x="225" y="345" width="150" height="96" rx="7" fill="#FFFDF6"/>
+  <text x="300" y="380" text-anchor="middle" font-family="Georgia, serif" font-size="17" font-weight="bold" fill="${p.accent}">Annaadhya</text>
+  <text x="300" y="404" text-anchor="middle" font-family="Georgia, serif" font-size="13" fill="${p.accent}">${sub}</text>
+  ${hexTile(300, 425, 11, p.blob, 0.75)}
+  <path d="M165 430 L435 430" stroke="#E9C46A" stroke-width="6" opacity="0.85"/>
+  <text x="300" y="560" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" fill="${p.accent}" opacity="0.65">${label} — demo image</text>
+</svg>`;
+}
+
 const PRODUCTS = [
+  ["annaadhya-royal-shahi-hamper", "gift-boxes", "hamper", "Royal Shahi Hamper"],
+  ["annaadhya-utsav-aarambh-hamper", "gift-boxes", "hamper", "Utsav Aarambh Hamper"],
   ["annaadhya-vanamrit-honey", "honey", "jar", "Vanamrit Honey"],
   ["annaadhya-sarson-sugandh-honey", "honey", "jar", "Sarson Sugandh"],
   ["annaadhya-litchi-madhur-honey", "honey", "jar", "Litchi Madhur"],
@@ -89,7 +115,7 @@ const PRODUCTS = [
 
 for (const [slug, palette, kind, label] of PRODUCTS) {
   const p = PALETTES[palette];
-  const svg = kind === "jar" ? jarImage(p, label, "Demo pack") : pouchImage(p, label, "Demo pack");
+  const svg = kind === "jar" ? jarImage(p, label, "Demo pack") : kind === "hamper" ? hamperImage(p, label, "Demo hamper") : pouchImage(p, label, "Demo pack");
   writeFileSync(join(outDir, `${slug}.svg`), svg);
 }
 

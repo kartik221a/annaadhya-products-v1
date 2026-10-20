@@ -33,6 +33,45 @@ export class CatalogueService {
     return includeNotReady ? rows : rows.filter((c) => c.isReady);
   }
 
+  /**
+   * Shop-page overview: every published category with its sellable product count, plus the
+   * total — computed in a SINGLE pass (3 collection reads) instead of one products query per
+   * category. This is what lets the storefront render category pills without an N+1 fan-out.
+   * Counting semantics match listProducts with includeUnavailable=true: published products
+   * with at least one published variant, regardless of stock.
+   */
+  async overview(): Promise<{
+    categories: Array<CategoryDoc & { productCount: number }>;
+    totalProducts: number;
+  }> {
+    const [categories, products, variantRows] = await Promise.all([
+      this.data.list<CategoryDoc>(COLLECTIONS.categories, {
+        where: [{ field: "status", op: "==", value: "published" }],
+        orderBy: [{ field: "sortOrder", direction: "asc" }],
+      }),
+      this.data.list<ProductDoc>(COLLECTIONS.products, {
+        where: [{ field: "status", op: "==", value: "published" }],
+      }),
+      this.data.list<ProductVariantDoc>(COLLECTIONS.productVariants, {
+        where: [{ field: "status", op: "==", value: "published" }],
+      }),
+    ]);
+
+    const sellable = new Set(variantRows.map((v) => v.productId));
+    const countByCategory = new Map<string, number>();
+    let total = 0;
+    for (const p of products) {
+      if (!sellable.has(p.id)) continue;
+      total += 1;
+      countByCategory.set(p.categoryId, (countByCategory.get(p.categoryId) ?? 0) + 1);
+    }
+
+    return {
+      categories: categories.map((c) => ({ ...c, productCount: countByCategory.get(c.id) ?? 0 })),
+      totalProducts: total,
+    };
+  }
+
   async getCategoryBySlug(slug: string): Promise<CategoryDoc | null> {
     const rows = await this.data.list<CategoryDoc>(COLLECTIONS.categories, {
       where: [{ field: "slug", op: "==", value: slug }],
@@ -129,45 +168,69 @@ export class CatalogueService {
     return this.attachVariants(product);
   }
 
-  async relatedProducts(product: ProductWithVariants, limit = 4): Promise<ProductWithVariants[]> {
-    const sameCategory = await this.data.list<ProductDoc>(COLLECTIONS.products, {
-      where: [
-        { field: "status", op: "==", value: "published" },
-        { field: "categoryId", op: "==", value: product.categoryId },
-      ],
-      limit: limit + 1,
+  /**
+   * One query for ALL published variants, grouped by product (grams-ordered), replacing the
+   * per-product attachVariants loop that cost one Firestore read per product.
+   */
+  private async variantsByProduct(): Promise<Map<string, ProductVariantDoc[]>> {
+    const rows = await this.data.list<ProductVariantDoc>(COLLECTIONS.productVariants, {
+      where: [{ field: "status", op: "==", value: "published" }],
     });
+    const map = new Map<string, ProductVariantDoc[]>();
+    for (const v of rows) {
+      const list = map.get(v.productId) ?? [];
+      list.push(v);
+      map.set(v.productId, list);
+    }
+    for (const list of map.values()) list.sort((a, b) => a.grams - b.grams);
+    return map;
+  }
+
+  async relatedProducts(product: ProductWithVariants, limit = 4): Promise<ProductWithVariants[]> {
+    const [sameCategory, variantsMap] = await Promise.all([
+      this.data.list<ProductDoc>(COLLECTIONS.products, {
+        where: [
+          { field: "status", op: "==", value: "published" },
+          { field: "categoryId", op: "==", value: product.categoryId },
+        ],
+        limit: limit + 1,
+      }),
+      this.variantsByProduct(),
+    ]);
     const rows: ProductWithVariants[] = [];
     for (const p of sameCategory) {
       if (p.id === product.id) continue;
-      const withVariants = await this.attachVariants(p);
-      if (withVariants) rows.push(withVariants);
+      const variants = variantsMap.get(p.id) ?? [];
+      if (variants.length === 0) continue; // products without variants are not sellable yet
+      rows.push({ ...p, variants });
     }
     return rows.slice(0, limit);
   }
 
   async bestsellers(limit = 8): Promise<ProductWithVariants[]> {
-    const rows = await this.data.list<ProductDoc>(COLLECTIONS.products, {
-      where: [{ field: "status", op: "==", value: "published" }],
-    });
-    const withVariants = (await Promise.all(rows.map((p) => this.attachVariants(p)))).filter(
-      (p): p is ProductWithVariants => Boolean(p) && (p!.variants?.length ?? 0) > 0,
-    );
-    return withVariants
-      .filter((p) => p.bestsellerRank !== undefined)
+    const [rows, variantsMap] = await Promise.all([
+      this.data.list<ProductDoc>(COLLECTIONS.products, {
+        where: [{ field: "status", op: "==", value: "published" }],
+      }),
+      this.variantsByProduct(),
+    ]);
+    return rows
+      .map((p) => ({ ...p, variants: variantsMap.get(p.id) ?? [] }))
+      .filter((p) => p.variants.length > 0 && p.bestsellerRank !== undefined)
       .sort((a, b) => a.bestsellerRank! - b.bestsellerRank!)
       .slice(0, limit);
   }
 
   async featured(limit = 8): Promise<ProductWithVariants[]> {
-    const rows = await this.data.list<ProductDoc>(COLLECTIONS.products, {
-      where: [{ field: "status", op: "==", value: "published" }],
-    });
-    const withVariants = (await Promise.all(rows.map((p) => this.attachVariants(p)))).filter(
-      (p): p is ProductWithVariants => Boolean(p) && (p!.variants?.length ?? 0) > 0,
-    );
-    return withVariants
-      .filter((p) => p.featuredRank !== undefined)
+    const [rows, variantsMap] = await Promise.all([
+      this.data.list<ProductDoc>(COLLECTIONS.products, {
+        where: [{ field: "status", op: "==", value: "published" }],
+      }),
+      this.variantsByProduct(),
+    ]);
+    return rows
+      .map((p) => ({ ...p, variants: variantsMap.get(p.id) ?? [] }))
+      .filter((p) => p.variants.length > 0 && p.featuredRank !== undefined)
       .sort((a, b) => a.featuredRank! - b.featuredRank!)
       .slice(0, limit);
   }

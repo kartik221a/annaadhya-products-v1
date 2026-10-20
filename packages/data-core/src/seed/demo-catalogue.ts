@@ -17,7 +17,7 @@ export interface SeedVariant {
 
 export interface SeedProduct {
   sku: string;
-  categorySlug: "honey" | "dry-fruits" | "kesar";
+  categorySlug: "honey" | "dry-fruits" | "kesar" | "gift-boxes";
   name: string;
   subtitle: string;
   typeLabel: string;
@@ -107,6 +107,27 @@ function kesar(
   };
 }
 
+/** Gift hampers take explicit packs (box formats, not weight ladders) from the approved design. */
+function gift(
+  sku: string,
+  name: string,
+  subtitle: string,
+  typeLabel: string,
+  description: string,
+  packs: SeedVariant[],
+): SeedProduct {
+  return {
+    sku,
+    categorySlug: "gift-boxes",
+    name,
+    subtitle,
+    typeLabel,
+    description,
+    packs,
+    giftItem: true,
+  };
+}
+
 export const DEMO_CATEGORIES = [
   {
     slug: "honey",
@@ -137,12 +158,12 @@ export const DEMO_CATEGORIES = [
   },
   {
     slug: "gift-boxes",
-    name: "Gift Boxes",
-    tagline: "Curated combinations, coming soon",
+    name: "Gift Hampers",
+    tagline: "Curated hampers for festivals, weddings and heartfelt moments",
     description:
-      "We are preparing curated gift boxes and festive combinations. This collection is not yet available — check back soon.",
+      "Curated gift hampers that bring together our honeys, saffron and dry fruits in keepsake packaging. Hamper contents and box formats are finalised with our gifting team — reach out for custom festival, wedding or corporate orders.",
     sortOrder: 4,
-    isReady: false, // no products yet — hidden from nav, clearly labelled when linked
+    isReady: true, // live from launch of the curated hamper line (per owner instruction)
   },
 ] as const;
 
@@ -321,6 +342,25 @@ export const DEMO_PRODUCTS: SeedProduct[] = [
     [249, 449, 849, 1999],
     { giftItem: true },
   ),
+  gift(
+    "AN-GFT-001",
+    "Annaadhya Royal Shahi Hamper",
+    "A curated celebration hamper for weddings and festive gifting",
+    "Curated gift hamper",
+    "A premium keepsake hamper that brings together our honeys, saffron and premium dry fruits in decorative gift packaging. Exact box contents, packaging design and pricing are confirmed with our gifting team before dispatch — customisation is available for weddings, festivals and corporate orders.",
+    [
+      { packLabel: "Festive Box", grams: 900, priceRupees: 2450 },
+      { packLabel: "Grand Trunk", grams: 1400, priceRupees: 3450 },
+    ],
+  ),
+  gift(
+    "AN-GFT-002",
+    "Annaadhya Utsav Aarambh Hamper",
+    "A festive starter hamper for heartfelt gifting",
+    "Curated gift hamper",
+    "A compact curated hamper for everyday celebrations and return gifting. It pairs a floral honey with seasonal dry fruits in a reusable keepsake box. Final contents are confirmed per batch with our gifting team, and bulk or branded orders can be arranged through the contact page.",
+    [{ packLabel: "Classic Box", grams: 650, priceRupees: 1499 }],
+  ),
 ];
 
 /** Variant SKU convention: `<product sku>-<pack, uppercased, non-alnum removed>`, e.g. AN-HNY-001-250G. */
@@ -347,5 +387,11 @@ export const DEMO_SUPPLIERS = [
     location: "Pampore, J&K (demo record — origin unverified)",
     notes: "Fictional demo supplier created by the seed tool. Origin/grade documentation pending.",
     productSkus: DEMO_PRODUCTS.filter((p) => p.categorySlug === "kesar").map((p) => p.sku),
+  },
+  {
+    name: "DEMO — Gifting Studio (packaging partner)",
+    location: "Jaipur, Rajasthan (demo record)",
+    notes: "Fictional demo packaging partner for the curated hamper line. Replace when the real gifting supplier is onboarded.",
+    productSkus: DEMO_PRODUCTS.filter((p) => p.categorySlug === "gift-boxes").map((p) => p.sku),
   },
 ];

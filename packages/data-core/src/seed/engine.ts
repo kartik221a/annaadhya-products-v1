@@ -135,9 +135,9 @@ function buildDocs(seedBatch: string) {
         pricePaise: toPaise(v.priceRupees),
         mrpPaise: undefined, // no invented MRP — added only when the business supplies it
         status: "published",
-        stockOnHand: p.categorySlug === "kesar" ? 40 : 120, // small-batch strategy for kesar
+        stockOnHand: p.categorySlug === "kesar" ? 40 : p.categorySlug === "gift-boxes" ? 25 : 120, // small-batch strategy for kesar and curated hampers
         reservedQty: 0,
-        lowStockThreshold: p.categorySlug === "kesar" ? 10 : 20,
+        lowStockThreshold: p.categorySlug === "kesar" ? 10 : p.categorySlug === "gift-boxes" ? 5 : 20,
         createdAt: now,
         updatedAt: now,
         isDemo: true,
