@@ -14,6 +14,17 @@
  * require; the platform's file tracer includes those files from the hoisted
  * (real-file) node_modules produced by node-linker=hoisted in .npmrc.
  *
+ * swagger-ui-dist is external for the same class of reason: @nestjs/swagger
+ * serves the Swagger UI's static assets (swagger-ui-bundle.js, .css, ...) via
+ * express.static, resolving the directory at RUNTIME through
+ * require('swagger-ui-dist/absolute-path.js') — which returns path.resolve
+ * (__dirname of the swagger-ui-dist package). If rolldown inlines that module,
+ * __dirname silently becomes the directory of THIS bundle file, express.static
+ * mounts a nonexistent path, and /api/docs renders a white page (the HTML and
+ * /api/docs-json need no assets, so they keep working — exactly the symptom to
+ * watch for). Keeping it external preserves both the runtime resolution AND the
+ * file tracer's package-level inclusion of node_modules/swagger-ui-dist.
+ *
  * Stubs: @nestjs/microservices and @nestjs/websockets are optional peers of
  * @nestjs/core that this HTTP-only API never uses. NestFactory/NestApplication
  * reference them via lazy loadPackage() requires, which would otherwise emit
@@ -36,6 +47,8 @@ const EXTERNAL = [
   /^googleapis-common(\/.+)?$/,
   /^gaxios(\/.+)?$/,
   /^gtoken(\/.+)?$/,
+  // Swagger UI static assets are served from disk at runtime (see header note).
+  /^swagger-ui-dist(\/.+)?$/,
 ];
 
 // Optional NestJS transports — replaced by empty stub modules so the shipped

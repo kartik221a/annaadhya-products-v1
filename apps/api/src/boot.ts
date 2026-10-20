@@ -10,7 +10,7 @@ import type { DataClient } from "@annaadhya/data-core";
 const bootLog: string[] = [];
 // Bumped with each diagnostic iteration; appears first in every boot report so a
 // live deployment's exact build is identifiable from outside the dashboard.
-const DEPLOY_BUILD = "v8-entrypoint-type-import";
+const DEPLOY_BUILD = "v9-swagger-assets-external";
 bootLog.push(`build: ${DEPLOY_BUILD}`);
 
 async function step<T>(name: string, fn: () => Promise<T>): Promise<T> {
