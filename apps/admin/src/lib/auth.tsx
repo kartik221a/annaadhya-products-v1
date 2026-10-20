@@ -2,11 +2,14 @@
 /**
  * AuthProvider — client context for the admin session.
  *
- * Dev/mock-mode flow: POST /auth/dev/token with { uid, email, displayName, provider: "dev" }
- * → stores token + principal in sessionStorage → role-aware UI everywhere below.
- * When the API has Firebase configured (403/503 from dev/token, or mode.authentication ===
- * "firebase") the login screen shows an honest setup notice instead of pretending dev login
- * works — admin sign-in via Firebase ID token is documented in docs/environment-setup.md.
+ * Firebase-mode flow (production): email/password or Google sign-in via the Firebase JS SDK →
+ * Firebase ID token → POST /auth/verify (the API verifies it with the Admin SDK and resolves
+ * the staff role from the adminUsers registry) → the ID token itself becomes the session
+ * bearer token; an onIdTokenChanged listener keeps it fresh (tokens expire after ~1 hour).
+ *
+ * Dev/mock-mode flow: POST /auth/dev/token with { uid, email, displayName, provider: "dev" }.
+ * When the API has Firebase configured that endpoint refuses with 403 and the login screen
+ * switches to the Firebase sign-in form instead.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
@@ -18,8 +21,10 @@ import {
   getStoredPrincipal,
   getToken,
   setSession,
+  TOKEN_KEY,
   type DevLoginResponse,
 } from "./api";
+import { getFirebaseAuth, isFirebaseClientConfigured } from "./firebase";
 import type { AuthPrincipal } from "./types";
 
 interface PlatformMode {
@@ -31,12 +36,21 @@ interface PlatformMode {
   sandbox?: boolean;
 }
 
+interface VerifyResponse {
+  principal: AuthPrincipal;
+  customer: unknown;
+  staff: unknown;
+  mode?: PlatformMode;
+}
+
 interface AuthContextValue {
-  /** null until the session has been restored from sessionStorage on mount. */
+  /** null until the session has been restored on mount. */
   principal: AuthPrincipal | null;
   ready: boolean;
   mode: PlatformMode | null;
   loginDev: (input: { uid: string; email?: string; displayName?: string }) => Promise<AuthPrincipal>;
+  loginFirebaseEmail: (email: string, password: string) => Promise<AuthPrincipal>;
+  loginFirebaseGoogle: () => Promise<AuthPrincipal>;
   logout: () => void;
   refreshMode: () => Promise<void>;
 }
@@ -48,11 +62,69 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [mode, setMode] = useState<PlatformMode | null>(null);
 
-  // Restore an existing session (client-only; sessionStorage does not exist on the server).
+  // Session restore. Firebase builds restore from the Firebase SDK session (survives new
+  // tabs via its own persistence); mock builds restore from sessionStorage as before.
   useEffect(() => {
-    const stored = getStoredPrincipal();
-    if (stored && getToken()) setPrincipal(stored);
-    setReady(true);
+    let cancelled = false;
+    (async () => {
+      try {
+        if (isFirebaseClientConfigured()) {
+          const auth = await getFirebaseAuth();
+          if (auth) {
+            const { onAuthStateChanged } = await import("firebase/auth");
+            await new Promise<void>((resolve) => {
+              onAuthStateChanged(auth, (user) => {
+                if (!user || cancelled) {
+                  resolve();
+                  return;
+                }
+                void user
+                  .getIdToken()
+                  .then(async (idToken) => {
+                    const data = await apiPost<VerifyResponse>("/auth/verify", { idToken });
+                    if (!cancelled) {
+                      if (data.mode) setMode(data.mode);
+                      setSession(idToken, data.principal);
+                      setPrincipal(data.principal);
+                    }
+                  })
+                  .catch(() => {
+                    /* verification failed — stay signed out */
+                  })
+                  .finally(resolve);
+              });
+            });
+          }
+        } else {
+          const stored = getStoredPrincipal();
+          if (stored && getToken()) setPrincipal(stored);
+        }
+      } finally {
+        if (!cancelled) setReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Keep the stored bearer token fresh — Firebase ID tokens expire after ~1 hour and the
+  // API verifies the token on every call. Only touches an existing session; logout clears it.
+  useEffect(() => {
+    if (!isFirebaseClientConfigured()) return;
+    let unsub: (() => void) | null = null;
+    void (async () => {
+      const auth = await getFirebaseAuth();
+      if (!auth) return;
+      const { onIdTokenChanged } = await import("firebase/auth");
+      unsub = onIdTokenChanged(auth, (user) => {
+        if (!user || !getToken()) return;
+        void user.getIdToken().then((fresh) => {
+          window.sessionStorage.setItem(TOKEN_KEY, fresh);
+        });
+      });
+    })();
+    return () => unsub?.();
   }, []);
 
   const refreshMode = useCallback(async () => {
@@ -81,14 +153,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const loginFirebase = useCallback(
+    async (kind: "password" | "google", email?: string, password?: string) => {
+      const auth = await getFirebaseAuth();
+      if (!auth) throw new Error("Firebase sign-in is not configured on this deployment.");
+      const { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } = await import(
+        "firebase/auth"
+      );
+      const cred =
+        kind === "password"
+          ? await signInWithEmailAndPassword(auth, email ?? "", password ?? "")
+          : await signInWithPopup(auth, new GoogleAuthProvider());
+      const idToken = await cred.user.getIdToken();
+      const data = await apiPost<VerifyResponse>("/auth/verify", { idToken });
+      if (data.mode) setMode(data.mode);
+      setSession(idToken, data.principal);
+      setPrincipal(data.principal);
+      return data.principal;
+    },
+    [],
+  );
+
+  const loginFirebaseEmail = useCallback(
+    (email: string, password: string) => loginFirebase("password", email, password),
+    [loginFirebase],
+  );
+
+  const loginFirebaseGoogle = useCallback(() => loginFirebase("google"), [loginFirebase]);
+
   const logout = useCallback(() => {
+    // Deliberately does NOT sign out of Firebase: the admin and the storefront share the
+    // same Firebase project (and origin), so a sign-out here would kill the storefront
+    // session too. Clearing the admin session is enough.
     clearSession();
     setPrincipal(null);
   }, []);
 
   const value = useMemo(
-    () => ({ principal, ready, mode, loginDev, logout, refreshMode }),
-    [principal, ready, mode, loginDev, logout, refreshMode],
+    () => ({
+      principal,
+      ready,
+      mode,
+      loginDev,
+      loginFirebaseEmail,
+      loginFirebaseGoogle,
+      logout,
+      refreshMode,
+    }),
+    [principal, ready, mode, loginDev, loginFirebaseEmail, loginFirebaseGoogle, logout, refreshMode],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

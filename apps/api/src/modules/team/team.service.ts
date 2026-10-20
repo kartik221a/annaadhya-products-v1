@@ -16,15 +16,17 @@ export class TeamService {
     private readonly audit: AuditService,
   ) {}
 
-  /** One-time owner provisioning. Requires the ADMIN_SETUP_KEY env value; refuses if an owner already exists. */
+  /** One-time owner provisioning. Requires the ADMIN_SETUP_KEY env value; refuses if a real owner already exists. */
   async bootstrapOwner(input: { uid: string; displayName: string; email: string; setupKey: string }): Promise<AdminUserDoc> {
     if (!input.setupKey || input.setupKey !== process.env.ADMIN_SETUP_KEY) {
       throw new AppError("forbidden", "Invalid setup key", 403);
     }
-    const owners = await this.data.list<AdminUserDoc>(COLLECTIONS.adminUsers, {
-      where: [{ field: "role", op: "==", value: "owner" }],
-      limit: 1,
-    });
+    const owners = (
+      await this.data.list<AdminUserDoc>(COLLECTIONS.adminUsers, {
+        where: [{ field: "role", op: "==", value: "owner" }],
+        limit: 5,
+      })
+    ).filter((o) => !o.isDemo); // demo seed data never blocks the real owner bootstrap
     if (owners.length > 0) {
       throw conflict("An owner already exists. Ask the owner to invite additional staff.");
     }

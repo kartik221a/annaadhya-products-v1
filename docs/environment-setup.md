@@ -127,17 +127,37 @@ verify a webhook appears in the dashboard before flipping anything live.
 
 ## 6. Admin bootstrap (first owner)
 
-```
-ADMIN_SETUP_KEY=choose-a-long-random-value
-```
+One-time setup to open the admin console (`https://<your-domain>/admin`). Order matters — the
+panel reads the Firebase client config at build time:
 
-```bash
-curl -X POST $API/api/v1/auth/bootstrap-owner \
-  -H 'content-type: application/json' \
-  -d '{"uid":"<firebase-uid-of-owner>","displayName":"Owner","email":"owner@…","setupKey":"…"}'
-```
+1. **Firebase Console → Authentication → Sign-in method** — enable Email/Password (and Google if
+   desired). Then **Authentication → Settings → Authorized domains** — add your Vercel domain
+   (e.g. `annaadhya-products-v1.vercel.app`), or the sign-in popup fails with
+   `auth/unauthorized-domain`.
+2. **Vercel — admin + storefront services**: set `NEXT_PUBLIC_FIREBASE_API_KEY`,
+   `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, `NEXT_PUBLIC_FIREBASE_PROJECT_ID`, `NEXT_PUBLIC_FIREBASE_APP_ID`
+   (values from Firebase Console → Project settings → General → Your apps → Web app). They are
+   inlined at build time → **redeploy both services after setting them**.
+3. **Vercel — api service**: set `ADMIN_SETUP_KEY` to a long random value → redeploy the API.
+4. **Create your login**: Firebase Console → Authentication → Users → Add user (or register
+   through the storefront).
+5. **Sign in on `/admin`** with that account. A fresh account has no staff record, so the screen
+   shows your **account UID** — copy it.
+6. **Bootstrap** (Swagger: `/api/docs` → `POST /auth/bootstrap-owner`, or curl):
 
-Then invite additional staff from the admin Team page.
+   ```
+   ADMIN_SETUP_KEY=choose-a-long-random-value
+   ```
+
+   ```bash
+   curl -X POST $API/api/v1/auth/bootstrap-owner \
+     -H 'content-type: application/json' \
+     -d '{"uid":"<your-uid-from-step-5>","displayName":"Owner","email":"owner@…","setupKey":"…"}'
+   ```
+
+   The seed's demo owner (`isDemo: true`) never blocks this. Once a real owner exists the
+   endpoint refuses additional bootstraps — further staff are invited from the admin Team page.
+7. **Sign in again on `/admin`** — you land on the dashboard as owner.
 
 ## 7. Full variable reference
 
