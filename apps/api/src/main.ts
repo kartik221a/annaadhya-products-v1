@@ -15,5 +15,18 @@
  * require() (not import) is deliberate: the generated file does not exist at
  * typecheck time, and require() is not statically resolved by tsc.
  */
+
+/**
+ * Platform entrypoint detection: vercel/vercel packages/backends/src/
+ * find-entrypoint.ts scans the entrypoint candidates' SOURCE text for
+ * `from|require|import "@nestjs/core"` and rejects the file otherwise
+ * ("No entrypoint found which imports nestjs"). This type-only import satisfies
+ * that scan. `import type` is erased at compile time, so the platform bundler
+ * never resolves @nestjs/core — the generated bundle below remains the sole
+ * runtime dependency graph.
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import type { NestFactory } from "@nestjs/core";
+
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 require("./.generated-main.js");
