@@ -11,6 +11,9 @@ export default tseslint.config(
       "**/coverage/**",
       "**/*.config.*",
       "**/generated/**",
+      // Generated at build time by apps/api/scripts/bundle-vercel.mjs — vendored
+      // third-party bundle code, not lintable source.
+      "**/.generated-main.js",
     ],
   },
   eslint.configs.recommended,

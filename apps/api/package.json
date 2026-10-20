@@ -19,6 +19,8 @@
     "@nestjs/core": "11.2.7",
     "@nestjs/platform-express": "11.2.7",
     "@nestjs/swagger": "11.4.7",
+    "class-transformer": "0.5.1",
+    "class-validator": "0.14.2",
     "exceljs": "4.4.0",
     "firebase-admin": "13.10.0",
     "reflect-metadata": "^0.2.2",

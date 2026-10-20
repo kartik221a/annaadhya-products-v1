@@ -10,7 +10,7 @@ import type { DataClient } from "@annaadhya/data-core";
 const bootLog: string[] = [];
 // Bumped with each diagnostic iteration; appears first in every boot report so a
 // live deployment's exact build is identifiable from outside the dashboard.
-const DEPLOY_BUILD = "v6-02fc13f-selfcontained-entry";
+const DEPLOY_BUILD = "v7-dualwrite-0aab025";
 bootLog.push(`build: ${DEPLOY_BUILD}`);
 
 async function step<T>(name: string, fn: () => Promise<T>): Promise<T> {
