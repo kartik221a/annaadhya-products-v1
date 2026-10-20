@@ -1,144 +1,227 @@
 "use client";
-/** Announcement strip + header with search, nav, cart badge and account menu. */
+/** Approved homepage header: maroon announcement strip + sticky ivory header with
+ *  category navigation, search, wishlist, live cart pill and account. All wired to
+ *  real routes and state. */
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { useCart } from "@/lib/cart";
+import { useWishlist } from "@/lib/wishlist";
 import { useAuth } from "@/lib/auth";
+import { formatINR } from "@/lib/format";
 import { Logo } from "./logo";
+import {
+  IconSearch,
+  IconHeart,
+  IconShoppingBag,
+  IconUser,
+  IconMenu,
+  IconX,
+  IconArrowRight,
+} from "./icons";
 
-export function AnnouncementStrip({ message, href }: { message: string; href?: string }) {
+/** Primary navigation — real routes and catalogue slugs. "Gift Hampers" points at the
+ *  gift-boxes category, whose page shows an honest "coming soon" state (isReady: false). */
+const NAV = [
+  { href: "/", label: "Home" },
+  { href: "/shop", label: "Shop All" },
+  { href: "/category/honey", label: "Honey" },
+  { href: "/category/kesar", label: "Kesar" },
+  { href: "/category/dry-fruits", label: "Dry Fruits" },
+  { href: "/category/gift-boxes", label: "Gift Hampers" },
+  { href: "/about", label: "Our Story" },
+];
+
+export function AnnouncementStrip() {
   return (
-    <div className="bg-forest text-cream">
-      <div className="mx-auto flex max-w-6xl items-center justify-center gap-2 px-4 py-2 text-center text-[0.8rem]">
-        <span aria-hidden>✻</span>
-        {href ? (
-          <Link href={href} className="underline-offset-2 hover:underline">
-            {message}
+    <aside className="w-full bg-primary-container text-on-tertiary-container shadow-[0_1px_8px_rgba(39,24,16,0.08)]">
+      <div className="mx-auto flex h-8 max-w-7xl items-center justify-between px-margin-mobile text-label-sm font-bold uppercase tracking-widest lg:px-margin">
+        <span>Complimentary Pan-India Shipping Above ₹1,999</span>
+        <p className="hidden text-center font-medium tracking-[0.14em] md:block">
+          Thoughtfully Sourced Pantry Essentials | Rooted in Indian Heritage
+        </p>
+        <div className="hidden items-center gap-space-sm font-semibold sm:flex">
+          <span className="text-tertiary-fixed">₹ INR</span>
+          <span aria-hidden>|</span>
+          <Link href="/contact" className="transition-colors hover:text-on-primary">
+            Support
           </Link>
-        ) : (
-          <span>{message}</span>
-        )}
+        </div>
       </div>
-    </div>
+    </aside>
   );
 }
 
-const NAV = [
-  { href: "/shop", label: "Shop all" },
-  { href: "/category/honey", label: "Honey" },
-  { href: "/category/dry-fruits", label: "Dry fruits" },
-  { href: "/category/kesar", label: "Kesar" },
-];
+function isActivePath(pathname: string, href: string): boolean {
+  if (href === "/") return pathname === "/";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 export function Header() {
-  const { count, ready } = useCart();
+  const { count, subtotalPaise, ready } = useCart();
+  const wishlist = useWishlist();
   const { principal, signOut } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const [query, setQuery] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setMenuOpen(false);
+    setSearchOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (searchOpen) searchRef.current?.focus();
+  }, [searchOpen]);
 
   function submitSearch(e: React.FormEvent) {
     e.preventDefault();
     router.push(query.trim() ? `/shop?search=${encodeURIComponent(query.trim())}` : "/shop");
     setMenuOpen(false);
+    setSearchOpen(false);
   }
 
+  const cartLabel = ready ? `₹ ${formatINR(subtotalPaise, false).slice(1)} / (${count})` : "₹ — / (0)";
+
   return (
-    <header className="sticky top-0 z-40 border-b border-sand bg-cream/95 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
-        <button
-          className="rounded-md p-2 text-forest md:hidden"
-          aria-label="Open menu"
-          aria-expanded={menuOpen}
-          onClick={() => setMenuOpen((v) => !v)}
-        >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M4 7h16M4 12h16M4 17h16" strokeLinecap="round" />
-          </svg>
-        </button>
+    <header className="sticky top-0 z-40 w-full bg-surface/90 shadow-[0_2px_12px_rgba(39,24,16,0.06)] backdrop-blur-xl">
+      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-margin-mobile lg:px-margin">
+        <div className="flex items-center gap-space-md">
+          <button
+            className="-ml-1.5 rounded-sm p-1.5 text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface xl:hidden"
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((v) => !v)}
+          >
+            {menuOpen ? <IconX size={22} /> : <IconMenu size={22} />}
+          </button>
+          <Logo />
+        </div>
 
-        <Logo />
-
-        <nav className="ml-6 hidden items-center gap-6 md:flex" aria-label="Primary">
-          {NAV.map((n) => (
-            <Link key={n.href} href={n.href} className="text-[0.9rem] font-medium text-ink transition-colors hover:text-forest">
-              {n.label}
-            </Link>
-          ))}
+        <nav className="hidden items-center gap-space-lg xl:flex" aria-label="Primary">
+          {NAV.map((n) => {
+            const active = isActivePath(pathname, n.href);
+            return (
+              <Link
+                key={n.href}
+                href={n.href}
+                aria-current={active ? "page" : undefined}
+                className={`py-space-xs transition-colors ${
+                  active
+                    ? "border-b-2 border-primary text-primary"
+                    : "border-b-2 border-transparent text-on-surface-variant hover:text-primary"
+                } text-label-lg`}
+              >
+                {n.label}
+              </Link>
+            );
+          })}
         </nav>
 
-        <form onSubmit={submitSearch} className="ml-auto hidden w-56 lg:block" role="search">
-          <input
-            className="input-base py-1.5 text-sm"
-            placeholder="Search honey, kesar…"
-            aria-label="Search products"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </form>
-
-        <div className="ml-auto flex items-center gap-1 lg:ml-3">
-          <Link
-            href="/cart"
-            className="relative rounded-full p-2.5 text-forest transition-colors hover:bg-cream-deep"
-            aria-label={`Cart${ready && count > 0 ? ` (${count} items)` : ""}`}
+        <div className="flex items-center gap-space-sm sm:gap-space-md">
+          <button
+            aria-label="Search"
+            aria-expanded={searchOpen}
+            className="flex h-9 w-9 items-center justify-center rounded-full text-on-surface-variant transition-all hover:bg-surface-container-high hover:text-on-surface"
+            onClick={() => setSearchOpen((v) => !v)}
           >
-            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <path d="M6 7h12l-1.2 11a2 2 0 01-2 1.8H9.2a2 2 0 01-2-1.8L6 7z" />
-              <path d="M9 10V6a3 3 0 016 0v4" strokeLinecap="round" />
-            </svg>
-            {ready && count > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-honey px-1 text-[0.68rem] font-bold text-ink">
-                {count}
+            <IconSearch size={20} />
+          </button>
+
+          <Link
+            href="/wishlist"
+            aria-label={`Wishlist${wishlist.ready && wishlist.count > 0 ? ` (${wishlist.count} items)` : ""}`}
+            className="relative flex h-9 w-9 items-center justify-center rounded-full text-on-surface-variant transition-all hover:bg-surface-container-high hover:text-on-surface"
+          >
+            <IconHeart size={20} />
+            {wishlist.ready && wishlist.count > 0 && (
+              <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary-container px-0.5 text-[9px] font-bold text-on-primary">
+                {wishlist.count}
               </span>
             )}
           </Link>
 
+          <Link
+            href="/cart"
+            aria-label={`Shopping cart, ${cartLabel}`}
+            className="flex items-center gap-space-xs rounded-full bg-surface-container-low px-space-sm py-space-xs text-on-surface transition-all hover:bg-surface-container-high"
+          >
+            <IconShoppingBag size={20} className="text-primary" />
+            <span className="whitespace-nowrap text-label-md font-semibold text-primary text-tabular">{cartLabel}</span>
+          </Link>
+
           {principal ? (
-            <div className="relative">
-              <Link
-                href="/account"
-                className="rounded-full p-2.5 text-forest transition-colors hover:bg-cream-deep"
-                aria-label="Account"
-              >
-                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <circle cx="12" cy="8" r="3.4" />
-                  <path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5" strokeLinecap="round" />
-                </svg>
-              </Link>
-            </div>
+            <Link
+              href="/account"
+              aria-label="Your account"
+              className="ml-space-xs flex h-8 w-8 items-center justify-center rounded-full bg-primary text-on-primary transition-opacity hover:opacity-90"
+            >
+              <IconUser size={17} />
+            </Link>
           ) : (
-            <Link href="/account/login" className="btn-primary px-4 py-1.5 text-sm">
-              Sign in
+            <Link
+              href="/account/login"
+              aria-label="Sign in"
+              className="ml-space-xs flex h-8 w-8 items-center justify-center rounded-full bg-primary text-on-primary transition-colors hover:bg-primary-container"
+            >
+              <IconUser size={17} />
             </Link>
           )}
         </div>
       </div>
 
-      {menuOpen && (
-        <nav className="border-t border-sand bg-cream px-4 py-3 md:hidden" aria-label="Mobile">
-          <form onSubmit={submitSearch} className="mb-3" role="search">
+      {/* Expanding search row */}
+      {searchOpen && (
+        <div className="border-t border-outline-variant/40 bg-surface">
+          <form onSubmit={submitSearch} role="search" className="mx-auto flex max-w-7xl gap-space-sm px-margin-mobile py-space-md lg:px-margin">
             <input
+              ref={searchRef}
               className="input-base"
-              placeholder="Search products…"
+              placeholder="Search honey, kesar, dry fruits…"
               aria-label="Search products"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
+            <button type="submit" className="btn-primary shrink-0 px-5 text-label-lg">
+              Search
+            </button>
           </form>
-          <ul className="space-y-1">
-            {NAV.map((n) => (
-              <li key={n.href}>
-                <Link href={n.href} className="block rounded-lg px-3 py-2 font-medium text-ink hover:bg-cream-deep" onClick={() => setMenuOpen(false)}>
-                  {n.label}
-                </Link>
-              </li>
-            ))}
-            <li>
+        </div>
+      )}
+
+      {/* Mobile navigation */}
+      {menuOpen && (
+        <nav
+          className="border-t border-outline-variant/40 bg-surface px-margin-mobile py-space-md xl:hidden"
+          aria-label="Mobile"
+        >
+          <ul className="space-y-space-sm">
+            {NAV.map((n) => {
+              const active = isActivePath(pathname, n.href);
+              return (
+                <li key={n.href}>
+                  <Link
+                    href={n.href}
+                    aria-current={active ? "page" : undefined}
+                    className={`flex items-center justify-between rounded-sm px-3 py-2.5 text-label-lg ${
+                      active ? "bg-surface-container-high text-primary" : "text-on-surface hover:bg-surface-container-low"
+                    }`}
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    {n.label}
+                    <IconArrowRight size={16} className={active ? "text-primary" : "text-on-surface-variant"} />
+                  </Link>
+                </li>
+              );
+            })}
+            <li className="border-t border-outline-variant/40 pt-space-sm">
               {principal ? (
                 <button
-                  className="block w-full rounded-lg px-3 py-2 text-left font-medium text-berry hover:bg-cream-deep"
+                  className="block w-full rounded-sm px-3 py-2.5 text-left text-label-lg text-primary-container hover:bg-surface-container-low"
                   onClick={() => {
                     void signOut();
                     setMenuOpen(false);
@@ -147,7 +230,11 @@ export function Header() {
                   Sign out ({principal.displayName ?? "account"})
                 </button>
               ) : (
-                <Link href="/account/login" className="block rounded-lg px-3 py-2 font-medium text-forest hover:bg-cream-deep" onClick={() => setMenuOpen(false)}>
+                <Link
+                  href="/account/login"
+                  className="block rounded-sm px-3 py-2.5 text-label-lg text-primary hover:bg-surface-container-low"
+                  onClick={() => setMenuOpen(false)}
+                >
                   Sign in / Register
                 </Link>
               )}

@@ -1,11 +1,25 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Playfair_Display, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { CartProvider } from "@/lib/cart";
+import { WishlistProvider } from "@/lib/wishlist";
 import { AuthProvider } from "@/lib/auth";
-import { getCategories, getPlatformStatus } from "@/lib/api";
+import { getCategories } from "@/lib/api";
 import { AnnouncementStrip, Header } from "@/components/header";
 import { Footer } from "@/components/footer";
+
+// Self-hosted at build time (OFL licensed) — no runtime font CDN requests.
+const playfair = Playfair_Display({
+  subsets: ["latin"],
+  variable: "--font-playfair",
+  display: "swap",
+});
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-jakarta",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
@@ -24,24 +38,23 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const [categories, status] = await Promise.all([getCategories(), getPlatformStatus()]);
-  const announcement = status
-    ? "Demo catalogue live — prices are illustrative placeholders pending approval."
-    : "Annaadhya — premium honey, dry fruits & kesar.";
+  const categories = await getCategories();
   const readyCategories = categories.filter((c) => c.isReady);
 
   return (
-    <html lang="en">
+    <html lang="en" className={`${playfair.variable} ${jakarta.variable}`}>
       <head>
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
       </head>
       <body className="flex min-h-screen flex-col">
         <AuthProvider>
           <CartProvider>
-            <AnnouncementStrip message={announcement} href="/shop" />
-            <Header />
-            <main className="flex-1">{children}</main>
-            <Footer categories={readyCategories.map((c) => ({ slug: c.slug, name: c.name }))} />
+            <WishlistProvider>
+              <AnnouncementStrip />
+              <Header />
+              <main className="flex-1">{children}</main>
+              <Footer categories={readyCategories.map((c) => ({ slug: c.slug, name: c.name }))} />
+            </WishlistProvider>
           </CartProvider>
         </AuthProvider>
         <noscript>

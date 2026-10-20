@@ -1,58 +1,102 @@
 import Link from "next/link";
+import { Logo } from "./logo";
+import { IconLeaf } from "./icons";
+import { NewsletterForm } from "./newsletter-form";
 
+/** Approved editorial footer — warm ivory canvas, gold hairline, four columns.
+ *  Rendered once from the root layout; pages must not add their own footer. */
 export function Footer({ categories }: { categories: { slug: string; name: string }[] }) {
+  const year = new Date().getFullYear();
   return (
-    <footer className="mt-auto border-t border-sand bg-cream-deep">
-      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:grid-cols-2 lg:grid-cols-4">
-        <div>
-          <p className="font-display text-lg font-semibold text-forest">Annaadhya Products</p>
-          <p className="mt-3 max-w-xs text-sm leading-relaxed text-ink-soft">
-            Premium-quality honey, dry fruits and kesar at reasonable prices — packed for Indian homes,
-            with every claim verified before we publish it.
-          </p>
-          <div className="motif-divider mt-5 w-28" aria-hidden />
+    <footer className="w-full border-t border-gold-deep/30 bg-ivory text-umber">
+      <div className="mx-auto max-w-7xl px-margin-mobile pb-space-lg pt-space-xl lg:px-margin">
+        <div className="grid grid-cols-1 gap-space-xl pb-space-xl md:grid-cols-2 lg:grid-cols-4">
+          {/* Brand column */}
+          <div className="space-y-space-md">
+            <Logo height={38} dark />
+            <p className="text-body-sm leading-relaxed text-umber-soft">
+              Artisanal pantry essentials inspired by the richness of Indian food traditions.
+            </p>
+            <div className="inline-flex items-center gap-space-xs rounded-full bg-surface-container-high px-3.5 py-1.5 text-label-sm text-primary shadow-sm">
+              <IconLeaf size={16} className="text-on-tertiary-container" />
+              <span>Inspired by Indian Heritage</span>
+            </div>
+          </div>
+
+          {/* Explore */}
+          <nav aria-label="Explore">
+            <h4 className="font-display mb-space-md text-[1.25rem] font-semibold text-umber">Explore</h4>
+            <ul className="space-y-space-sm text-body-sm text-umber-soft">
+              <li><Link className="transition-colors hover:text-primary" href="/shop">Shop All</Link></li>
+              {categories.map((c) => (
+                <li key={c.slug}>
+                  <Link className="transition-colors hover:text-primary" href={`/category/${c.slug}`}>
+                    {c.name}
+                  </Link>
+                </li>
+              ))}
+              <li><Link className="transition-colors hover:text-primary" href="/category/gift-boxes">Gift Hampers</Link></li>
+            </ul>
+          </nav>
+
+          {/* Customer care */}
+          <nav aria-label="Customer care">
+            <h4 className="font-display mb-space-md text-[1.25rem] font-semibold text-umber">Customer Care</h4>
+            <ul className="space-y-space-sm text-body-sm text-umber-soft">
+              <li><Link className="transition-colors hover:text-primary" href="/faq">Frequently Asked Questions</Link></li>
+              <li><Link className="transition-colors hover:text-primary" href="/policies/shipping">Shipping &amp; Delivery</Link></li>
+              <li><Link className="transition-colors hover:text-primary" href="/policies/returns">Returns &amp; Replacements</Link></li>
+              <li><Link className="transition-colors hover:text-primary" href="/account">Track Your Order</Link></li>
+              <li><Link className="transition-colors hover:text-primary" href="/contact">Contact Us</Link></li>
+            </ul>
+          </nav>
+
+          {/* Newsletter + payments */}
+          <div className="space-y-space-md">
+            <h4 className="font-display text-[1.25rem] font-semibold leading-snug text-umber">
+              A Little Goodness in Your Inbox
+            </h4>
+            <p className="text-body-sm leading-relaxed text-umber-soft">
+              Seasonal harvest announcements, curated gift collections, and notes from our pantry.
+            </p>
+            <NewsletterForm variant="footer" />
+            <div className="pt-space-xs">
+              <span className="mb-2 block text-[0.625rem] font-bold uppercase tracking-widest text-outline">
+                Accepted Payment Modes
+              </span>
+              <div className="flex flex-wrap items-center gap-space-xs">
+                {["UPI", "RuPay", "Visa", "Mastercard", "NetBanking"].map((mode) => (
+                  <span
+                    key={mode}
+                    className="rounded-sm bg-surface-container-high px-2 py-1 text-[0.625rem] font-bold text-on-surface"
+                  >
+                    {mode}
+                  </span>
+                ))}
+              </div>
+              <p className="mt-2 text-[0.625rem] text-umber-soft">
+                Payments run in sandbox mode until launch approval.
+              </p>
+            </div>
+          </div>
         </div>
 
-        <nav aria-label="Shop">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-ink-soft">Shop</p>
-          <ul className="mt-3 space-y-2 text-sm">
-            <li><Link className="hover:text-forest" href="/shop">All products</Link></li>
-            {categories.map((c) => (
-              <li key={c.slug}>
-                <Link className="hover:text-forest" href={`/category/${c.slug}`}>
-                  {c.name}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
-
-        <nav aria-label="Company">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-ink-soft">Company</p>
-          <ul className="mt-3 space-y-2 text-sm">
-            <li><Link className="hover:text-forest" href="/about">About Annaadhya</Link></li>
-            <li><Link className="hover:text-forest" href="/contact">Contact</Link></li>
-            <li><Link className="hover:text-forest" href="/faq">FAQ</Link></li>
-          </ul>
-        </nav>
-
-        <nav aria-label="Policies">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-ink-soft">Policies</p>
-          <ul className="mt-3 space-y-2 text-sm">
-            <li><Link className="hover:text-forest" href="/policies/shipping">Shipping &amp; delivery</Link></li>
-            <li><Link className="hover:text-forest" href="/policies/returns">Returns &amp; refunds</Link></li>
-            <li><Link className="hover:text-forest" href="/policies/privacy">Privacy policy</Link></li>
-            <li><Link className="hover:text-forest" href="/policies/terms">Terms &amp; conditions</Link></li>
-          </ul>
-        </nav>
-      </div>
-
-      <div className="border-t border-sand">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-4 py-4 text-xs text-ink-soft sm:flex-row">
-          <p>© {new Date().getFullYear()} Annaadhya Products. All rights reserved.</p>
-          <p className="flex items-center gap-1.5">
-            <span aria-hidden>🔒</span> Payments stay in sandbox mode until launch approval.
-          </p>
+        {/* Bottom bar */}
+        <div className="flex flex-col items-center justify-between gap-space-sm border-t border-gold-deep/20 pt-space-md text-label-sm text-umber-soft sm:flex-row">
+          <p>© {year} Annaadhya Products. All rights reserved.</p>
+          <div className="flex items-center gap-space-md">
+            <Link className="transition-colors hover:text-primary" href="/policies/privacy">
+              Privacy Policy
+            </Link>
+            <span aria-hidden>•</span>
+            <Link className="transition-colors hover:text-primary" href="/policies/terms">
+              Terms &amp; Conditions
+            </Link>
+            <span aria-hidden>•</span>
+            <Link className="transition-colors hover:text-primary" href="/policies/shipping">
+              Shipping &amp; Returns
+            </Link>
+          </div>
         </div>
       </div>
     </footer>
