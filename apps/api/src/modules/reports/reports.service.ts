@@ -6,7 +6,7 @@
  *  - sync exports are capped; larger datasets must move to the export-job queue (documented)
  */
 import { Inject, Injectable } from "@nestjs/common";
-import ExcelJS from "exceljs";
+import type * as ExcelJS from "exceljs";
 import { COLLECTIONS, type CustomerDoc, type ExpenseDoc, type InventoryMovementDoc, type OrderDoc, type ProductVariantDoc, type PurchaseDoc, type SupplierDoc, type ProductDoc, type SettingsDoc } from "@annaadhya/contracts";
 import { badRequest, type DataClient } from "@annaadhya/data-core";
 import { formatINR, formatDateIN } from "@annaadhya/utils";
@@ -51,12 +51,23 @@ export class ReportsService {
     private readonly settings: SettingsService,
   ) {}
 
+  /**
+   * ExcelJS is loaded lazily on first export: it is a heavy CommonJS dependency that
+   * must not execute during serverless cold start (bundle import cost + fragile
+   * dynamic requires). Type annotations keep the static type-only import.
+   */
+  private async newWorkbook(): Promise<ExcelJS.Workbook> {
+    const mod = await import("exceljs");
+    const ExcelJS = ("default" in mod ? mod.default : mod) as typeof mod;
+    return new ExcelJS.Workbook();
+  }
+
   async generate(type: ExportType, opts: { includeDemo?: boolean; from?: number; to?: number } = {}): Promise<Buffer> {
     const settings: SettingsDoc = await this.settings.get();
     const includeDemo = opts.includeDemo ?? settings.reporting.includeDemoDataByDefault;
     const ctx: ExportContext = { includeDemo, from: opts.from, to: opts.to };
 
-    const wb = new ExcelJS.Workbook();
+    const wb = await this.newWorkbook();
     wb.creator = "Annaadhya Products Admin";
     wb.created = new Date();
 
