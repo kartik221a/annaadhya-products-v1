@@ -2,15 +2,20 @@
 import { z } from "zod";
 import { paiseSchema, quantitySchema } from "@annaadhya/utils";
 
+/** Query params are always strings — coerce to a number before the paise bounds check.
+ *  (A bare paiseSchema rejects the string form, which silently broke price filtering.) */
+const paiseQueryParam = z.preprocess((v) => (typeof v === "string" ? Number(v) : v), paiseSchema);
+
 export const listQuerySchema = z.object({
   search: z.string().trim().max(120).optional(),
   category: z.string().trim().max(96).optional(), // category slug
-  minPricePaise: paiseSchema.optional(),
-  maxPricePaise: paiseSchema.optional(),
+  minPricePaise: paiseQueryParam.optional(),
+  maxPricePaise: paiseQueryParam.optional(),
   sort: z.enum(["relevance", "price_asc", "price_desc", "newest"]).default("relevance"),
   page: z.coerce.number().int().min(1).max(500).default(1),
   pageSize: z.coerce.number().int().min(1).max(48).default(12),
-  includeUnavailable: z.coerce.boolean().default(false),
+  // NOTE: z.coerce.boolean() treats the string "false" as true — parse explicitly instead.
+  includeUnavailable: z.preprocess((v) => v === "true" || v === true, z.boolean()).default(false),
 });
 export type ListQueryDto = z.infer<typeof listQuerySchema>;
 

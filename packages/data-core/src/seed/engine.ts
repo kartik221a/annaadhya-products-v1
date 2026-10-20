@@ -366,7 +366,7 @@ export function defaultSettings(): SettingsDoc {
         "Honey, dry fruits and kesar from Annaadhya — premium quality at reasonable prices, packed for Indian homes.",
       heroImage: "/demo-images/hero.svg",
       heroCtaHref: "/shop",
-      newsletterEnabled: false, // enabled only with a compliant signup workflow
+      newsletterEnabled: true, // explicit footer signup + admin export = the compliant workflow
       giftCollectionEnabled: false, // flip when gift boxes launch
     },
   } satisfies SettingsDoc;

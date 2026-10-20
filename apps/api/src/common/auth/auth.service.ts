@@ -11,7 +11,7 @@
  * by a browser. Customers are lazily upserted into `customers` keyed by Firebase UID.
  */
 import { Inject, Injectable } from "@nestjs/common";
-import { API_ENV } from "../../data/data.module";
+import { API_ENV } from "../../app.tokens";
 import { COLLECTIONS, type AdminRole, type AdminUserDoc, type AuthPrincipal, type CustomerDoc, permissionsForRole } from "@annaadhya/contracts";
 import { AppError, getFirebaseAdminApp, parseFirestoreCredentials, type DataClient } from "@annaadhya/data-core";
 import { createHmac, timingSafeEqual } from "node:crypto";

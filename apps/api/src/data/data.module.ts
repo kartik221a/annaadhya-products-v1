@@ -8,9 +8,11 @@ import {
 } from "@annaadhya/data-core";
 import { loadEnv, type ApiEnv } from "../config/env";
 import { AuthService } from "../common/auth/auth.service";
+import { DATA_CLIENT, API_ENV } from "../app.tokens";
 
-export const DATA_CLIENT = Symbol("DATA_CLIENT");
-export const API_ENV = Symbol("API_ENV");
+// Re-exported for the many services that import these tokens from data.module.
+// The declarations live in app.tokens.ts to break the auth.service import cycle.
+export { DATA_CLIENT, API_ENV };
 
 export const dataProviders: Provider[] = [
   {
