@@ -163,8 +163,8 @@ export default async function HomePage() {
                   <Image
                     src="/images/hero-pantry-still-life.webp"
                     alt="Annaadhya artisanal raw honey, saffron and premium nuts arranged on handmade paper"
-                    width={1100}
-                    height={821}
+                    width={1200}
+                    height={896}
                     priority
                     sizes="(max-width: 1024px) 90vw, 44vw"
                     className="h-[320px] w-full object-cover object-center transition-transform duration-700 hover:scale-105 sm:h-[400px] lg:h-[480px]"
@@ -313,8 +313,8 @@ export default async function HomePage() {
                   <Image
                     src="/images/story-heritage-kitchen.webp"
                     alt="Sunlit traditional Indian kitchen with a brass thali, honey jar and jali window light"
-                    width={1000}
-                    height={747}
+                    width={1200}
+                    height={896}
                     sizes="(max-width: 1024px) 90vw, 42vw"
                     className="h-[380px] w-full object-cover object-center transition-transform duration-700 hover:scale-105 sm:h-[520px]"
                   />
@@ -426,8 +426,8 @@ export default async function HomePage() {
                 <Image
                   src="/images/gifting-royal-hamper.webp"
                   alt="Opulent festive gift box in heritage maroon velvet with gold embossing, honey jars, saffron and dry fruits"
-                  width={1300}
-                  height={726}
+                  width={1376}
+                  height={768}
                   sizes="(max-width: 1024px) 100vw, 50vw"
                   className="h-[300px] w-full object-cover object-center transition-transform duration-700 hover:scale-105 sm:h-[440px]"
                 />

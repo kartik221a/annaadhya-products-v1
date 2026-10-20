@@ -1,8 +1,8 @@
 import Link from "next/link";
 import Image from "next/image";
 
-/** Annaadhya brand lockup — supplied brand mark (cropped from the approved logo asset)
- *  plus the two-line wordmark from the approved design. */
+/** Annaadhya brand lockup — the brand emblem (cropped from Kartik's supplied logo,
+ *  background removed) plus the two-line wordmark from the approved design. */
 export function Logo({
   height = 36,
   withWordmark = true,
