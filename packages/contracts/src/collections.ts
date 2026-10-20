@@ -8,6 +8,7 @@ export const COLLECTIONS = {
   categories: "categories",
   orders: "orders",
   customers: "customers",
+  newsletterSubscribers: "newsletterSubscribers",
   inventoryMovements: "inventoryMovements",
   stockReservations: "stockReservations",
   suppliers: "suppliers",

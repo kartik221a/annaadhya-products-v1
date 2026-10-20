@@ -7,7 +7,7 @@
  */
 import { Inject, Injectable } from "@nestjs/common";
 import type * as ExcelJS from "exceljs";
-import { COLLECTIONS, type CustomerDoc, type ExpenseDoc, type InventoryMovementDoc, type OrderDoc, type ProductVariantDoc, type PurchaseDoc, type SupplierDoc, type ProductDoc, type SettingsDoc } from "@annaadhya/contracts";
+import { COLLECTIONS, type CustomerDoc, type ExpenseDoc, type InventoryMovementDoc, type NewsletterSubscriberDoc, type OrderDoc, type ProductVariantDoc, type PurchaseDoc, type SupplierDoc, type ProductDoc, type SettingsDoc } from "@annaadhya/contracts";
 import { badRequest, type DataClient } from "@annaadhya/data-core";
 import { formatINR, formatDateIN } from "@annaadhya/utils";
 import { DATA_CLIENT } from "../../data/data.module";
@@ -23,7 +23,8 @@ export type ExportType =
   | "suppliers"
   | "purchases"
   | "expenses"
-  | "sales_summary";
+  | "sales_summary"
+  | "newsletter_subscribers";
 
 export const EXPORT_TYPES: ExportType[] = [
   "products",
@@ -36,6 +37,7 @@ export const EXPORT_TYPES: ExportType[] = [
   "purchases",
   "expenses",
   "sales_summary",
+  "newsletter_subscribers",
 ];
 
 interface ExportContext {
@@ -101,6 +103,9 @@ export class ReportsService {
         break;
       case "sales_summary":
         await this.exportSalesSummary(wb, ctx);
+        break;
+      case "newsletter_subscribers":
+        await this.exportNewsletterSubscribers(wb, ctx);
         break;
       default:
         throw badRequest(`Unknown export type: ${type as string}`);
@@ -424,5 +429,34 @@ export class ReportsService {
     ws.addRow({ m: "Net sales", v: formatINR(gross - discounts - refunds) });
     ws.addRow({ m: "Average order value", v: paid.length ? formatINR(Math.round((gross - discounts - refunds) / paid.length)) : "—" });
     ws.addRow({ m: "Profit", v: "Unavailable (requires cost data)" });
+  }
+
+  private async exportNewsletterSubscribers(wb: ExcelJS.Workbook, ctx: ExportContext): Promise<void> {
+    const rows = (await this.data.list<NewsletterSubscriberDoc>(COLLECTIONS.newsletterSubscribers, { limit: 20000 })).filter(
+      (n) => (ctx.includeDemo ? true : !n.isDemo),
+    );
+    const ws = wb.addWorksheet("Subscribers");
+    ws.columns = [
+      { header: "Email", key: "email", width: 34 },
+      { header: "Status", key: "status", width: 14 },
+      { header: "Source", key: "src", width: 18 },
+      { header: "Subscribed", key: "sub", width: 14 },
+      { header: "Unsubscribed", key: "unsub", width: 14 },
+    ];
+    this.styleSheet(
+      ws,
+      "Newsletter subscribers",
+      "Marketing opt-in list — personal data; import only into tools that honour unsubscribe",
+      rows.some((r) => r.isDemo),
+    );
+    for (const n of rows) {
+      ws.addRow({
+        email: n.email,
+        status: n.status,
+        src: n.source,
+        sub: formatDateIN(n.createdAt),
+        unsub: n.unsubscribedAt ? formatDateIN(n.unsubscribedAt) : "",
+      });
+    }
   }
 }

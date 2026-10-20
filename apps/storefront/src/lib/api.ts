@@ -5,6 +5,7 @@ import type {
   CategoryDoc,
   Page,
   ProductWithVariantsShape,
+  PublicStoreSettings,
 } from "./types";
 
 // Vercel services binding: the injected value is the api service's base URL (origin
@@ -95,4 +96,10 @@ export async function getPlatformStatus(): Promise<{
   codEnabled: boolean;
 } | null> {
   return apiGet("/auth/platform-status", 30);
+}
+
+/** Whitelisted store settings (support email/phone, address, socials) — powers the
+ *  contact page. Null when the API is offline; callers render honest fallbacks. */
+export async function getPublicSettings(): Promise<PublicStoreSettings | null> {
+  return apiGet<PublicStoreSettings>("/settings/public", 300);
 }

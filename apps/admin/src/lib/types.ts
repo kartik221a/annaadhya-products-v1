@@ -463,5 +463,6 @@ export const EXPORT_TYPES = [
   "purchases",
   "expenses",
   "sales_summary",
+  "newsletter_subscribers",
 ] as const;
 export type ExportType = (typeof EXPORT_TYPES)[number];

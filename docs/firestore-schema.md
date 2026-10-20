@@ -84,6 +84,14 @@ uid (Firebase UID, stable key), displayName, email?, phone?, providers[], accoun
 addresses[] (labelled Indian addresses with 6-digit pincode), defaultAddressId?, notes? (internal),
 marketingOptIn.
 
+### newsletterSubscribers
+email (normalized lowercase; deterministic doc id `nls_<sha256(email)[:24]>` so one address can
+never occupy two rows), status (`active` | `unsubscribed`), source (capture surface:
+`footer`, `homepage-hero`, `api`), customerUid? (when signed in at capture time), unsubscribedAt?.
+Public capture via `POST /newsletter/subscribe`; consumed for marketing via Admin → Reports →
+Newsletter subscribers (.xlsx). No unsubscribe workflow yet — flip the tool's own list hygiene
+until the in-platform flow ships.
+
 ### suppliers / purchases
 Suppliers: name, phone?, email?, location?, notes?, productSkus[].
 Purchases: supplierId, reference, status (draft|ordered|partially_received|received|cancelled),

@@ -1,6 +1,6 @@
 /** Global settings singleton with safe defaults (seeded when missing). */
 import { Inject, Injectable } from "@nestjs/common";
-import { COLLECTIONS, type SettingsDoc } from "@annaadhya/contracts";
+import { COLLECTIONS, type PublicStoreSettings, type SettingsDoc } from "@annaadhya/contracts";
 import { DATA_CLIENT } from "../../data/data.module";
 import type { DataClient } from "@annaadhya/data-core";
 import { defaultSettings } from "@annaadhya/data-core";
@@ -30,6 +30,25 @@ export class SettingsService {
       merged as object,
       { isDemo: false },
     )) as unknown as SettingsDoc;
+  }
+
+  /** Whitelisted projection for the public storefront (GET /settings/public). */
+  async getPublic(): Promise<PublicStoreSettings> {
+    const s = await this.get();
+    return {
+      store: {
+        name: s.store.name,
+        supportEmail: s.store.supportEmail,
+        supportPhone: s.store.supportPhone,
+        addressLines: s.store.addressLines,
+        socialLinks: s.store.socialLinks,
+        announcement: s.store.announcement,
+      },
+      storefront: {
+        newsletterEnabled: s.storefront.newsletterEnabled,
+        giftCollectionEnabled: s.storefront.giftCollectionEnabled,
+      },
+    };
   }
 }
 

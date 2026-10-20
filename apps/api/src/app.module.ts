@@ -25,6 +25,8 @@ import { DashboardService } from "./modules/dashboard/dashboard.service";
 import { ReportsService } from "./modules/reports/reports.service";
 import { MediaService } from "./modules/media/media.service";
 import { TeamService } from "./modules/team/team.service";
+import { NewsletterService } from "./modules/newsletter/newsletter.service";
+import { PublicSettingsController } from "./modules/settings/public-settings.controller";
 
 import { AuthController } from "./modules/auth/auth.controller";
 import { AdminCatalogueController, CatalogueController } from "./modules/catalogue/catalogue.controller";
@@ -43,6 +45,7 @@ import {
   SuppliersController,
   TeamController,
 } from "./modules/admin.controllers";
+import { NewsletterController } from "./modules/newsletter/newsletter.controller";
 import { HealthController } from "./modules/health/health.controller";
 
 export const PAYMENT_PROVIDERS = "PAYMENT_PROVIDERS";
@@ -81,8 +84,10 @@ const paymentProviderFactories: Provider[] = [
     MediaController,
     TeamController,
     SettingsController,
+    PublicSettingsController,
     AuditController,
     HealthController,
+    NewsletterController,
   ],
   providers: [
     ...dataProviders,
@@ -111,6 +116,7 @@ const paymentProviderFactories: Provider[] = [
     ReportsService,
     MediaService,
     TeamService,
+    NewsletterService,
     // Global guard/interceptor/filter singletons (wired below via useExisting)
     RateLimitGuard,
     AuthGuard,

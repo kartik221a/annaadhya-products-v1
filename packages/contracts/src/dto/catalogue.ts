@@ -75,3 +75,9 @@ export const profileUpdateSchema = z.object({
   marketingOptIn: z.boolean().optional(),
 });
 export type ProfileUpdateDto = z.infer<typeof profileUpdateSchema>;
+
+export const newsletterSubscribeSchema = z.object({
+  email: z.string().trim().toLowerCase().email({ message: "Enter a valid email address" }).max(254),
+  source: z.string().trim().max(40).optional(),
+});
+export type NewsletterSubscribeDto = z.infer<typeof newsletterSubscribeSchema>;

@@ -108,3 +108,21 @@ export interface Principal {
   role: string;
   isStaff: boolean;
 }
+
+/** Whitelisted public projection of the global settings (GET /settings/public) —
+ *  mirrors PublicStoreSettings from @annaadhya/contracts. Never contains GSTIN,
+ *  licences or payment internals. */
+export interface PublicStoreSettings {
+  store: {
+    name: string;
+    supportEmail: string;
+    supportPhone: string;
+    addressLines: string[];
+    socialLinks: { instagram?: string; facebook?: string; whatsapp?: string };
+    announcement: { enabled: boolean; message: string; href?: string };
+  };
+  storefront: {
+    newsletterEnabled: boolean;
+    giftCollectionEnabled: boolean;
+  };
+}

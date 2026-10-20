@@ -59,6 +59,11 @@ const EXPORT_DESCRIPTIONS: Record<ExportType, { title: string; contains: string 
     title: "Sales summary",
     contains: "Range totals: gross sales, discounts, refunds, net sales, payments collected, AOV, order counts.",
   },
+  newsletter_subscribers: {
+    title: "Newsletter subscribers",
+    contains:
+      "Marketing email list captured on the storefront: address, status, capture source and dates. Personal data — import only into tools that honour unsubscribe.",
+  },
 };
 
 export default function ReportsPage() {

@@ -140,6 +140,17 @@ export interface CustomerAddress {
   isDefault: boolean;
 }
 
+/* ------------------------------ Newsletter ------------------------------------ */
+
+/** Marketing list captured by the storefront newsletter form (public, unauthenticated). */
+export interface NewsletterSubscriberDoc extends BaseDoc {
+  email: string; // normalized lowercase; unique per list (deterministic doc id)
+  status: "active" | "unsubscribed";
+  source: string; // capture surface, e.g. "footer" | "homepage-hero" | "api"
+  customerUid?: string; // set when the subscriber was signed in at capture time
+  unsubscribedAt?: number; // epoch millis; set by the (future) unsubscribe workflow
+}
+
 /* ------------------------------------ Orders ---------------------------------- */
 
 export interface OrderDoc extends BaseDoc {
@@ -333,4 +344,22 @@ export interface SettingsDoc {
 
 export interface AppSettings {
   settings: SettingsDoc;
+}
+
+/** Whitelisted projection of SettingsDoc for public storefront consumption
+ *  (GET /settings/public). Never includes GSTIN, licences, payment internals
+ *  or reporting flags — only what the storefront is allowed to render. */
+export interface PublicStoreSettings {
+  store: {
+    name: string;
+    supportEmail: string;
+    supportPhone: string;
+    addressLines: string[];
+    socialLinks: { instagram?: string; facebook?: string; whatsapp?: string };
+    announcement: { enabled: boolean; message: string; href?: string };
+  };
+  storefront: {
+    newsletterEnabled: boolean;
+    giftCollectionEnabled: boolean;
+  };
 }

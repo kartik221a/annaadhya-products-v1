@@ -40,6 +40,13 @@ only). Staff roles are resolved server-side from `adminUsers` — never from cli
 | POST | `/auth/bootstrap-owner` | public | one-time owner provisioning; requires `ADMIN_SETUP_KEY` |
 | GET | `/auth/platform-status` | public | data/auth/payments mode descriptor |
 
+## Newsletter & public settings
+
+| Method | Path | Auth | Notes |
+|---|---|---|---|
+| POST | `/newsletter/subscribe` | public (rate-limited) | `{ email, source? }` → `{ subscribed: true, alreadySubscribed }` — idempotent per address (deterministic doc id); re-subscribing a previously unsubscribed address reactivates it |
+| GET | `/settings/public` | public | whitelisted store projection: support email/phone, address lines, social links, announcement, newsletter/gift flags — never GSTIN, licences or payment internals |
+
 ## Checkout & payments
 
 | Method | Path | Auth | Notes |
@@ -108,8 +115,8 @@ Each route requires the listed permission(s) via `RequirePermissions(...)`.
   **Profit: `null` + explanatory note until landed costs + expense coverage are supplied.**
 - `GET /admin/reports/types` — reports:read
 - `GET /admin/reports/exports/:type` — reports:export (xlsx; types: products, variants, orders,
-  customers, inventory_balances, inventory_movements, suppliers, purchases, expenses, sales_summary;
-  `?includeDemo=true` shows demo records, labelled)
+  customers, inventory_balances, inventory_movements, suppliers, purchases, expenses, sales_summary,
+  newsletter_subscribers; `?includeDemo=true` shows demo records, labelled)
 
 ### Media / Team / Settings / Audit
 - `POST /admin/media/upload-signature` — media:write (short-lived Cloudinary params; 503 if unconfigured)
