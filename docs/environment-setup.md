@@ -69,6 +69,16 @@ firebase deploy --only firestore:rules,firestore:indexes
 
 Seed real data (writes go to Firestore):
 
+> **Build first (fresh clones):** the workspace libraries (`@annaadhya/contracts`, `@annaadhya/utils`,
+> `@annaadhya/data-core`) resolve runtime imports to `./dist/index.js`, which only exists after a
+> build. Without it the CLI fails with `ERR_MODULE_NOT_FOUND … @annaadhya/data-core/dist/index.js`:
+>
+> ```bash
+> pnpm --filter "@annaadhya/data-core..." build
+> ```
+>
+> The `...` suffix builds the package **and** its workspace dependencies in topological order.
+
 > **Flag form matters:** pnpm forwards arguments to the script directly — do **not** put `--`
 > before the flag. Everything after `--` becomes positional to `parseArgs`, the `--firestore`
 > option is silently dropped, and the seed would run against in-memory storage instead of
