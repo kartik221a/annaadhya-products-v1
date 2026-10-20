@@ -126,16 +126,22 @@ firebase deploy --only firestore:rules,firestore:indexes
 
 ## Indexes
 
-Query patterns used by the API are declared in `firestore.indexes.json`:
+Query patterns used by the API are declared in `firestore.indexes.json` (31 composite indexes).
+Every composite must declare **≥ 2 fields** — single-field queries (e.g. expenses by `date DESC`,
+variants by `productId`) are served by Firestore's automatic single-field indexes, and the deploy
+API rejects one-field declarations with `400 … not necessary, configure using single field index
+controls`:
 
-- products: `status ASC, createdAt DESC`; `categoryId ASC, status ASC`
-- productVariants: `productId ASC, grams ASC`; `sku ASC`
-- orders: `customerUid ASC, createdAt DESC`; `status ASC, createdAt DESC`; `createdAt ASC` (ranges)
-- paymentAttempts: `providerOrderId ASC`; `orderId ASC`
-- inventoryMovements: `variantId ASC, createdAt DESC`; `type ASC, createdAt DESC`
-- checkoutQuotes: `expiresAt ASC`
-- stockReservations: `orderId ASC`; `status ASC, expiresAt ASC`
-- webhookEvents: `eventId ASC`
-- adminUsers: `uid ASC`; `role ASC`
-- auditLogs: `createdAt DESC`
-- expenses: `date DESC`; `category ASC, date DESC`
+- categories: `status ASC, sortOrder ASC`; `slug ASC, createdAt DESC`
+- products: `status ASC, createdAt DESC`; `slug ASC, createdAt DESC`; `status ASC, categoryId ASC, createdAt DESC`
+- productVariants: `productId ASC, grams ASC`; `status ASC, createdAt DESC`; `sku ASC, createdAt DESC`
+- orders: `orderNumber ASC, createdAt DESC`; `customerUid ASC, createdAt DESC`; `status ASC, createdAt DESC`; `paymentStatus ASC, createdAt DESC`; `status ASC, paymentStatus ASC, createdAt DESC`
+- customers: `uid ASC, createdAt DESC`
+- paymentAttempts: `providerOrderId ASC, createdAt DESC`; `orderId ASC, createdAt DESC`
+- inventoryMovements: `variantId ASC, createdAt DESC`; `type ASC, createdAt DESC`; `variantId ASC, type ASC, createdAt DESC`
+- stockReservations: `orderId ASC, createdAt DESC`; `status ASC, createdAt DESC`
+- webhookEvents: `eventId ASC, createdAt DESC`
+- adminUsers: `role ASC, createdAt DESC`; `uid ASC, createdAt DESC`
+- auditLogs: `action ASC, createdAt DESC`; `actorUid ASC, createdAt DESC`; `action ASC, actorUid ASC, createdAt DESC`
+- purchases: `supplierId ASC, createdAt DESC`; `status ASC, createdAt DESC`; `supplierId ASC, status ASC, createdAt DESC`
+- expenses: `category ASC, date DESC`
