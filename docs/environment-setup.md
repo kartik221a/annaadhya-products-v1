@@ -69,9 +69,14 @@ firebase deploy --only firestore:rules,firestore:indexes
 
 Seed real data (writes go to Firestore):
 
+> **Flag form matters:** pnpm forwards arguments to the script directly — do **not** put `--`
+> before the flag. Everything after `--` becomes positional to `parseArgs`, the `--firestore`
+> option is silently dropped, and the seed would run against in-memory storage instead of
+> Firestore (no error raised, nothing persisted).
+
 ```bash
-pnpm --filter @annaadhya/seed-demo-data seed -- --firestore
-pnpm --filter @annaadhya/seed-demo-data reset-demo -- --firestore --i-understand-demo-reset
+pnpm --filter @annaadhya/seed-demo-data seed --firestore
+pnpm --filter @annaadhya/seed-demo-data reset-demo --firestore --i-understand-demo-reset
 ```
 
 **Verify before claiming it works:** sign in with Google, email and phone on the storefront; check
