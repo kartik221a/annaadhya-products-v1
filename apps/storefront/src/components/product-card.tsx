@@ -71,12 +71,12 @@ export function ProductCard({ product }: { product: ProductWithVariantsShape }) 
           <IconHeart size={17} filled={saved} />
         </button>
         {soldOut ? (
-          <span className="absolute bottom-3 left-3 rounded-sm bg-surface-container-highest/90 px-2.5 py-1 text-[0.625rem] font-bold uppercase tracking-wider text-on-surface backdrop-blur-sm">
+          <span className="absolute left-3 top-3 rounded-full bg-surface/90 px-2.5 py-1 text-[0.625rem] font-bold uppercase tracking-wider text-on-surface backdrop-blur-sm">
             Out of stock
           </span>
         ) : (
           product.typeLabel && (
-            <span className="absolute bottom-3 left-3 rounded-sm bg-surface-container-highest/90 px-2.5 py-1 text-[0.625rem] font-bold uppercase tracking-wider text-primary backdrop-blur-sm">
+            <span className="absolute left-3 top-3 rounded-full bg-surface/90 px-2.5 py-1 text-[0.625rem] font-bold uppercase tracking-wider text-primary backdrop-blur-sm">
               {product.typeLabel}
             </span>
           )
@@ -119,14 +119,21 @@ export function ProductCard({ product }: { product: ProductWithVariantsShape }) 
         {/* Price + cart */}
         <div className="mt-auto flex items-center justify-between pt-space-xs">
           <div className="flex flex-col">
+            <div className="flex items-baseline gap-space-xs">
+              <span className="font-display text-[1.3125rem] font-bold leading-7 text-primary text-tabular">
+                {formatINR(selected.pricePaise, false)}
+              </span>
+              {showMrp && (
+                <span className="text-body-sm text-outline line-through text-tabular">
+                  {formatINR(selected.mrpPaise!, false)}
+                </span>
+              )}
+            </div>
             {showMrp && (
-              <span className="text-[0.6875rem] text-on-surface-variant line-through text-tabular">
-                {formatINR(selected.mrpPaise!, false)}
+              <span className="text-[0.625rem] font-semibold uppercase tracking-wider text-secondary">
+                Save {Math.round((1 - selected.pricePaise / selected.mrpPaise!) * 100)}%
               </span>
             )}
-            <span className="text-[1.375rem] font-bold leading-7 text-on-surface text-tabular">
-              {formatINR(selected.pricePaise, false)}
-            </span>
           </div>
           <button
             type="button"
