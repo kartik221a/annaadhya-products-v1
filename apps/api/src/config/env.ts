@@ -71,7 +71,12 @@ export function loadEnv(): ApiEnv {
 
   if (isProduction && env.DATA_PROVIDER === "memory") {
     throw new Error(
-      "DATA_PROVIDER=memory is mock mode and is forbidden in production. Configure Firestore credentials.",
+      "DATA_PROVIDER=memory is mock mode and is forbidden in production (NODE_ENV=production). Set DATA_PROVIDER=firestore and configure Firebase credentials.",
+    );
+  }
+  if (env.DATA_PROVIDER === "firestore" && !firebaseConfigured) {
+    throw new Error(
+      "DATA_PROVIDER=firestore requires Firebase credentials (FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY). Ensure all 3 environment variables are provided.",
     );
   }
   if (isProduction && !firebaseConfigured) {
