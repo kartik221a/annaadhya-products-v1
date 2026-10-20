@@ -9,7 +9,9 @@ import type { Request } from "express";
 import { rateLimited } from "@annaadhya/data-core";
 import { Inject } from "@nestjs/common";
 import type { ApiEnv } from "../../config/env";
-import { API_ENV } from "../../data/data.module";
+// Same token source as auth.service — importing from data.module would recreate the
+// module-load TDZ cycle that app.tokens.ts exists to break (see 0598d3c).
+import { API_ENV } from "../../app.tokens";
 
 const BUCKETS = new Map<string, number[]>();
 
