@@ -42,3 +42,6 @@ blob-report/
 # Local data files (dev in-memory dumps, scratch)
 /data/
 /tmp/
+
+# Generated at build time by apps/api/scripts/bundle-vercel.mjs
+apps/api/src/.generated-main.js

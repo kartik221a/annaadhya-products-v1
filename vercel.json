@@ -15,7 +15,7 @@
     "api": {
       "root": "apps/api",
       "framework": "nestjs",
-      "buildCommand": "pnpm install --frozen-lockfile && pnpm --filter @annaadhya/contracts --filter @annaadhya/data-core --filter @annaadhya/utils run build && pnpm run build"
+      "buildCommand": "pnpm install --frozen-lockfile && pnpm --filter @annaadhya/contracts --filter @annaadhya/data-core --filter @annaadhya/utils run build && pnpm run build && node scripts/bundle-vercel.mjs"
     }
   },
   "rewrites": [
