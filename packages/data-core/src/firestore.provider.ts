@@ -52,6 +52,7 @@ export function parseFirestoreCredentials(env: {
 }
 
 let adminPromise: Promise<typeof import("firebase-admin")> | null = null;
+let adminAppPromise: Promise<import("firebase-admin/app").App> | null = null;
 
 /** Firestore instances already configured — `settings()` is allowed only once per instance. */
 const configuredDbs = new WeakSet<FxDb>();
@@ -61,25 +62,51 @@ async function admin(): Promise<typeof import("firebase-admin")> {
   return adminPromise;
 }
 
-async function getDb(creds: FirestoreCredentials): Promise<FxDb> {
-  const a = await admin();
-  const fs = await import("firebase-admin/firestore");
-  let app: ReturnType<typeof a.app>;
-  try {
-    app = a.app("annaadhya");
-  } catch {
-    app = a.initializeApp(
-      {
-        credential: a.credential.cert({
-          projectId: creds.projectId,
-          clientEmail: creds.clientEmail,
-          privateKey: creds.privateKey,
-        }),
-        projectId: creds.projectId,
-      },
-      "annaadhya",
-    );
+/**
+ * Lazily creates (or returns) the shared Firebase Admin app named "annaadhya".
+ *
+ * data-core owns the app lifecycle so every consumer (the Firestore client below, and
+ * Admin Auth verification in the API) resolves the same initialized app regardless of
+ * which runs first. This ordering-independence is what cold serverless instances need:
+ * the first request on a fresh instance may be an auth check, before any Firestore
+ * query has ever run.
+ */
+export function getFirebaseAdminApp(creds: FirestoreCredentials): Promise<import("firebase-admin/app").App> {
+  if (!adminAppPromise) {
+    adminAppPromise = (async () => {
+      const a = await admin();
+      try {
+        return a.app("annaadhya");
+      } catch {
+        try {
+          return a.initializeApp(
+            {
+              credential: a.credential.cert({
+                projectId: creds.projectId,
+                clientEmail: creds.clientEmail,
+                privateKey: creds.privateKey,
+              }),
+              projectId: creds.projectId,
+            },
+            "annaadhya",
+          );
+        } catch {
+          // A concurrent caller won the initialization race — reuse its app.
+          return a.app("annaadhya");
+        }
+      }
+    })();
+    // A failed init (e.g. transient bad input) must not poison the memo forever.
+    void adminAppPromise.catch(() => {
+      adminAppPromise = null;
+    });
   }
+  return adminAppPromise;
+}
+
+async function getDb(creds: FirestoreCredentials): Promise<FxDb> {
+  const fs = await import("firebase-admin/firestore");
+  const app = await getFirebaseAdminApp(creds);
   const db = creds.databaseId ? fs.getFirestore(app, creds.databaseId) : fs.getFirestore(app);
   // Firestore rejects documents containing `undefined` by default; our write paths treat
   // undefined as "field absent" (optional ranks, PATCH leave-unchanged). admin's

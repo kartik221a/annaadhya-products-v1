@@ -13,7 +13,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { API_ENV } from "../../data/data.module";
 import { COLLECTIONS, type AdminRole, type AdminUserDoc, type AuthPrincipal, type CustomerDoc, permissionsForRole } from "@annaadhya/contracts";
-import { AppError, type DataClient } from "@annaadhya/data-core";
+import { AppError, getFirebaseAdminApp, parseFirestoreCredentials, type DataClient } from "@annaadhya/data-core";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { ApiEnv } from "../../config/env";
 
@@ -85,8 +85,12 @@ export class AuthService {
     try {
       if (!this.firebaseAuth) {
         const { getAuth } = await import("firebase-admin/auth");
-        const { getApp } = await import("firebase-admin/app");
-        this.firebaseAuth = getAuth(getApp("annaadhya"));
+        // data-core owns the app lifecycle — never assume the app already exists here.
+        // On a cold serverless instance this auth check can be the FIRST Firebase call
+        // in the process, before any Firestore query has initialized anything.
+        const creds = parseFirestoreCredentials(this.env);
+        if (!creds) throw new Error("Firebase credentials are not configured on the server");
+        this.firebaseAuth = getAuth(await getFirebaseAdminApp(creds));
       }
       return await this.firebaseAuth.verifyIdToken(token, true);
     } catch (err) {
