@@ -53,6 +53,9 @@ export function parseFirestoreCredentials(env: {
 
 let adminPromise: Promise<typeof import("firebase-admin")> | null = null;
 
+/** Firestore instances already configured — `settings()` is allowed only once per instance. */
+const configuredDbs = new WeakSet<FxDb>();
+
 async function admin(): Promise<typeof import("firebase-admin")> {
   if (!adminPromise) adminPromise = import("firebase-admin");
   return adminPromise;
@@ -61,11 +64,11 @@ async function admin(): Promise<typeof import("firebase-admin")> {
 async function getDb(creds: FirestoreCredentials): Promise<FxDb> {
   const a = await admin();
   const fs = await import("firebase-admin/firestore");
+  let app: ReturnType<typeof a.app>;
   try {
-    const app = a.app("annaadhya");
-    return creds.databaseId ? fs.getFirestore(app, creds.databaseId) : fs.getFirestore(app);
+    app = a.app("annaadhya");
   } catch {
-    const app = a.initializeApp(
+    app = a.initializeApp(
       {
         credential: a.credential.cert({
           projectId: creds.projectId,
@@ -76,8 +79,17 @@ async function getDb(creds: FirestoreCredentials): Promise<FxDb> {
       },
       "annaadhya",
     );
-    return creds.databaseId ? fs.getFirestore(app, creds.databaseId) : fs.getFirestore(app);
   }
+  const db = creds.databaseId ? fs.getFirestore(app, creds.databaseId) : fs.getFirestore(app);
+  // Firestore rejects documents containing `undefined` by default; our write paths treat
+  // undefined as "field absent" (optional ranks, PATCH leave-unchanged). admin's
+  // initializeFirestore() only forwards `preferRest`, so the flag must be applied on the
+  // instance itself — exactly once, before its first operation.
+  if (!configuredDbs.has(db)) {
+    db.settings({ ignoreUndefinedProperties: true });
+    configuredDbs.add(db);
+  }
+  return db;
 }
 
 export class FirestoreDataClient implements DataClient {
