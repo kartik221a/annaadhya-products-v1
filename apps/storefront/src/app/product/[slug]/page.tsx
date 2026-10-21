@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getCategoryOverview, getProduct, getRelatedProducts } from "@/lib/api";
+import { getCategoryOverview, getProduct, getPublicSettings, getRelatedProducts } from "@/lib/api";
 import { productEditorialFor } from "@/lib/product-editorial";
 import { editorialFor } from "@/lib/category-editorial";
 import { availableQty, formatINR } from "@/lib/format";
@@ -41,11 +41,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ProductPage({ params }: Props) {
   const { slug } = await params;
-  // One parallel fan-out: the product, its category context and same-shelf companions.
-  const [product, overview, related] = await Promise.all([
+  // One parallel fan-out: the product, its category context, same-shelf companions
+  // and the public store settings (powers the honest free-shipping claims in the
+  // buy panel — same server truth the cart progress card and checkout use).
+  const [product, overview, related, settings] = await Promise.all([
     getProduct(slug),
     getCategoryOverview(),
     getRelatedProducts(slug),
+    getPublicSettings(),
   ]);
   if (!product) notFound();
 
@@ -175,7 +178,7 @@ export default async function ProductPage({ params }: Props) {
 
           {/* Right: commercial details & variant picker (5 cols) */}
           <div className="lg:col-span-5">
-            <BuyPanel product={product} />
+            <BuyPanel product={product} shipping={settings?.shipping ?? null} />
           </div>
         </div>
       </section>

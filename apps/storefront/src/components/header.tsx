@@ -1,7 +1,8 @@
 "use client";
-/** Approved homepage header: maroon announcement strip + sticky ivory header with
- *  category navigation, search, wishlist, live cart pill and account. All wired to
- *  real routes and state. */
+/** Approved homepage header: sticky ivory header with category navigation, search,
+ *  wishlist, live cart pill and account. All wired to real routes and state.
+ *  (The maroon announcement strip lives in announcement-strip.tsx as a server
+ *  component — its free-shipping claim reads the real store settings.) */
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { usePathname } from "next/navigation";
@@ -32,26 +33,6 @@ const NAV = [
   { href: "/category/gift-boxes", label: "Gift Hampers" },
   { href: "/about", label: "Our Story" },
 ];
-
-export function AnnouncementStrip() {
-  return (
-    <aside className="w-full bg-primary-container text-on-tertiary-container shadow-[0_1px_8px_rgba(39,24,16,0.08)]">
-      <div className="mx-auto flex h-8 max-w-7xl items-center justify-between px-margin-mobile text-label-sm font-bold uppercase tracking-widest lg:px-margin">
-        <span>Complimentary Pan-India Shipping Above ₹1,999</span>
-        <p className="hidden text-center font-medium tracking-[0.14em] md:block">
-          Thoughtfully Sourced Pantry Essentials | Rooted in Indian Heritage
-        </p>
-        <div className="hidden items-center gap-space-sm font-semibold sm:flex">
-          <span className="text-tertiary-fixed">₹ INR</span>
-          <span aria-hidden>|</span>
-          <Link href="/contact" className="transition-colors hover:text-on-primary">
-            Support
-          </Link>
-        </div>
-      </div>
-    </aside>
-  );
-}
 
 function isActivePath(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/";

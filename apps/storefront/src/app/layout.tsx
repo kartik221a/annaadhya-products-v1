@@ -6,7 +6,8 @@ import { CartProvider } from "@/lib/cart";
 import { WishlistProvider } from "@/lib/wishlist";
 import { AuthProvider } from "@/lib/auth";
 import { getCategories } from "@/lib/api";
-import { AnnouncementStrip, Header } from "@/components/header";
+import { AnnouncementStrip } from "@/components/announcement-strip";
+import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 
 // Self-hosted at build time (OFL licensed) — no runtime font CDN requests.

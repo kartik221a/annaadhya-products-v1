@@ -8,6 +8,8 @@
  *     (mrpPaise) — the demo catalogue has none, so nothing is fabricated
  *   - out-of-stock variants stay selectable (visually distinct) but can never be added
  *   - no ratings, review counts, stock countdowns or dispatch promises are invented
+ *   - the free-shipping claim reads the store settings prop (server truth), never a
+ *     hardcoded number — checkout charges exactly what this panel promises
  */
 import { useMemo, useState } from "react";
 import Link from "next/link";
@@ -15,10 +17,16 @@ import { useRouter } from "next/navigation";
 import { useCart } from "@/lib/cart";
 import { useWishlist } from "@/lib/wishlist";
 import { availableQty, formatINR } from "@/lib/format";
-import type { ProductWithVariantsShape } from "@/lib/types";
+import type { ProductWithVariantsShape, PublicStoreSettings } from "@/lib/types";
 import { IconBadgeCheck, IconCheck, IconHeart, IconShieldCheck, IconShoppingBag, IconTruck } from "./icons";
 
-export function BuyPanel({ product }: { product: ProductWithVariantsShape }) {
+export function BuyPanel({
+  product,
+  shipping = null,
+}: {
+  product: ProductWithVariantsShape;
+  shipping?: PublicStoreSettings["shipping"] | null;
+}) {
   const router = useRouter();
   const cart = useCart();
   const wishlist = useWishlist();
@@ -35,6 +43,12 @@ export function BuyPanel({ product }: { product: ProductWithVariantsShape }) {
   const selected = variants.find((v) => v.id === selectedId) ?? firstAvailable;
   const available = selected ? availableQty(selected) : 0;
   const outOfStock = !selected || available <= 0;
+  // Free-shipping threshold from the store settings (server truth). Null when the
+  // store has no numeric threshold configured — the copy then drops the number.
+  const freeAbovePaise =
+    shipping?.mode === "flat_rate" && shipping.freeAbovePaise && shipping.freeAbovePaise > 0
+      ? shipping.freeAbovePaise
+      : null;
   // Cart itself caps quantity at 99 per line.
   const qtyCap = Math.min(available || 1, 99);
   const saved = wishlist.has(product.slug);
@@ -156,7 +170,9 @@ export function BuyPanel({ product }: { product: ProductWithVariantsShape }) {
           </div>
           <p className="mt-1 flex items-center gap-1 text-body-sm font-medium text-secondary">
             <IconTruck size={16} />
-            Complimentary pan-India shipping above ₹1,999
+            {freeAbovePaise != null
+              ? `Complimentary pan-India shipping above ${formatINR(freeAbovePaise, false)}`
+              : "Complimentary pan-India shipping"}
           </p>
         </div>
         <div className="text-right">
@@ -364,7 +380,11 @@ export function BuyPanel({ product }: { product: ProductWithVariantsShape }) {
         <div className="flex flex-col items-center rounded-lg bg-surface-container-low/60 p-space-sm text-center">
           <IconTruck size={22} className="mb-1 text-secondary" />
           <span className="text-label-sm font-semibold text-on-surface">Pan-India Shipping</span>
-          <span className="text-[0.6875rem] leading-4 text-on-surface-variant">Complimentary above ₹1,999</span>
+          <span className="text-[0.6875rem] leading-4 text-on-surface-variant">
+            {freeAbovePaise != null
+              ? `Complimentary above ${formatINR(freeAbovePaise, false)}`
+              : "Complimentary shipping"}
+          </span>
         </div>
       </div>
     </div>
