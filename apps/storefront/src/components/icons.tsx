@@ -312,3 +312,53 @@ export function IconClock(p: IconProps) {
     </svg>
   );
 }
+
+/* ---------- Category-page glyphs (added for the category template) ---------- */
+
+export function IconMountain(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="m8 3 4 8 5-5 5 15H2L8 3z" />
+    </svg>
+  );
+}
+
+export function IconDropletOff(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z" />
+      <path d="m2 2 20 20" />
+    </svg>
+  );
+}
+
+export function IconSunrise(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M12 2v8" />
+      <path d="m4.93 10.93 1.41 1.41" />
+      <path d="M2 18h2" />
+      <path d="M20 18h2" />
+      <path d="m19.07 10.93-1.41 1.41" />
+      <path d="M22 22H2" />
+      <path d="m8 6 4-4 4 4" />
+      <path d="M16 18a4 4 0 0 0-8 0" />
+    </svg>
+  );
+}
+
+export function IconSun(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2" />
+      <path d="M12 20v2" />
+      <path d="m4.93 4.93 1.41 1.41" />
+      <path d="m17.66 17.66 1.41 1.41" />
+      <path d="M2 12h2" />
+      <path d="M20 12h2" />
+      <path d="m6.34 17.66-1.41 1.41" />
+      <path d="m19.07 4.93-1.41 1.41" />
+    </svg>
+  );
+}

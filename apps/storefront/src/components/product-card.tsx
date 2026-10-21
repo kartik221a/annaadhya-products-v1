@@ -164,9 +164,20 @@ export function ProductCard({ product }: { product: ProductWithVariantsShape }) 
   );
 }
 
-export function ProductGrid({ products }: { products: ProductWithVariantsShape[] }) {
+export function ProductGrid({
+  products,
+  columns = 4,
+}: {
+  products: ProductWithVariantsShape[];
+  /** 4 (default, shop page) or 3 (category template — the approved grid there is wider-carded). */
+  columns?: 3 | 4;
+}) {
   return (
-    <div className="grid grid-cols-1 gap-space-md sm:grid-cols-2 lg:grid-cols-4 lg:gap-space-lg">
+    <div
+      className={`grid grid-cols-1 gap-space-md sm:grid-cols-2 ${
+        columns === 3 ? "lg:grid-cols-3" : "lg:grid-cols-4"
+      } lg:gap-space-lg`}
+    >
       {products.map((p) => (
         <ProductCard key={p.id} product={p} />
       ))}

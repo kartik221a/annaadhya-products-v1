@@ -29,9 +29,16 @@ interface Props {
   /** Size of the whole sellable catalogue ("… of 24 curated pantry treasures"). */
   allCount: number;
   categoryName?: string;
+  /** URL base the controls navigate within — "/shop" (default) or "/category/<slug>". */
+  basePath?: string;
+  /** Noun for the counter line ("Showing 6 of 6 …"). */
+  countNoun?: string;
+  /** Where "remove category" leads on pages where the category is the route itself
+   *  (category templates set this to /shop so the chip still has a real destination). */
+  allProductsHref?: string;
 }
 
-export function ShopControls({ current, showing, allCount, categoryName }: Props) {
+export function ShopControls({ current, showing, allCount, categoryName, basePath = "/shop", countNoun = "curated pantry treasures", allProductsHref }: Props) {
   const router = useRouter();
   const [query, setQuery] = useState(current.search ?? "");
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -41,18 +48,23 @@ export function ShopControls({ current, showing, allCount, categoryName }: Props
 
   function navigate(patch: Partial<ShopState>) {
     const merged = { ...current, ...patch };
+    // On category pages the category IS the route — removing it means "all products".
+    if (!merged.category && basePath.startsWith("/category/")) {
+      router.push(allProductsHref ?? "/shop");
+      return;
+    }
     const params = new URLSearchParams();
     if (merged.search) params.set("search", merged.search);
     if (merged.category) params.set("category", merged.category);
     if (merged.sort && merged.sort !== "relevance") params.set("sort", merged.sort);
     if (merged.price && PRICE_TIERS[merged.price]) params.set("price", merged.price);
     if (merged.instock === "0") params.set("instock", "0");
-    router.push(params.size > 0 ? `/shop?${params.toString()}` : "/shop");
+    router.push(params.size > 0 ? `${basePath}?${params.toString()}` : basePath);
   }
 
   function clearAll() {
     setQuery("");
-    router.push("/shop");
+    router.push(basePath.startsWith("/category/") ? basePath : "/shop");
   }
 
   // Close the mobile sheet on Escape.
@@ -183,8 +195,7 @@ export function ShopControls({ current, showing, allCount, categoryName }: Props
           )}
         </div>
         <div className="text-label-sm font-medium tracking-wide text-on-surface-variant">
-          Showing <span className="font-bold text-primary">{showing ?? "…"}</span> of {allCount} curated pantry
-          treasures
+          Showing <span className="font-bold text-primary">{showing ?? "…"}</span> of {allCount} {countNoun}
         </div>
       </div>
 
