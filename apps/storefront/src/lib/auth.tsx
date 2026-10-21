@@ -24,6 +24,7 @@ interface AuthCtx {
   signInGoogle: () => Promise<void>;
   signInPhone: (otp: string) => Promise<void>;
   startPhone: (phone: string, recaptchaContainerId: string) => Promise<void>;
+  sendPasswordReset: (email: string) => Promise<void>;
   // Dev mode
   devSignIn: (uid: string, displayName: string, email?: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -142,6 +143,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await adoptSession(await cred.user.getIdToken());
   }, [adoptSession, firebaseReady]);
 
+  const sendPasswordReset = useCallback(
+    async (email: string) => {
+      if (!firebaseReady) throw new Error("Password reset requires Firebase configuration (see docs/environment-setup.md).");
+      const auth = (await getFirebaseAuth())!;
+      const { sendPasswordResetEmail } = await import("firebase/auth");
+      await sendPasswordResetEmail(auth, email);
+    },
+    [firebaseReady],
+  );
+
   const startPhone = useCallback(
     async (phone: string, containerId: string) => {
       if (!firebaseReady) throw new Error("Phone OTP requires Firebase configuration (note: SMS costs apply).");
@@ -234,6 +245,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signInGoogle,
       signInPhone,
       startPhone,
+      sendPasswordReset,
       devSignIn,
       signOut,
       refreshProfile,
@@ -241,7 +253,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }),
     [
       principal, customer, token, firebaseReady, loading, signInEmail, registerEmail, signInGoogle,
-      signInPhone, startPhone, devSignIn, signOut, refreshProfile, phoneConfirmationPending,
+      signInPhone, startPhone, sendPasswordReset, devSignIn, signOut, refreshProfile, phoneConfirmationPending,
     ],
   );
 

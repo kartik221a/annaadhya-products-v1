@@ -668,7 +668,7 @@ export function CheckoutView() {
               <div className="mb-4 rounded-xl bg-surface-container p-4">
                 <p className="text-body-sm text-on-surface-variant">
                   Checking out as a guest.{" "}
-                  <Link href="/account/login" className="font-semibold text-primary underline underline-offset-2">
+                  <Link href="/account/login?next=/checkout" className="font-semibold text-primary underline underline-offset-2">
                     Sign in
                   </Link>{" "}
                   to use your saved addresses — your basket stays with you.
@@ -901,7 +901,7 @@ export function CheckoutView() {
                     </p>
                   ) : (
                     <p className="text-body-sm text-on-surface-variant">
-                      <Link href="/account/login" className="font-semibold text-primary underline underline-offset-2">
+                      <Link href="/account/login?next=/checkout" className="font-semibold text-primary underline underline-offset-2">
                         Sign in
                       </Link>{" "}
                       to save addresses to your profile.
