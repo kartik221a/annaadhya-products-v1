@@ -131,4 +131,9 @@ export interface PublicStoreSettings {
     newsletterEnabled: boolean;
     giftCollectionEnabled: boolean;
   };
+  shipping: {
+    mode: "flat_rate" | "free_shipping" | "disabled";
+    flatRatePaise: number;
+    freeAbovePaise: number | null;
+  };
 }

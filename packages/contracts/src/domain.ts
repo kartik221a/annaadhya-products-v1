@@ -362,4 +362,11 @@ export interface PublicStoreSettings {
     newsletterEnabled: boolean;
     giftCollectionEnabled: boolean;
   };
+  /** Public shipping policy — powers honest cart-page shipping messaging.
+   *  Delivery estimates stay private until confirmed (see SettingsDoc). */
+  shipping: {
+    mode: "flat_rate" | "free_shipping" | "disabled";
+    flatRatePaise: number;
+    freeAbovePaise: number | null;
+  };
 }

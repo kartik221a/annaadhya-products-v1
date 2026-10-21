@@ -16,7 +16,8 @@ export const metadata: Metadata = {
 };
 
 /** Used only when the API is unreachable (build/preview). Values mirror the seeded
- *  settings defaults, so the page never renders invented contact details. */
+ *  settings defaults, so the page never renders invented contact details. Shipping
+ *  falls back to "disabled" — no shipping claims are made without real settings. */
 const FALLBACK_SETTINGS: PublicStoreSettings = {
   store: {
     name: "Annaadhya",
@@ -27,6 +28,7 @@ const FALLBACK_SETTINGS: PublicStoreSettings = {
     announcement: { enabled: false, message: "" },
   },
   storefront: { newsletterEnabled: true, giftCollectionEnabled: true },
+  shipping: { mode: "disabled", flatRatePaise: 0, freeAbovePaise: null },
 };
 
 const GIFTING_MAILTO = {

@@ -48,6 +48,11 @@ export class SettingsService {
         newsletterEnabled: s.storefront.newsletterEnabled,
         giftCollectionEnabled: s.storefront.giftCollectionEnabled,
       },
+      shipping: {
+        mode: s.shipping.mode,
+        flatRatePaise: s.shipping.flatRatePaise,
+        freeAbovePaise: s.shipping.freeAbovePaise,
+      },
     };
   }
 }

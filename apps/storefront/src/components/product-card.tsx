@@ -39,6 +39,7 @@ export function ProductCard({ product }: { product: ProductWithVariantsShape }) 
         name: product.name,
         packLabel: selected.packLabel,
         image: product.images[0]?.url,
+        subtitle: product.subtitle,
         unitPricePaise: selected.pricePaise,
       },
       1,

@@ -14,6 +14,8 @@ export interface CartItem {
   name: string;
   packLabel: string;
   image?: string;
+  /** Real catalogue provenance line (product.subtitle) — shown on cart rows when present. */
+  subtitle?: string;
   unitPricePaise: number;
   qty: number;
 }
@@ -26,6 +28,9 @@ interface CartCtx {
   setQty: (variantId: string, qty: number) => void;
   remove: (variantId: string) => void;
   clear: () => void;
+  /** Adopt server-confirmed unit prices from a checkout quote (no-op when prices already
+   *  match, so quote → write-back → re-quote always converges). */
+  applyServerPrices: (lines: { variantId: string; unitPricePaise: number }[]) => void;
   ready: boolean;
 }
 
@@ -74,6 +79,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const clear = useCallback(() => setItems([]), []);
 
+  const applyServerPrices = useCallback((lines: { variantId: string; unitPricePaise: number }[]) => {
+    const serverPrice = new Map(lines.map((l) => [l.variantId, l.unitPricePaise]));
+    setItems((prev) => {
+      let next: CartItem[] | null = null;
+      for (let idx = 0; idx < prev.length; idx++) {
+        const item = prev[idx];
+        const authoritative = serverPrice.get(item.variantId);
+        if (authoritative === undefined || authoritative === item.unitPricePaise) continue;
+        next = next ?? [...prev];
+        next[idx] = { ...item, unitPricePaise: authoritative };
+      }
+      // Bail out with the previous reference when nothing changed — keeps
+      // quote → write-back → re-quote effects from looping.
+      return next ?? prev;
+    });
+  }, []);
+
   const value = useMemo<CartCtx>(
     () => ({
       items,
@@ -83,9 +105,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setQty,
       remove,
       clear,
+      applyServerPrices,
       ready,
     }),
-    [items, add, setQty, remove, clear, ready],
+    [items, add, setQty, remove, clear, applyServerPrices, ready],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
