@@ -93,6 +93,7 @@ export interface CustomerDoc {
   displayName: string;
   email?: string;
   phone?: string;
+  defaultAddressId?: string;
   addresses: {
     id: string;
     label: string;
@@ -100,6 +101,7 @@ export interface CustomerDoc {
     phone: string;
     line1: string;
     line2?: string;
+    landmark?: string;
     city: string;
     state: string;
     pincode: string;

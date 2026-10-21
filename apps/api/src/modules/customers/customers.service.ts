@@ -6,6 +6,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { COLLECTIONS, type CustomerDoc, type ProfileUpdateDto, type AuthPrincipal } from "@annaadhya/contracts";
 import { forbidden, notFound, type DataClient } from "@annaadhya/data-core";
+import { newId } from "@annaadhya/utils";
 import { DATA_CLIENT } from "../../data/data.module";
 
 @Injectable()
@@ -46,25 +47,35 @@ export class CustomersService {
     } as Partial<CustomerDoc>);
   }
 
-  async addAddress(principal: AuthPrincipal, address: CustomerDoc["addresses"][number]): Promise<CustomerDoc> {
+  async addAddress(principal: AuthPrincipal, address: Omit<CustomerDoc["addresses"][number], "id">): Promise<CustomerDoc> {
     const me = await this.me(principal);
     const addresses = [...me.addresses];
-    const id = `addr_${Date.now().toString(36)}`;
-    addresses.push({ ...address, id });
-    if (address.isDefault) {
+    // newId() is monotonic-ish and collision-safe — the previous Date.now-based id made
+    // two addresses saved within the same millisecond share an id (data corruption).
+    const id = newId("addr");
+    // The first saved address becomes the default automatically; an explicit isDefault
+    // request demotes every other address so exactly one default exists at any time.
+    const shouldBeDefault = address.isDefault || addresses.length === 0;
+    addresses.push({ ...address, id, isDefault: shouldBeDefault });
+    if (shouldBeDefault) {
       for (const a of addresses) a.isDefault = a.id === id;
     }
     const patch: Partial<CustomerDoc> = { addresses, updatedAt: Date.now() };
-    if (address.isDefault || addresses.length === 1) patch.defaultAddressId = id;
+    if (shouldBeDefault) patch.defaultAddressId = id;
     return this.data.update(COLLECTIONS.customers, me.id, patch);
   }
 
   async removeAddress(principal: AuthPrincipal, addressId: string): Promise<CustomerDoc> {
     const me = await this.me(principal);
-    return this.data.update(COLLECTIONS.customers, me.id, {
-      addresses: me.addresses.filter((a) => a.id !== addressId),
-      updatedAt: Date.now(),
-    } as Partial<CustomerDoc>);
+    const removed = me.addresses.find((a) => a.id === addressId);
+    const addresses = me.addresses.filter((a) => a.id !== addressId);
+    const patch: Partial<CustomerDoc> = { addresses, updatedAt: Date.now() };
+    // Removing the default must not leave the book defaultless — promote the first survivor.
+    if (removed?.isDefault && addresses.length > 0) {
+      addresses[0] = { ...addresses[0], isDefault: true };
+      patch.defaultAddressId = addresses[0].id;
+    }
+    return this.data.update(COLLECTIONS.customers, me.id, patch);
   }
 
   /** Request account deletion — records the request; execution is a documented manual GDPR-style process. */

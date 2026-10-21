@@ -69,6 +69,25 @@ export const createOrderSchema = z.object({
 });
 export type CreateOrderDto = z.infer<typeof createOrderSchema>;
 
+/** Saved delivery address for an authenticated customer's own profile (customers/me/addresses). */
+export const savedAddressSchema = z.object({
+  label: z.string().trim().min(1).max(48).default("Home"),
+  fullName: z.string().trim().min(1, "Full name is required").max(120),
+  phone: z
+    .string()
+    .trim()
+    .regex(/^(\+91[\s-]?)?[6-9]\d{9}$/, "Enter a valid Indian mobile number"),
+  line1: z.string().trim().min(3, "Flat / House no. / Building is required").max(160),
+  line2: z.string().trim().max(160).optional().or(z.literal("")),
+  landmark: z.string().trim().max(120).optional().or(z.literal("")),
+  city: z.string().trim().min(2, "City is required").max(80),
+  state: z.string().trim().min(2, "State is required").max(80),
+  pincode: z.string().regex(/^\d{6}$/, "Pincode must be 6 digits"),
+  isDefault: z.boolean().default(false),
+});
+export type SavedAddressDto = z.infer<typeof savedAddressSchema>;
+export const savedAddressIdSchema = z.object({ addressId: z.string().min(4).max(64) });
+
 export const profileUpdateSchema = z.object({
   displayName: z.string().trim().min(1).max(120).optional(),
   phone: z

@@ -5,10 +5,6 @@ import "./globals.css";
 import { CartProvider } from "@/lib/cart";
 import { WishlistProvider } from "@/lib/wishlist";
 import { AuthProvider } from "@/lib/auth";
-import { getCategories } from "@/lib/api";
-import { AnnouncementStrip } from "@/components/announcement-strip";
-import { Header } from "@/components/header";
-import { Footer } from "@/components/footer";
 
 // Self-hosted at build time (OFL licensed) — no runtime font CDN requests.
 const playfair = Playfair_Display({
@@ -38,10 +34,11 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const categories = await getCategories();
-  const readyCategories = categories.filter((c) => c.isReady);
-
+/** Root shell only — fonts + providers. Page chrome lives in the route groups:
+ *  (shop) renders the full storefront header/footer for browsing surfaces;
+ *  (checkout) renders the focused secure-checkout chrome from the approved
+ *  Stitch design (logo + return-to-cart + secure pill, minimal footer). */
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${playfair.variable} ${jakarta.variable}`}>
       <head>
@@ -52,12 +49,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="flex min-h-screen flex-col">
         <AuthProvider>
           <CartProvider>
-            <WishlistProvider>
-              <AnnouncementStrip />
-              <Header />
-              <main className="flex-1">{children}</main>
-              <Footer categories={readyCategories.map((c) => ({ slug: c.slug, name: c.name }))} />
-            </WishlistProvider>
+            <WishlistProvider>{children}</WishlistProvider>
           </CartProvider>
         </AuthProvider>
         <noscript>

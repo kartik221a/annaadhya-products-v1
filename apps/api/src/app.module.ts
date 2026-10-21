@@ -29,6 +29,7 @@ import { NewsletterService } from "./modules/newsletter/newsletter.service";
 import { PublicSettingsController } from "./modules/settings/public-settings.controller";
 
 import { AuthController } from "./modules/auth/auth.controller";
+import { CustomersController } from "./modules/customers/customers.controller";
 import { AdminCatalogueController, CatalogueController } from "./modules/catalogue/catalogue.controller";
 import { CheckoutController } from "./modules/checkout/checkout.controller";
 import { AdminOrdersController, OrdersController } from "./modules/orders/orders.controller";
@@ -69,6 +70,7 @@ const paymentProviderFactories: Provider[] = [
 @Module({
   controllers: [
     AuthController,
+    CustomersController,
     CatalogueController,
     AdminCatalogueController,
     CheckoutController,

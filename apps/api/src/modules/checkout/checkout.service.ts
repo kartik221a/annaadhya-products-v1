@@ -132,8 +132,24 @@ export class CheckoutService {
     if (dto.paymentMethod === "cod" && !settings.payments.codEnabled) {
       throw badRequest("Cash on delivery is not enabled");
     }
-    const providerName =
-      dto.paymentMethod === "cod" ? "cod" : settings.payments.provider === "razorpay" && this.provider("razorpay").configured ? "razorpay" : "mock";
+    // Provider selection is fail-closed: Razorpay when configured; the mock adapter ONLY
+    // in explicit mock-mode development (no Firebase, non-production). A production or
+    // Firebase-backed deployment without Razorpay credentials must refuse the order
+    // outright — never silently create a pending order doomed to expire on a dead adapter.
+    let providerName: "cod" | "razorpay" | "mock";
+    if (dto.paymentMethod === "cod") {
+      providerName = "cod";
+    } else if (settings.payments.provider === "razorpay" && this.provider("razorpay").configured) {
+      providerName = "razorpay";
+    } else if (!this.env.isProduction && !this.env.firebaseConfigured) {
+      providerName = "mock";
+    } else {
+      throw new AppError(
+        "service_unconfigured",
+        "Online payments are not configured yet — please contact support or try again later.",
+        503,
+      );
+    }
 
     // Authoritative re-check of stock + prices at order time (quote may be minutes old)
     const variants = await this.data.getMany<ProductVariantDoc>(
