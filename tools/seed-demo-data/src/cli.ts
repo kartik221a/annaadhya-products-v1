@@ -8,6 +8,8 @@
  *    environments that look production-like
  */
 import { parseArgs } from "node:util";
+import { resolve } from "node:path";
+import { loadDotEnvIfPresent } from "@annaadhya/utils";
 import {
   InMemoryDataClient,
   FirestoreDataClient,
@@ -31,6 +33,15 @@ const { values, positionals } = parseArgs({
 
 const command = positionals[0] ?? "validate";
 
+// Local .env auto-load: the canonical credentials file is apps/api/.env (shared with the
+// API dev server — one file serves both). A .env next to the current directory wins if
+// present. Shell-set variables always override file values (Node loadEnvFile semantics).
+const loadedEnvFile = loadDotEnvIfPresent([
+  resolve(process.cwd(), "../../apps/api/.env"), // pnpm --filter runs with cwd = this package dir
+  resolve(process.cwd(), ".env"),
+]);
+if (loadedEnvFile) console.log(`[env] loaded ${loadedEnvFile}`);
+
 function looksProductionish(): boolean {
   return (
     process.env.NODE_ENV === "production" ||
@@ -43,7 +54,8 @@ async function getClient(): Promise<DataClient> {
     const creds = parseFirestoreCredentials(process.env);
     if (!creds) {
       console.error("FIRESTORE requested but credentials are missing.");
-      console.error("Set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY (see docs/environment-setup.md).");
+      console.error("Put FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY in apps/api/.env (auto-loaded)");
+      console.error("or set them via shell env — see docs/environment-setup.md.");
       process.exit(1);
     }
     console.log(`Provider: Firestore project "${creds.projectId}"`);

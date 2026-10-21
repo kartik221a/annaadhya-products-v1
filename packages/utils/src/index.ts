@@ -11,6 +11,7 @@ import {
   MAX_MONEY,
 } from "./money";
 import { nowMillis, toIso, istDateKey, startOfIstDay, addDays, addMinutes, formatDateIN } from "./time";
+import { loadDotEnvIfPresent } from "./env-file";
 
 export {
   slugify,
@@ -34,4 +35,5 @@ export {
   addDays,
   addMinutes,
   formatDateIN,
+  loadDotEnvIfPresent,
 };

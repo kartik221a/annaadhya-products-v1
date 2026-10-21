@@ -48,14 +48,14 @@ describe("demo seed isolation", () => {
   it("dataset validates cleanly", async () => {
     const report = await validateDataset();
     expect(report.ok).toBe(true);
-    expect(report.counts.products).toBe(20);
-    expect(report.counts.variants).toBe(80);
+    expect(report.counts.products).toBe(22); // 20 base + 2 Gift Hampers (Task: gift-boxes live)
+    expect(report.counts.variants).toBe(83);
   });
 
   it("plan (dry-run) writes nothing", async () => {
     const db = new InMemoryDataClient({ nodeEnv: "test" });
     const plan = await planSeed();
-    expect(plan.counts.products).toBe(20);
+    expect(plan.counts.products).toBe(22);
     expect(await db.count(COLLECTIONS.products)).toBe(0);
   });
 
@@ -63,8 +63,8 @@ describe("demo seed isolation", () => {
     const db = new InMemoryDataClient({ nodeEnv: "test" });
     const report = await applySeed(db);
     expect(report.ok).toBe(true);
-    expect(await db.count(COLLECTIONS.products)).toBe(20);
-    expect(await db.count(COLLECTIONS.productVariants)).toBe(80);
+    expect(await db.count(COLLECTIONS.products)).toBe(22);
+    expect(await db.count(COLLECTIONS.productVariants)).toBe(83);
     expect(await db.count(COLLECTIONS.orders)).toBe(12);
     const anyProduct = (await db.list(COLLECTIONS.products, { limit: 1 }))[0] as {
       isDemo: boolean;
@@ -78,7 +78,7 @@ describe("demo seed isolation", () => {
     const db = new InMemoryDataClient({ nodeEnv: "test" });
     await applySeed(db);
     await applySeed(db);
-    expect(await db.count(COLLECTIONS.products)).toBe(20);
+    expect(await db.count(COLLECTIONS.products)).toBe(22);
     expect(await db.count(COLLECTIONS.orders)).toBe(12);
   });
 

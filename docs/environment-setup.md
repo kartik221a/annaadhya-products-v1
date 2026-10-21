@@ -27,6 +27,13 @@ pnpm dev:storefront   # :3000
 pnpm dev:admin        # :3001
 ```
 
+These files are auto-loaded — no `export`/`set` commands needed: the storefront and admin
+read their `.env.local` through Next.js' built-in support, while the API dev server and the
+seed CLI load `apps/api/.env` themselves (requires Node ≥ 20.12; older runtimes print a
+warning and fall back to shell-set variables only). Variables already set in the shell
+(`export`, CMD `set`, PowerShell `$env:`) always take precedence over file values, so
+one-off overrides keep working.
+
 In mock mode: data lives in memory (auto-seeded with the 20-product demo catalogue), sign-in uses
 dev tokens (`POST /api/v1/auth/dev/token`), and payments complete through the signed mock adapter.
 The storefront and admin show honest mode notices instead of pretending integrations work.
@@ -51,6 +58,14 @@ FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxx@your-project-id.iam.gserviceaccount.
 FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n…\n-----END PRIVATE KEY-----\n"
 # FIRESTORE_DATABASE_ID=   # optional named database
 ```
+
+`apps/api/.env` is auto-loaded by BOTH the API dev server and the seed CLI (`seed --firestore`)
+— one credentials file serves every local command, no `export`/`set` needed. It is gitignored
+and never exists on Vercel, where the dashboard injects the same variables instead. Keep the
+private key on ONE line with literal `\n` escapes inside double quotes — the code converts them
+to real newlines (packages/data-core/src/firestore.provider.ts). To seed against a different
+Firebase project than the API's, either edit the file or set the three variables in the shell
+(shell values win).
 
 Storefront env (`apps/storefront/.env.local`) — the *public* client config:
 

@@ -5,6 +5,7 @@
 // carries no diagnostic information. Static imports are limited to node builtins and
 // type-only imports (erased at compile time).
 import * as http from "node:http";
+import { resolve } from "node:path";
 import type { DataClient } from "@annaadhya/data-core";
 
 const bootLog: string[] = [];
@@ -25,6 +26,15 @@ async function step<T>(name: string, fn: () => Promise<T>): Promise<T> {
 }
 
 async function boot(): Promise<void> {
+  // Local .env auto-load (gitignored, absent on Vercel -> silent no-op). MUST run before
+  // any module that reads process.env is imported. Real environment variables keep
+  // precedence over file values, so shell `export`/`set` overrides still win.
+  const { loadDotEnvIfPresent } = await step("import @annaadhya/utils", () => import("@annaadhya/utils"));
+  const loadedEnvFile = await step("load local .env (if present)", async () =>
+    loadDotEnvIfPresent([resolve(process.cwd(), ".env")]),
+  );
+  if (loadedEnvFile) console.info(`[env] loaded ${loadedEnvFile}`);
+
   // reflect-metadata MUST evaluate before any module whose decorators run at import.
   await step("import reflect-metadata", () => import("reflect-metadata"));
 
