@@ -209,12 +209,13 @@ export function CheckoutView() {
     setSelectedAddressId(def.id);
   }, [addresses, selectedAddressId, auth.customer?.defaultAddressId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Guests have no saved addresses — open the delivery form for them immediately
-  // so a guest is never blocked from checking out.
+  // Guests AND signed-in customers with an empty address book land on the open
+  // delivery form — nobody should face an empty address card with no visible path.
+  // The selectedAddressId guard keeps a just-saved address from re-opening the form.
   useEffect(() => {
     if (auth.loading) return;
-    if (!auth.customer) setFormOpen(true);
-  }, [auth.loading, auth.customer?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    if ((!auth.customer || auth.customer.addresses.length === 0) && !selectedAddressId) setFormOpen(true);
+  }, [auth.loading, auth.customer?.id, auth.customer?.addresses.length, selectedAddressId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const requestQuote = useCallback(async (): Promise<Quote> => {
     const res = await fetch(`${PUBLIC_API_URL}/checkout/quote`, {
@@ -479,7 +480,10 @@ export function CheckoutView() {
   }, [quote, cart.items]);
   const itemCount = cart.items.reduce((n, i) => n + i.qty, 0);
 
-  if (phase === "loading") {
+  // The checkout UI must not render while the auth session restore is in flight —
+  // otherwise a signed-in customer briefly sees (and can act on) the guest variant:
+  // "sign in to save addresses" prompts and orders that silently skip address saving.
+  if (phase === "loading" || auth.loading) {
     return (
       <div className="mx-auto max-w-[1320px] px-margin-mobile py-space-xl lg:px-margin" aria-busy="true" aria-live="polite">
         <div className="mx-auto max-w-2xl py-16 text-center">
@@ -660,7 +664,7 @@ export function CheckoutView() {
             )}
 
             {/* Guest sign-in hint — shown alongside their open delivery form */}
-            {!auth.customer && (
+            {!auth.customer && !auth.principal && (
               <div className="mb-4 rounded-xl bg-surface-container p-4">
                 <p className="text-body-sm text-on-surface-variant">
                   Checking out as a guest.{" "}
@@ -668,6 +672,14 @@ export function CheckoutView() {
                     Sign in
                   </Link>{" "}
                   to use your saved addresses — your basket stays with you.
+                </p>
+              </div>
+            )}
+            {!auth.customer && auth.principal && (
+              <div className="mb-4 rounded-xl bg-surface-container p-4">
+                <p className="text-body-sm text-on-surface-variant">
+                  Your account is connected, but your saved address book couldn&apos;t be loaded right now — you can
+                  still check out with the address below and the order will be linked to your account.
                 </p>
               </div>
             )}
@@ -882,6 +894,11 @@ export function CheckoutView() {
                       />
                       <span className="text-body-sm text-on-surface">Save this address to my profile</span>
                     </label>
+                  ) : auth.principal ? (
+                    <p className="text-body-sm text-on-surface-variant">
+                      Your saved address book is unavailable right now — you can still check out with the address you
+                      enter here.
+                    </p>
                   ) : (
                     <p className="text-body-sm text-on-surface-variant">
                       <Link href="/account/login" className="font-semibold text-primary underline underline-offset-2">

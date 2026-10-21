@@ -7,7 +7,7 @@
  * Mock mode (no Firebase env): dev sign-in against POST /auth/dev/token (development only) —
  * the UI states this honestly and links to setup docs.
  */
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { PUBLIC_API_URL, apiPost } from "./api";
 import type { CustomerDoc, Principal } from "./types";
 
@@ -72,18 +72,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    let unsub: (() => void) | undefined;
     (async () => {
       try {
         if (firebaseReady) {
           const auth = await getFirebaseAuth();
           if (auth) {
-            const { onAuthStateChanged } = await import("firebase/auth");
+            const { onIdTokenChanged } = await import("firebase/auth");
+            // onIdTokenChanged (not one-shot onAuthStateChanged): it fires on mount with the
+            // restored user AND again whenever the SDK refreshes the ID token, so the API
+            // bearer stays valid in long-lived tabs (Firebase ID tokens expire after 1 hour).
             await new Promise<void>((resolve) => {
-              onAuthStateChanged(auth, async (user) => {
+              unsub = onIdTokenChanged(auth, async (user) => {
                 try {
                   if (user) await adoptSession(await user.getIdToken());
                 } catch {
-                  /* verification failed — stay signed out */
+                  /* verification failed — stay signed out; refreshProfile can self-heal */
                 }
                 resolve();
               });
@@ -103,6 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
       }
     })();
+    return () => unsub?.();
   }, [adoptSession, firebaseReady]);
 
   const signInEmail = useCallback(
@@ -187,11 +192,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (body.ok && body.data) {
         setPrincipal(body.data.principal);
         setCustomer(body.data.customer);
+        if (body.data.customer) healAttempted.current = true;
       }
     } catch {
       /* offline — keep cached profile */
     }
   }, []);
+
+  // Self-heal: identity restored but the customer profile is missing (e.g. a transient
+  // failure while /auth/verify provisioned it). One quiet re-pull after the restore
+  // settles — never a loop: a failed refresh keeps state and this never re-arms.
+  const healAttempted = useRef(false);
+  useEffect(() => {
+    if (loading || healAttempted.current || !principal || customer) return;
+    healAttempted.current = true;
+    const t = window.setTimeout(() => void refreshProfile(), 1500);
+    return () => window.clearTimeout(t);
+  }, [loading, principal, customer, refreshProfile]);
 
   const signOut = useCallback(async () => {
     if (firebaseReady) {

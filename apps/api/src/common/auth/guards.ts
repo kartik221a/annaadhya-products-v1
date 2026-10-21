@@ -36,7 +36,23 @@ export class AuthGuard implements CanActivate {
       ctx.getClass(),
     ]);
     const req = ctx.switchToHttp().getRequest<Request & { principal?: AuthPrincipal }>();
-    if (isPublic) return true;
+    if (isPublic) {
+      // Optional auth: on public routes a presented bearer token is STILL resolved
+      // (best effort) so endpoints like POST /checkout/orders can link the order to
+      // the signed-in customer. An absent or invalid token simply continues as guest.
+      const header = req.headers.authorization;
+      if (header?.startsWith("Bearer ")) {
+        const token = header.slice("Bearer ".length).trim();
+        if (token) {
+          try {
+            req.principal = await this.authService.verifyPrincipal(token);
+          } catch {
+            /* invalid/expired credentials on a public route — proceed as guest */
+          }
+        }
+      }
+      return true;
+    }
 
     const header = req.headers.authorization;
     if (!header?.startsWith("Bearer ")) throw unauthenticated("Missing bearer token");

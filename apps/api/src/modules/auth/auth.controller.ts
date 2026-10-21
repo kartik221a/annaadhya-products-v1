@@ -42,14 +42,20 @@ export class AuthController {
   @Post("verify")
   async verify(@Body(new ZodValidationPipe(verifySchema)) body: { idToken: string }) {
     const principal = await this.auth.verifyPrincipal(body.idToken);
-    const customer = principal.isStaff ? null : await this.customers.me(principal);
+    // Every authenticated identity gets a storefront customer profile — staff and owners
+    // included (they shop and test checkout like anyone else). The admin app ignores this
+    // field, so provisioning a profile for staff breaks nothing there. Returning null for
+    // staff made the storefront treat a signed-in owner as a guest: no saved-address book,
+    // "sign in to save addresses" prompts, and orders that never save their address.
+    const customer = await this.customers.me(principal);
     const staff = await this.auth.loadStaff(principal.uid);
     return { principal, customer, staff, mode: this.modeDescriptor() };
   }
 
   @Get("me")
   async me(@CurrentUser() principal: AuthPrincipal) {
-    const customer = principal.isStaff ? null : await this.customers.me(principal);
+    // Same contract as /auth/verify — staff always get their storefront profile too.
+    const customer = await this.customers.me(principal);
     return { principal, customer };
   }
 
