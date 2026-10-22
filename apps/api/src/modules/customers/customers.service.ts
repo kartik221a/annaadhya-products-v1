@@ -78,6 +78,43 @@ export class CustomersService {
     return this.data.update(COLLECTIONS.customers, me.id, patch);
   }
 
+  /** Edit an existing address (full replacement of its fields) and/or make it the default.
+   *  Default invariant mirrors addAddress: exactly one isDefault address at any time, and
+   *  demoting the current default promotes the first survivor so the book never loses its
+   *  default (checkout prefill depends on one existing). */
+  async updateAddress(
+    principal: AuthPrincipal,
+    addressId: string,
+    dto: Omit<CustomerDoc["addresses"][number], "id">,
+  ): Promise<CustomerDoc> {
+    const me = await this.me(principal);
+    const existing = me.addresses.find((a) => a.id === addressId);
+    if (!existing) throw notFound("Address not found");
+    const addresses = me.addresses.map((a) => ({ ...a }));
+    if (dto.isDefault) {
+      for (const a of addresses) a.isDefault = a.id === addressId;
+    } else if (existing.isDefault && addresses.length > 1) {
+      // Demoting the default: promote the first other address so a default always exists.
+      const survivor = addresses.find((a) => a.id !== addressId)!;
+      survivor.isDefault = true;
+    }
+    const target = addresses.find((a) => a.id === addressId)!;
+    target.label = dto.label;
+    target.fullName = dto.fullName;
+    target.phone = dto.phone;
+    target.line1 = dto.line1;
+    target.line2 = dto.line2;
+    target.landmark = dto.landmark;
+    target.city = dto.city;
+    target.state = dto.state;
+    target.pincode = dto.pincode;
+    target.isDefault = dto.isDefault || (existing.isDefault && addresses.length === 1);
+    const patch: Partial<CustomerDoc> = { addresses, updatedAt: Date.now() };
+    const newDefault = addresses.find((a) => a.isDefault);
+    if (newDefault) patch.defaultAddressId = newDefault.id;
+    return this.data.update(COLLECTIONS.customers, me.id, patch);
+  }
+
   /** Request account deletion — records the request; execution is a documented manual GDPR-style process. */
   async requestDeletion(principal: AuthPrincipal): Promise<{ received: true }> {
     const me = await this.me(principal);
