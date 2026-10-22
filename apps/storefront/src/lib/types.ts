@@ -93,6 +93,13 @@ export interface CustomerDoc {
   displayName: string;
   email?: string;
   phone?: string;
+  /** Real sign-in providers recorded by the API (google / password). Phone OTP is
+   *  not offered on any storefront surface — this only mirrors the stored record. */
+  providers?: string[];
+  marketingOptIn?: boolean;
+  /** Epoch millis — data-core stamps these on every stored doc. */
+  createdAt?: number;
+  updatedAt?: number;
   defaultAddressId?: string;
   addresses: {
     id: string;

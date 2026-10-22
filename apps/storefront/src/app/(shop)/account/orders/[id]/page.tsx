@@ -53,7 +53,7 @@ export default function OrderDetailPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
-      <Link href="/account" className="text-sm text-forest hover:underline">← Back to account</Link>
+      <Link href="/account/orders" className="text-sm text-forest hover:underline">← Back to order history</Link>
       <h1 className="font-display mt-3 text-3xl font-semibold text-forest">{order.orderNumber}</h1>
       <p className="mt-1 text-sm text-ink-soft">
         Placed {formatDateIN(order.createdAt)} · Payment {order.paymentStatus.replace(/_/g, " ")} via {order.paymentProvider}

@@ -362,3 +362,169 @@ export function IconSun(p: IconProps) {
     </svg>
   );
 }
+
+/* -------- Account surfaces (/account, /account/orders) -------- */
+
+export function IconLogout(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <path d="m16 17 5-5-5-5" />
+      <path d="M21 12H9" />
+    </svg>
+  );
+}
+
+export function IconTrash(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M3 6h18" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+    </svg>
+  );
+}
+
+export function IconPlus(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M5 12h14" />
+      <path d="M12 5v14" />
+    </svg>
+  );
+}
+
+export function IconLayoutDashboard(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <rect width="7" height="9" x="3" y="3" rx="1" />
+      <rect width="7" height="5" x="14" y="3" rx="1" />
+      <rect width="7" height="9" x="14" y="12" rx="1" />
+      <rect width="7" height="5" x="3" y="16" rx="1" />
+    </svg>
+  );
+}
+
+export function IconPackage(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="m7.5 4.27 9 5.15" />
+      <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+      <path d="m3.3 7 8.7 5 8.7-5" />
+      <path d="M12 22V12" />
+    </svg>
+  );
+}
+
+export function IconHeadset(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M3 11h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5Z" />
+      <path d="M21 11h-3a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-5Z" />
+      <path d="M21 11a9 9 0 0 0-18 0" />
+      <path d="M21 16v2a4 4 0 0 1-4 4h-5" />
+    </svg>
+  );
+}
+
+export function IconIdCard(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <rect width="18" height="14" x="3" y="5" rx="2" />
+      <circle cx="9" cy="11" r="2" />
+      <path d="M5.5 19c.7-1.7 2-2.5 3.5-2.5s2.8.8 3.5 2.5" />
+      <path d="M15 9h4" />
+      <path d="M15 13h4" />
+      <path d="M15 17h2" />
+    </svg>
+  );
+}
+
+export function IconHouse(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" />
+      <path d="M3 10a2 2 0 0 1 .7-1.5l7-6a2 2 0 0 1 2.6 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    </svg>
+  );
+}
+
+export function IconBriefcase(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+      <rect width="20" height="14" x="2" y="6" rx="2" />
+    </svg>
+  );
+}
+
+export function IconCopy(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <rect width="14" height="14" x="8" y="8" rx="2" />
+      <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+    </svg>
+  );
+}
+
+export function IconAlertTriangle(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+      <path d="M12 9v4" />
+      <path d="M12 17h.01" />
+    </svg>
+  );
+}
+
+export function IconRefresh(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M3 12a9 9 0 0 1 15.5-6.2L21 8" />
+      <path d="M21 3v5h-5" />
+      <path d="M21 12a9 9 0 0 1-15.5 6.2L3 16" />
+      <path d="M3 21v-5h5" />
+    </svg>
+  );
+}
+
+export function IconLock(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <rect width="18" height="11" x="3" y="11" rx="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  );
+}
+
+export function IconCircleCheck(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="m8.5 12.2 2.4 2.4 4.6-5" />
+    </svg>
+  );
+}
+
+export function IconCalendar(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <rect width="18" height="18" x="3" y="4" rx="2" />
+      <path d="M16 2v4" />
+      <path d="M8 2v4" />
+      <path d="M3 10h18" />
+    </svg>
+  );
+}
+
+export function IconPinDrop(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M20 10c0 5.5-8 11-8 11s-8-5.5-8-11a8 8 0 0 1 16 0Z" />
+      <circle cx="12" cy="10" r="3" />
+      <path d="M8 21.5h8" />
+    </svg>
+  );
+}

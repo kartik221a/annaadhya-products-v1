@@ -18,6 +18,9 @@ interface AuthCtx {
   mode: "firebase" | "mock";
   firebaseReady: boolean;
   loading: boolean;
+  /** Real Firebase email-verification state. Null = unknown (mock mode / no session) —
+   *  callers must not render a "Verified" badge from a guess. */
+  emailVerified: boolean | null;
   // Email/password (Firebase mode)
   signInEmail: (email: string, password: string) => Promise<void>;
   registerEmail: (name: string, email: string, password: string) => Promise<void>;
@@ -57,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [principal, setPrincipal] = useState<Principal | null>(null);
   const [customer, setCustomer] = useState<CustomerDoc | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [emailVerified, setEmailVerified] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [phoneConfirmationPending, setPhoneConfirmationPending] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -64,11 +68,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const firebaseReady = Boolean(process.env.NEXT_PUBLIC_FIREBASE_API_KEY && process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID);
 
-  const adoptSession = useCallback(async (idToken: string) => {
+  const adoptSession = useCallback(async (idToken: string, verified?: boolean) => {
     const res = await apiPost<{ principal: Principal; customer: CustomerDoc | null }>("/auth/verify", { idToken });
     setPrincipal(res.principal);
     setCustomer(res.customer);
     setToken(idToken);
+    setEmailVerified(typeof verified === "boolean" ? verified : null);
     if (typeof window !== "undefined") localStorage.setItem(TOKEN_KEY, idToken);
   }, []);
 
@@ -86,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             await new Promise<void>((resolve) => {
               unsub = onIdTokenChanged(auth, async (user) => {
                 try {
-                  if (user) await adoptSession(await user.getIdToken());
+                  if (user) await adoptSession(await user.getIdToken(), user.emailVerified);
                 } catch {
                   /* verification failed — stay signed out; refreshProfile can self-heal */
                 }
@@ -230,6 +235,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setPrincipal(null);
     setCustomer(null);
     setToken(null);
+    setEmailVerified(null);
   }, [firebaseReady]);
 
   const value = useMemo<AuthCtx>(
@@ -240,6 +246,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mode: firebaseReady ? "firebase" : "mock",
       firebaseReady,
       loading,
+      emailVerified,
       signInEmail,
       registerEmail,
       signInGoogle,
@@ -252,7 +259,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       phoneConfirmationPending,
     }),
     [
-      principal, customer, token, firebaseReady, loading, signInEmail, registerEmail, signInGoogle,
+      principal, customer, token, firebaseReady, loading, emailVerified, signInEmail, registerEmail, signInGoogle,
       signInPhone, startPhone, sendPasswordReset, devSignIn, signOut, refreshProfile, phoneConfirmationPending,
     ],
   );
