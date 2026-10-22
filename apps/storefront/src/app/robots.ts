@@ -7,7 +7,7 @@ export default function robots(): MetadataRoute.Robots {
   return {
     // Staging/preview deployments must not be indexed.
     rules: isProduction
-      ? [{ userAgent: "*", allow: "/", disallow: ["/account", "/checkout", "/cart"] }]
+      ? [{ userAgent: "*", allow: "/", disallow: ["/account", "/checkout", "/cart", "/wishlist"] }]
       : [{ userAgent: "*", disallow: "/" }],
     sitemap: isProduction ? `${base}/sitemap.xml` : undefined,
   };
