@@ -528,3 +528,55 @@ export function IconPinDrop(p: IconProps) {
     </svg>
   );
 }
+
+/* ---- Order Details page additions (same Lucide-adapted conventions) ---- */
+
+export function IconPrinter(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M6 9V3h12v6" />
+      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+      <rect x="6" y="14" width="12" height="7" rx="1" />
+    </svg>
+  );
+}
+
+export function IconWallet(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+      <path d="M21 11v4a1 1 0 0 1-1 1h-5a3 3 0 0 1 0-6h5a1 1 0 0 1 1 1Z" />
+    </svg>
+  );
+}
+
+export function IconExternal(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M15 3h6v6" />
+      <path d="M10 14 21 3" />
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+    </svg>
+  );
+}
+
+export function IconXCircle(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="m15 9-6 6" />
+      <path d="m9 9 6 6" />
+    </svg>
+  );
+}
+
+export function IconSearchOff(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m21 21-4.3-4.3" />
+      <path d="m8 8 6 6" />
+      <path d="m14 8-6 6" />
+    </svg>
+  );
+}

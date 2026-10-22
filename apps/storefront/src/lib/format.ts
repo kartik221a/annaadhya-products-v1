@@ -19,6 +19,18 @@ export function formatDateIN(millis: number): string {
   return new Date(millis).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+/** e.g. "24 Oct 2026, 4:18 PM" — used for order placed/shipped timestamps. */
+export function formatDateTimeIN(millis: number): string {
+  return new Date(millis).toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
 export function minVariantPricePaise(variants: { pricePaise: number }[]): number {
   return Math.min(...variants.map((v) => v.pricePaise));
 }
