@@ -159,6 +159,13 @@ export const orderRefundSchema = z.object({
 });
 export type OrderRefundDto = z.infer<typeof orderRefundSchema>;
 
+/** Admin correction of shipment tracking after the shipped transition (typo'd AWB, rebooked courier). */
+export const orderTrackingUpdateSchema = z.object({
+  carrier: z.string().trim().min(1).max(80),
+  trackingNumber: z.string().trim().min(3).max(80),
+});
+export type OrderTrackingUpdateDto = z.infer<typeof orderTrackingUpdateSchema>;
+
 export const orderListQuerySchema = z.object({
   search: z.string().trim().max(120).optional(),
   status: z.enum(ORDER_STATUS_VALUES).optional(),

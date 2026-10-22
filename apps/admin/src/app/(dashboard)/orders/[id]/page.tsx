@@ -5,12 +5,14 @@
  * - Status changes only offer legal transitions; `refunded` is intentionally not offered here
  *   (the API insists refunds go through POST :id/refund, which also settles provider refunds).
  * - Tracking inputs appear when moving to `shipped`; refund form needs orders:refund.
+ * - Shipped/delivered orders can have their tracking corrected (PATCH :id/tracking) —
+ *   typo'd AWB or rebooked courier — without touching status or payment.
  * - API errors (e.g. "unpaid orders can't be fulfilled") are surfaced verbatim.
  */
 import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ApiError, apiGet, apiPost, can } from "@/lib/api";
+import { ApiError, apiGet, apiPatch, apiPost, can } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useApiQuery, usePageTitle } from "@/lib/hooks";
 import { formatDateTime, formatINR, humanize, rupeesToPaise } from "@/lib/format";
@@ -50,6 +52,11 @@ export default function OrderDetailPage() {
   const [trackingNumber, setTrackingNumber] = useState("");
   const [reason, setReason] = useState("");
 
+  // tracking correction state (shipped/delivered orders; prefilled from the current record)
+  const [trackingEditOpen, setTrackingEditOpen] = useState(false);
+  const [editCarrier, setEditCarrier] = useState("");
+  const [editAwb, setEditAwb] = useState("");
+
   // refund form state (rupees input, converted at submit)
   const [refundOpen, setRefundOpen] = useState(false);
   const [refundAmount, setRefundAmount] = useState("");
@@ -78,6 +85,31 @@ export default function OrderDetailPage() {
       reload();
     } catch (err) {
       // e.g. "Only paid orders can move into fulfilment states…" — show it verbatim.
+      setActionError(err instanceof ApiError ? err.message : "Unexpected error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitTracking(e: React.FormEvent) {
+    e.preventDefault();
+    if (!order) return;
+    setActionError(null);
+    if (editCarrier.trim().length < 1 || editAwb.trim().length < 3) {
+      setActionError("Carrier and a tracking number (3+ chars) are required.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await apiPatch(`/admin/orders/${order.id}/tracking`, {
+        carrier: editCarrier.trim(),
+        trackingNumber: editAwb.trim(),
+      });
+      toast.success("Tracking updated", `${order.orderNumber} · ${editCarrier.trim()} ${editAwb.trim()}`);
+      setTrackingEditOpen(false);
+      reload();
+    } catch (err) {
+      // e.g. "Tracking can only be corrected on shipped or delivered orders…" — show it verbatim.
       setActionError(err instanceof ApiError ? err.message : "Unexpected error");
     } finally {
       setBusy(false);
@@ -249,13 +281,61 @@ export default function OrderDetailPage() {
             </CardBody>
           </Card>
 
-          {order.tracking ? (
+          {order.tracking || ((order.status === "shipped" || order.status === "delivered") && canWrite) ? (
             <Card>
-              <CardHeader title="Tracking" />
+              <CardHeader
+                title="Tracking"
+                subtitle="The customer's Track Order button opens Shiprocket with this AWB"
+                actions={
+                  canWrite && !trackingEditOpen ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setEditCarrier(order.tracking?.carrier ?? "");
+                        setEditAwb(order.tracking?.trackingNumber ?? "");
+                        setTrackingEditOpen(true);
+                      }}
+                    >
+                      {order.tracking ? "Edit" : "Add tracking"}
+                    </Button>
+                  ) : null
+                }
+              />
               <CardBody className="text-sm">
-                <p className="font-medium">{order.tracking.carrier}</p>
-                <p className="font-mono text-xs text-ink/70">{order.tracking.trackingNumber}</p>
-                <p className="mt-1 text-xs text-ink/50">Updated {formatDateTime(order.tracking.updatedAt)}</p>
+                {order.tracking ? (
+                  <>
+                    <p className="font-medium">{order.tracking.carrier}</p>
+                    <p className="font-mono text-xs text-ink/70">{order.tracking.trackingNumber}</p>
+                    <p className="mt-1 text-xs text-ink/50">Updated {formatDateTime(order.tracking.updatedAt)}</p>
+                  </>
+                ) : (
+                  <p className="text-ink/60">
+                    No tracking recorded yet — add the courier and AWB once the shipment is booked.
+                  </p>
+                )}
+                {trackingEditOpen ? (
+                  <form
+                    className="mt-3 space-y-3 rounded-md border border-sand bg-cream/50 p-3"
+                    onSubmit={submitTracking}
+                  >
+                    <p className="text-sm font-semibold">Correct shipment tracking</p>
+                    <Field label="Carrier" required>
+                      <Input value={editCarrier} onChange={(e) => setEditCarrier(e.target.value)} placeholder="Delhivery / Bluedart…" required />
+                    </Field>
+                    <Field label="Tracking number" required>
+                      <Input value={editAwb} onChange={(e) => setEditAwb(e.target.value)} placeholder="AWB…" required minLength={3} />
+                    </Field>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="ghost" size="sm" onClick={() => setTrackingEditOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button type="submit" size="sm" loading={busy}>
+                        Save tracking
+                      </Button>
+                    </div>
+                  </form>
+                ) : null}
               </CardBody>
             </Card>
           ) : null}

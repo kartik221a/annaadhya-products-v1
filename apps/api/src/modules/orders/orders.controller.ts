@@ -1,14 +1,16 @@
 /** Orders — customer endpoints + admin management with enforced transitions and refunds. */
-import { Body, Controller, Get, Param, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Query } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import {
   orderListQuerySchema,
   orderRefundSchema,
   orderStatusUpdateSchema,
+  orderTrackingUpdateSchema,
   type AuthPrincipal,
   type OrderListQueryDto,
   type OrderRefundDto,
   type OrderStatusUpdateDto,
+  type OrderTrackingUpdateDto,
 } from "@annaadhya/contracts";
 import { CurrentUser, Protected, RequirePermissions } from "../../common/auth/guards";
 import { ZodValidationPipe } from "../../common/validation/zod.pipe";
@@ -76,6 +78,18 @@ export class AdminOrdersController {
     @CurrentUser() actor: AuthPrincipal,
   ) {
     return this.orders.updateStatus(id, dto, actor);
+  }
+
+  /** Correct shipment tracking on a shipped/delivered order (typo'd AWB, rebooked courier). */
+  @Patch(":id/tracking")
+  @Protected("orders:write")
+  @RequirePermissions("orders:write")
+  async updateTracking(
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(orderTrackingUpdateSchema)) dto: OrderTrackingUpdateDto,
+    @CurrentUser() actor: AuthPrincipal,
+  ) {
+    return this.orders.updateTracking(id, dto, actor);
   }
 
   @Post(":id/refund")

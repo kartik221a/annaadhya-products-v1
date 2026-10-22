@@ -11,7 +11,7 @@ import { AppError, badRequest, forbidden, notFound, type DataClient } from "@ann
 import { nowMillis } from "@annaadhya/utils";
 import { DATA_CLIENT } from "../../data/data.module";
 import { AuditService } from "../audit/audit.service";
-import type { OrderStatusUpdateDto, OrderRefundDto } from "@annaadhya/contracts";
+import type { OrderStatusUpdateDto, OrderRefundDto, OrderTrackingUpdateDto } from "@annaadhya/contracts";
 import type { AuthPrincipal } from "@annaadhya/contracts";
 import type { PaymentProvider } from "../payments/provider.interface";
 
@@ -136,6 +136,48 @@ export class OrdersService {
       targetId: orderId,
       summary: `Order ${order.orderNumber}: ${order.status} → ${dto.status}${dto.tracking ? ` (tracking ${dto.tracking.carrier} ${dto.tracking.trackingNumber})` : ""}`,
       metadata: { from: order.status, to: dto.status },
+    });
+    return this.getAdmin(orderId);
+  }
+
+  /**
+   * Admin correction of shipment tracking on an already-booked shipment
+   * (typo'd AWB, rebooked courier). Only meaningful once the order has
+   * actually shipped — earlier states get tracking through the shipped
+   * transition, and closed orders (cancelled/refunded) must keep their
+   * records stable. Never touches status or payment fields.
+   */
+  async updateTracking(orderId: string, dto: OrderTrackingUpdateDto, actor: AuthPrincipal): Promise<OrderDoc> {
+    if (!actor.permissions.includes("orders:write")) {
+      throw forbidden("Tracking corrections require the orders:write permission");
+    }
+    const order = await this.getAdmin(orderId);
+    if (order.status !== "shipped" && order.status !== "delivered") {
+      throw badRequest(
+        `Tracking can only be corrected on shipped or delivered orders — ${order.orderNumber} is ${order.status}.`,
+      );
+    }
+
+    const previous = order.tracking;
+    const patch: Partial<OrderDoc> = {
+      tracking: {
+        carrier: dto.carrier,
+        trackingNumber: dto.trackingNumber,
+        updatedAt: nowMillis(),
+      },
+      updatedAt: nowMillis(),
+    };
+    await this.data.update(COLLECTIONS.orders, orderId, patch);
+    await this.audit.record({
+      actor,
+      action: "order.tracking_update",
+      targetType: "order",
+      targetId: orderId,
+      summary: `Order ${order.orderNumber}: tracking ${previous ? `${previous.carrier} ${previous.trackingNumber} → ` : ""}${dto.carrier} ${dto.trackingNumber}`,
+      metadata: {
+        from: previous ? { carrier: previous.carrier, trackingNumber: previous.trackingNumber } : null,
+        to: { carrier: dto.carrier, trackingNumber: dto.trackingNumber },
+      },
     });
     return this.getAdmin(orderId);
   }

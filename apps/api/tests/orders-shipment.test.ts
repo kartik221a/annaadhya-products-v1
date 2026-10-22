@@ -167,6 +167,109 @@ describe("manual shipment recording (admin)", () => {
   });
 });
 
+describe("tracking correction after shipping (admin)", () => {
+  const readOnlyOwner: AuthPrincipal = {
+    uid: "readonly-owner",
+    email: "readonly@test.dev",
+    provider: "dev",
+    role: "orders_support",
+    permissions: ["orders:read"],
+    isStaff: true,
+  };
+
+  it("corrects carrier + AWB on a shipped order without touching status or payment", async () => {
+    const paid = await paidOrder(4);
+    await orders.updateStatus(paid.id, { status: "processing" }, owner);
+    const shipped = await orders.updateStatus(
+      paid.id,
+      { status: "shipped", tracking: { carrier: "Blue Dart Air", trackingNumber: "700054910" } },
+      owner,
+    );
+
+    const corrected = await orders.updateTracking(
+      shipped.id,
+      { carrier: "Delhivery Surface", trackingNumber: "7712990442" },
+      owner,
+    );
+
+    expect(corrected.status).toBe("shipped");
+    expect(corrected.paymentStatus).toBe("succeeded");
+    expect(corrected.tracking?.carrier).toBe("Delhivery Surface");
+    expect(corrected.tracking?.trackingNumber).toBe("7712990442");
+    expect(corrected.tracking!.updatedAt).toBeGreaterThanOrEqual(shipped.tracking!.updatedAt);
+    // everything else about the order stays intact
+    expect(corrected.shippingAddress.pincode).toBe("560038");
+    expect(corrected.totalPaise).toBe(shipped.totalPaise);
+  });
+
+  it("can add tracking to a shipped order that was shipped without it", async () => {
+    const paid = await paidOrder(5);
+    await orders.updateStatus(paid.id, { status: "processing" }, owner);
+    const shipped = await orders.updateStatus(paid.id, { status: "shipped" }, owner);
+    expect(shipped.tracking).toBeUndefined();
+
+    const corrected = await orders.updateTracking(
+      shipped.id,
+      { carrier: "India Post Speed", trackingNumber: "RM992244551IN" },
+      owner,
+    );
+    expect(corrected.tracking?.trackingNumber).toBe("RM992244551IN");
+  });
+
+  it("also works on delivered orders (keeping records honest after the fact)", async () => {
+    const paid = await paidOrder(6);
+    await orders.updateStatus(paid.id, { status: "processing" }, owner);
+    await orders.updateStatus(
+      paid.id,
+      { status: "shipped", tracking: { carrier: "Blue Dart Air", trackingNumber: "700054910" } },
+      owner,
+    );
+    const delivered = await orders.updateStatus(paid.id, { status: "delivered" }, owner);
+
+    const corrected = await orders.updateTracking(
+      delivered.id,
+      { carrier: "Ekart Logistics", trackingNumber: "FMPP1122334" },
+      owner,
+    );
+    expect(corrected.status).toBe("delivered");
+    expect(corrected.tracking?.trackingNumber).toBe("FMPP1122334");
+  });
+
+  it("rejects correction before shipping (400 semantics)", async () => {
+    const paid = await paidOrder(7);
+    await expect(
+      orders.updateTracking(paid.id, { carrier: "Delhivery", trackingNumber: "7712990442" }, owner),
+    ).rejects.toThrow(/shipped or delivered/i);
+  });
+
+  it("rejects correction on closed orders (cancelled / refunded)", async () => {
+    const paid = await paidOrder(8);
+    await orders.updateStatus(paid.id, { status: "cancelled" }, owner);
+    await expect(
+      orders.updateTracking(paid.id, { carrier: "Delhivery", trackingNumber: "7712990442" }, owner),
+    ).rejects.toThrow(/shipped or delivered/i);
+  });
+
+  it("requires the orders:write permission", async () => {
+    const paid = await paidOrder(9);
+    await orders.updateStatus(paid.id, { status: "processing" }, owner);
+    await orders.updateStatus(
+      paid.id,
+      { status: "shipped", tracking: { carrier: "Blue Dart Air", trackingNumber: "700054910" } },
+      owner,
+    );
+    await expect(
+      orders.updateTracking(paid.id, { carrier: "Delhivery", trackingNumber: "7712990442" }, readOnlyOwner),
+    ).rejects.toThrow(/orders:write/i);
+  });
+
+  it("404 semantics for a nonexistent order", async () => {
+    await expect(
+      orders.updateTracking("no-such-order", { carrier: "Delhivery", trackingNumber: "7712990442" }, owner),
+    ).rejects.toThrow(/Order not found/i);
+  });
+});
+
 describe("customer order ownership", () => {
   it("a customer can read their own order", async () => {
     const paid = await paidOrder(2);

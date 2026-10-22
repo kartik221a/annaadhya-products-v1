@@ -83,7 +83,7 @@ export function getStoredPrincipal(): AuthPrincipal | null {
 /* --------------------------------- fetcher -------------------------------- */
 
 interface RequestOptions {
-  method?: "GET" | "POST" | "DELETE";
+  method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
   /** Extra query params; undefined/null values are skipped. */
   query?: Record<string, string | number | boolean | undefined | null>;
@@ -186,6 +186,8 @@ export async function downloadFile(path: string, query?: RequestOptions["query"]
 export const apiGet = <T>(path: string, query?: RequestOptions["query"]) => api<T>(path, { query });
 export const apiPost = <T>(path: string, body?: unknown, query?: RequestOptions["query"]) =>
   api<T>(path, { method: "POST", body: body ?? {}, query });
+export const apiPatch = <T>(path: string, body?: unknown, query?: RequestOptions["query"]) =>
+  api<T>(path, { method: "PATCH", body: body ?? {}, query });
 export const apiDelete = <T>(path: string) => api<T>(path, { method: "DELETE" });
 
 /** Permission check against the stored principal's permission list. */
