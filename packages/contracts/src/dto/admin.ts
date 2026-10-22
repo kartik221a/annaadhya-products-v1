@@ -274,6 +274,7 @@ export const settingsUpdateSchema = z.object({
       heroSubcopy: z.string().trim().max(240).optional(),
       heroImage: z.string().trim().max(600).optional(),
       heroCtaHref: z.string().trim().max(200).optional(),
+      heroCtaLabel: z.string().trim().max(40).optional(),
       newsletterEnabled: z.boolean().optional(),
       giftCollectionEnabled: z.boolean().optional(),
     })

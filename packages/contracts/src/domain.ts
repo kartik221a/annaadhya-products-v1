@@ -352,6 +352,7 @@ export interface SettingsDoc {
     heroSubcopy: string;
     heroImage?: string;
     heroCtaHref: string;
+    heroCtaLabel?: string;
     newsletterEnabled: boolean; // only when a compliant workflow exists
     giftCollectionEnabled: boolean;
   };
@@ -376,6 +377,13 @@ export interface PublicStoreSettings {
   storefront: {
     newsletterEnabled: boolean;
     giftCollectionEnabled: boolean;
+    /** Owner-controlled hero copy. Empty string means "use the approved design
+     *  default" — the storefront falls back to its curated hero when blank. */
+    heroHeadline: string;
+    heroSubcopy: string;
+    heroImage?: string;
+    heroCtaHref: string;
+    heroCtaLabel?: string;
   };
   /** Public shipping policy — powers honest cart-page shipping messaging.
    *  Delivery estimates stay private until confirmed (see SettingsDoc). */

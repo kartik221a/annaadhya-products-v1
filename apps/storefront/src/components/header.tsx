@@ -80,7 +80,7 @@ export function Header() {
           >
             {menuOpen ? <IconX size={22} /> : <IconMenu size={22} />}
           </button>
-          <Logo />
+          <Logo compactOnMobile />
         </div>
 
         <nav className="hidden items-center gap-space-lg xl:flex" aria-label="Primary">
@@ -129,10 +129,19 @@ export function Header() {
           <Link
             href="/cart"
             aria-label={`Shopping cart, ${cartLabel}`}
-            className="flex items-center gap-space-xs rounded-full bg-surface-container-low px-space-sm py-space-xs text-on-surface transition-all hover:bg-surface-container-high"
+            className="relative flex items-center gap-space-xs rounded-full bg-surface-container-low px-space-sm py-space-xs text-on-surface transition-all hover:bg-surface-container-high"
           >
             <IconShoppingBag size={20} className="text-primary" />
-            <span className="whitespace-nowrap text-label-md font-semibold text-primary text-tabular">{cartLabel}</span>
+            {/* Full price pill from sm up; phones get an icon pill + count badge so
+                the nowrap price text can never push the header past the viewport. */}
+            <span className="hidden whitespace-nowrap text-label-md font-semibold text-primary text-tabular sm:inline">
+              {cartLabel}
+            </span>
+            {ready && count > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary-container px-0.5 text-[9px] font-bold text-on-primary sm:hidden">
+                {count}
+              </span>
+            )}
           </Link>
 
           {principal ? (

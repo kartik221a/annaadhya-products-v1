@@ -42,7 +42,13 @@ const FALLBACK_SETTINGS: PublicStoreSettings = {
     socialLinks: {},
     announcement: { enabled: false, message: "" },
   },
-  storefront: { newsletterEnabled: true, giftCollectionEnabled: true },
+  storefront: {
+    newsletterEnabled: true,
+    giftCollectionEnabled: true,
+    heroHeadline: "",
+    heroSubcopy: "",
+    heroCtaHref: "",
+  },
   shipping: { mode: "disabled", flatRatePaise: 0, freeAbovePaise: null },
 };
 

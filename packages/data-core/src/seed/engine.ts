@@ -361,11 +361,12 @@ export function defaultSettings(): SettingsDoc {
       includeDemoDataByDefault: false,
     },
     storefront: {
-      heroHeadline: "Pantry treasures, honestly sourced",
-      heroSubcopy:
-        "Honey, dry fruits and kesar from Annaadhya — premium quality at reasonable prices, packed for Indian homes.",
-      heroImage: "/demo-images/hero.svg",
-      heroCtaHref: "/shop",
+      // Hero fields blank = the storefront renders its approved design default.
+      // The owner overrides them in Admin → Settings when real copy is decided.
+      heroHeadline: "",
+      heroSubcopy: "",
+      heroCtaHref: "",
+      heroCtaLabel: "",
       newsletterEnabled: true, // explicit footer signup + admin export = the compliant workflow
       giftCollectionEnabled: false, // flip when gift boxes launch
     },

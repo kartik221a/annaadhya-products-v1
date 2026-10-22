@@ -139,6 +139,13 @@ export interface PublicStoreSettings {
   storefront: {
     newsletterEnabled: boolean;
     giftCollectionEnabled: boolean;
+    /** Owner-controlled hero copy. Empty string = the storefront renders its
+     *  approved design default (mirrors PublicStoreSettings from contracts). */
+    heroHeadline: string;
+    heroSubcopy: string;
+    heroImage?: string;
+    heroCtaHref: string;
+    heroCtaLabel?: string;
   };
   shipping: {
     mode: "flat_rate" | "free_shipping" | "disabled";

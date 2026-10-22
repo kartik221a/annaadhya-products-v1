@@ -357,6 +357,7 @@ export interface SettingsDoc {
     heroSubcopy: string;
     heroImage?: string;
     heroCtaHref: string;
+    heroCtaLabel?: string;
     newsletterEnabled: boolean;
     giftCollectionEnabled: boolean;
   };

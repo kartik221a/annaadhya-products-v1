@@ -52,6 +52,7 @@ interface FormState {
   heroSubcopy: string;
   heroImage: string;
   heroCtaHref: string;
+  heroCtaLabel: string;
   newsletterEnabled: boolean;
   giftCollectionEnabled: boolean;
 }
@@ -90,6 +91,7 @@ function docToForm(doc: SettingsDoc): FormState {
     heroSubcopy: doc.storefront.heroSubcopy ?? "",
     heroImage: doc.storefront.heroImage ?? "",
     heroCtaHref: doc.storefront.heroCtaHref ?? "",
+    heroCtaLabel: doc.storefront.heroCtaLabel ?? "",
     newsletterEnabled: doc.storefront.newsletterEnabled,
     giftCollectionEnabled: doc.storefront.giftCollectionEnabled,
   };
@@ -188,6 +190,7 @@ export default function SettingsPage() {
         heroSubcopy: form.heroSubcopy.trim(),
         heroImage: form.heroImage.trim() || undefined,
         heroCtaHref: form.heroCtaHref.trim(),
+        heroCtaLabel: form.heroCtaLabel.trim() || undefined,
         newsletterEnabled: form.newsletterEnabled,
         giftCollectionEnabled: form.giftCollectionEnabled,
       },
@@ -404,19 +407,22 @@ export default function SettingsPage() {
         </Card>
 
         <Card>
-          <CardHeader title="Storefront" subtitle="Hero copy and feature flags" />
+          <CardHeader title="Storefront" subtitle="Hero copy and feature flags — leave a hero field blank to keep the approved design default" />
           <CardBody className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Field label="Hero headline">
+            <Field label="Hero headline" hint="Blank = the approved design headline shows">
               <Input value={form.heroHeadline} onChange={(e) => update("heroHeadline", e.target.value)} maxLength={120} disabled={!canWrite} />
             </Field>
-            <Field label="Hero CTA link">
+            <Field label="Hero CTA link" hint="Blank = /shop">
               <Input value={form.heroCtaHref} onChange={(e) => update("heroCtaHref", e.target.value)} maxLength={200} disabled={!canWrite} />
             </Field>
-            <Field label="Hero subcopy" className="md:col-span-2">
-              <Textarea value={form.heroSubcopy} onChange={(e) => update("heroSubcopy", e.target.value)} rows={2} maxLength={240} disabled={!canWrite} />
+            <Field label="Hero CTA label" hint="Blank = “Shop All Products”">
+              <Input value={form.heroCtaLabel} onChange={(e) => update("heroCtaLabel", e.target.value)} maxLength={40} disabled={!canWrite} />
             </Field>
-            <Field label="Hero image URL">
+            <Field label="Hero image URL" hint="Self-hosted path (/images/…) or full URL. Blank = the approved hero photo">
               <Input value={form.heroImage} onChange={(e) => update("heroImage", e.target.value)} maxLength={600} disabled={!canWrite} />
+            </Field>
+            <Field label="Hero subcopy" className="md:col-span-2" hint="Blank = the approved design subcopy shows">
+              <Textarea value={form.heroSubcopy} onChange={(e) => update("heroSubcopy", e.target.value)} rows={2} maxLength={240} disabled={!canWrite} />
             </Field>
             <div className="space-y-3">
               <Checkbox

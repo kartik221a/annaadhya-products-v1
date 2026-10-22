@@ -34,11 +34,11 @@ const POLICIES: Record<string, { title: string; updated: string; body: string[] 
     updated: "2026-10-19",
     body: [
       "**DRAFT — NOT LEGALLY REVIEWED. Must be reviewed against the Digital Personal Data Protection Act, 2023 and final data flows before launch.**",
-      "What we collect: your name, contact details, delivery addresses and order history — only what is needed to fulfil your orders and support you. Sign-in is handled by Google Firebase Authentication; we never store passwords. If you sign in with Google or phone OTP, we receive your verified identifier and basic profile.",
+      "What we collect: your name, contact details, delivery addresses and order history — only what is needed to fulfil your orders and support you. Sign-in is handled by Google Firebase Authentication; we never store passwords. If you sign in with Google or by email, we receive your verified identifier and basic profile.",
       "How we use it: to process orders, arrange delivery, provide support, prevent fraud, and — only with your explicit opt-in — to send occasional product news. You can opt out anytime from your account.",
       "Who we share it with: payment gateways (to process payments), courier partners (to deliver), and infrastructure providers (Firebase, hosting). We do not sell your personal data. Ever.",
       "Data location & retention: business records are stored in Google Cloud Firestore. We keep order records for statutory accounting periods; you may request deletion of your profile and non-transactional data from your account page, subject to identity verification.",
-      "Contact for privacy requests: support@annaadhya.example (placeholder — the business confirms its official support address before launch).",
+      "Contact for privacy requests: use the message form on our contact page — every enquiry is recorded and reviewed. Our official support address will be published there once the business confirms it.",
     ],
   },
   terms: {

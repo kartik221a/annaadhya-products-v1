@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { getBestsellers, getCategories, getFeatured, getProduct } from "@/lib/api";
+import { getBestsellers, getCategories, getFeatured, getProduct, getPublicSettings } from "@/lib/api";
 import { formatINR, minVariantPricePaise } from "@/lib/format";
 import { ProductGrid, ProductCardSkeleton } from "@/components/product-card";
 import { NewsletterForm } from "@/components/newsletter-form";
@@ -78,11 +78,24 @@ const TRUST = [
 ] as const;
 
 export default async function HomePage() {
-  const [categories, featured, bestsellers] = await Promise.all([
+  const [categories, featured, bestsellers, settings] = await Promise.all([
     getCategories(),
     getFeatured(),
     getBestsellers(),
+    getPublicSettings(),
   ]);
+
+  // Owner-controlled hero copy + feature flags (Admin → Settings). Blank strings
+  // mean "use the approved design default"; null settings (API offline during
+  // build/preview) keep the fully-designed hero and both sections visible.
+  const sf = settings?.storefront;
+  const heroHeadline = sf?.heroHeadline?.trim() ?? "";
+  const heroSubcopy = sf?.heroSubcopy?.trim() ?? "";
+  const heroImage = sf?.heroImage?.trim() ?? "";
+  const heroCtaHref = sf?.heroCtaHref?.trim() || "/shop";
+  const heroCtaLabel = sf?.heroCtaLabel?.trim() || "Shop All Products";
+  const newsletterEnabled = sf?.newsletterEnabled ?? true;
+  const giftCollectionEnabled = sf?.giftCollectionEnabled ?? true;
   const products = featured.length > 0 ? featured : bestsellers;
   const showcase = products.slice(0, 4);
   const apiOffline = categories.length === 0 && featured.length === 0 && bestsellers.length === 0;
@@ -112,18 +125,24 @@ export default async function HomePage() {
                   A Little Tradition. A Lot of Goodness.
                 </span>
               </div>
-              <h1 className="font-display text-display-lg-mobile lg:text-display-lg tracking-tight text-on-surface">
-                Nature&rsquo;s Richness, <br />
-                <span className="font-normal italic text-primary-container">Brought Home.</span>
-              </h1>
+              {heroHeadline ? (
+                <h1 className="font-display text-display-lg-mobile lg:text-display-lg tracking-tight text-on-surface">
+                  {heroHeadline}
+                </h1>
+              ) : (
+                <h1 className="font-display text-display-lg-mobile lg:text-display-lg tracking-tight text-on-surface">
+                  Nature&rsquo;s Richness, <br />
+                  <span className="font-normal italic text-primary-container">Brought Home.</span>
+                </h1>
+              )}
               <p className="max-w-xl text-body-lg leading-relaxed text-on-surface-variant">
-                Discover thoughtfully chosen honey, fragrant Kashmiri kesar, and premium dry fruits
-                curated for everyday family rituals, festive tables, and timeless gifting.
+                {heroSubcopy ||
+                  "Discover thoughtfully chosen honey, fragrant Kashmiri kesar, and premium dry fruits curated for everyday family rituals, festive tables, and timeless gifting."}
               </p>
 
               <div className="flex flex-wrap items-center gap-space-md pt-space-xs">
-                <Link href="/shop" className="btn-primary group inline-flex items-center justify-center gap-space-sm px-8 py-3.5 text-label-lg">
-                  <span>Shop All Products</span>
+                <Link href={heroCtaHref} className="btn-primary group inline-flex items-center justify-center gap-space-sm px-8 py-3.5 text-label-lg">
+                  <span>{heroCtaLabel}</span>
                   <IconArrowRight size={18} className="transition-transform duration-300 group-hover:translate-x-1" />
                 </Link>
                 <Link href="/about" className="inline-flex items-center justify-center rounded-sm bg-surface-container-low px-7 py-3.5 text-label-lg font-semibold text-primary shadow-sm transition-all duration-300 hover:bg-surface-container-high">
@@ -160,15 +179,25 @@ export default async function HomePage() {
                 <div className="absolute -inset-4 rotate-2 rounded-t-[140px] rounded-b-3xl bg-surface-container-high" aria-hidden />
                 {/* Arch-shaped luxury image frame */}
                 <div className="relative overflow-hidden rounded-t-[130px] rounded-b-2xl bg-surface-container shadow-xl">
-                  <Image
-                    src="/images/hero-pantry-still-life.webp"
-                    alt="Annaadhya artisanal raw honey, saffron and premium nuts arranged on handmade paper"
-                    width={1200}
-                    height={896}
-                    priority
-                    sizes="(max-width: 1024px) 90vw, 44vw"
-                    className="h-[320px] w-full object-cover object-center transition-transform duration-700 hover:scale-105 sm:h-[400px] lg:h-[480px]"
-                  />
+                  {heroImage && !heroImage.startsWith("/") ? (
+                    // Owner-configured external hero URL renders as-is (unoptimized);
+                    // self-hosted paths below go through the next/image optimizer.
+                    <img
+                      src={heroImage}
+                      alt="Featured selection from the Annaadhya pantry"
+                      className="h-[320px] w-full object-cover object-center transition-transform duration-700 hover:scale-105 sm:h-[400px] lg:h-[480px]"
+                    />
+                  ) : (
+                    <Image
+                      src={heroImage || "/images/hero-pantry-still-life.webp"}
+                      alt={heroImage || "Annaadhya artisanal raw honey, saffron and premium nuts arranged on handmade paper"}
+                      width={1200}
+                      height={896}
+                      priority
+                      sizes="(max-width: 1024px) 90vw, 44vw"
+                      className="h-[320px] w-full object-cover object-center transition-transform duration-700 hover:scale-105 sm:h-[400px] lg:h-[480px]"
+                    />
+                  )}
                   <div className="absolute inset-0 bg-gradient-to-t from-inverse-surface/40 via-transparent to-transparent" aria-hidden />
                 </div>
                 {/* Heritage pill badge */}
@@ -375,7 +404,8 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ---------------- Premium gifting banner ---------------- */}
+      {/* ---------------- Premium gifting banner (feature-flagged in settings) ---------------- */}
+      {giftCollectionEnabled && (
       <section className="relative w-full overflow-hidden bg-primary-container py-space-xl text-on-primary lg:py-24">
         <div className="pointer-events-none absolute -bottom-32 -left-32 h-96 w-96 rounded-full bg-on-tertiary-container/10 blur-3xl" aria-hidden />
         <div className="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full bg-surface-container-lowest/5 blur-3xl" aria-hidden />
@@ -450,8 +480,10 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+      )}
 
-      {/* ---------------- Newsletter ---------------- */}
+      {/* ---------------- Newsletter (feature-flagged in settings) ---------------- */}
+      {newsletterEnabled && (
       <section className="w-full bg-background py-space-xl lg:py-24">
         <div className="mx-auto max-w-4xl px-margin-mobile lg:px-margin">
           <div className="rounded-2xl bg-surface-container-low p-space-xl text-center shadow-sm lg:p-16">
@@ -469,6 +501,7 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+      )}
     </div>
   );
 }

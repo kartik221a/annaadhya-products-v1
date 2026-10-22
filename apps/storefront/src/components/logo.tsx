@@ -7,10 +7,14 @@ export function Logo({
   height = 36,
   withWordmark = true,
   dark = false,
+  compactOnMobile = false,
 }: {
   height?: number;
   withWordmark?: boolean;
   dark?: boolean;
+  /** Hide the wordmark below the sm breakpoint (icon-only brand mark). Used by the
+   *  sticky header so the lockup can never force horizontal overflow on phones. */
+  compactOnMobile?: boolean;
 }) {
   return (
     <Link href="/" className="flex items-center gap-2.5" aria-label="Annaadhya Products home">
@@ -24,7 +28,7 @@ export function Logo({
         style={{ height, width: "auto" }}
       />
       {withWordmark && (
-        <span className="leading-tight">
+        <span className={`leading-tight ${compactOnMobile ? "hidden sm:block" : ""}`}>
           <span
             className={`font-display block font-bold tracking-tight text-[1.1rem] leading-6 sm:text-[1.375rem] sm:leading-7 ${
               dark ? "text-primary-container" : "text-primary"

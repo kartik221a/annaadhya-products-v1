@@ -115,5 +115,5 @@ export async function getPlatformStatus(): Promise<{
 /** Whitelisted store settings (support email/phone, address, socials) — powers the
  *  contact page. Null when the API is offline; callers render honest fallbacks. */
 export async function getPublicSettings(): Promise<PublicStoreSettings | null> {
-  return apiGet<PublicStoreSettings>("/settings/public", 300);
+  return apiGet<PublicStoreSettings>("/settings/public", 120);
 }

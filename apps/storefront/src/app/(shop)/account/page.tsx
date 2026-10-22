@@ -11,8 +11,13 @@ export const metadata: Metadata = {
  *  concierge card, then hands off to the client view for session-scoped data. */
 export default async function AccountPage() {
   const settings = await getPublicSettings();
+  // A `.example` address is the seeded placeholder — it must never reach the UI as
+  // a real contact, otherwise the concierge card renders a mailto link that cannot
+  // deliver. Same truth discipline as the contact page.
+  const storeEmail = settings?.store.supportEmail?.trim() ?? "";
+  const realEmail = storeEmail && !/\.example$/i.test(storeEmail) ? storeEmail : "";
   const support: SupportContacts | null = settings
-    ? { email: settings.store.supportEmail, phone: settings.store.supportPhone }
+    ? { email: realEmail, phone: settings.store.supportPhone }
     : null;
   return <AccountView support={support} />;
 }

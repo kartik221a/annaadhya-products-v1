@@ -47,6 +47,11 @@ export class SettingsService {
       storefront: {
         newsletterEnabled: s.storefront.newsletterEnabled,
         giftCollectionEnabled: s.storefront.giftCollectionEnabled,
+        heroHeadline: s.storefront.heroHeadline ?? "",
+        heroSubcopy: s.storefront.heroSubcopy ?? "",
+        heroImage: s.storefront.heroImage ?? undefined,
+        heroCtaHref: s.storefront.heroCtaHref ?? "",
+        heroCtaLabel: s.storefront.heroCtaLabel ?? undefined,
       },
       shipping: {
         mode: s.shipping.mode,
