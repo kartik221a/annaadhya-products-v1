@@ -13,6 +13,7 @@ import { useToast } from "@/lib/toast";
 import type { CategoryDoc, ProductStatus, ProductUpsertPayload, ProductWithVariants, VariantUpsertPayload } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Field, Input, Select, Textarea } from "@/components/ui/form";
+import { MediaUploader } from "@/components/products/media-uploader";
 
 const SKU_PATTERN = /^[A-Z0-9][A-Z0-9\-_.]{2,40}$/;
 
@@ -90,6 +91,10 @@ interface ImageRow {
   key: string;
   url: string;
   alt: string;
+  /** Present when the image came through the Cloudinary media flow — kept for provenance. */
+  cloudinaryPublicId?: string;
+  width?: number;
+  height?: number;
 }
 
 export type { VariantRow };
@@ -194,7 +199,14 @@ export function docVariantsToRows(doc: ProductWithVariants): VariantRow[] {
 
 /** Rows of an existing doc's images as editable rows. */
 export function docImagesToRows(doc: ProductWithVariants): ImageRow[] {
-  return (doc.images ?? []).map((img, i) => ({ key: `img${i}`, url: img.url, alt: img.alt ?? "" }));
+  return (doc.images ?? []).map((img, i) => ({
+    key: `img${i}`,
+    url: img.url,
+    alt: img.alt ?? "",
+    ...(img.cloudinaryPublicId ? { cloudinaryPublicId: img.cloudinaryPublicId } : {}),
+    ...(img.width ? { width: img.width } : {}),
+    ...(img.height ? { height: img.height } : {}),
+  }));
 }
 
 export function emptyImageRow(): ImageRow {
@@ -321,7 +333,13 @@ export function useProductSubmit() {
       status: form.status,
       images: imageRows
         .filter((img) => img.url.trim() !== "")
-        .map((img) => ({ url: img.url.trim(), alt: img.alt.trim() })),
+        .map((img) => ({
+          url: img.url.trim(),
+          alt: img.alt.trim(),
+          ...(img.cloudinaryPublicId ? { cloudinaryPublicId: img.cloudinaryPublicId } : {}),
+          ...(img.width ? { width: img.width } : {}),
+          ...(img.height ? { height: img.height } : {}),
+        })),
       ingredients: form.ingredients.trim() || undefined,
       netQuantityLabel: form.netQuantityLabel.trim() || undefined,
       storageInstructions: form.storageInstructions.trim() || undefined,
@@ -600,19 +618,39 @@ export function ProductForm({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="font-display text-base font-semibold text-ink">Images</h2>
-            <p className="text-xs text-ink/55">Ordered image URLs (uploaded via the media flow, pasted here).</p>
+            <p className="text-xs text-ink/55">Upload files straight to image hosting, or paste hosted URLs. First image is the cover.</p>
           </div>
-          <Button variant="outline" size="sm" onClick={() => setImageRows((rows) => [...rows, emptyImageRow()])}>
-            + Add image
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <MediaUploader
+              onUploaded={(media) =>
+                setImageRows((rows) => [
+                  ...rows,
+                  { key: `i${Math.random().toString(36).slice(2, 9)}`, url: media.url, alt: "", cloudinaryPublicId: media.publicId, ...(media.width ? { width: media.width } : {}), ...(media.height ? { height: media.height } : {}) },
+                ])
+              }
+            >
+              + Upload image
+            </MediaUploader>
+            <Button variant="outline" size="sm" onClick={() => setImageRows((rows) => [...rows, emptyImageRow()])}>
+              + Add URL
+            </Button>
+          </div>
         </div>
         <div className="mt-4 space-y-3">
           {imageRows.map((img) => (
             <div key={img.key} className="flex flex-col gap-2 sm:flex-row sm:items-end">
-              <Field label="Image URL" className="flex-1">
+              <Field
+                label="Image URL"
+                className="flex-1"
+                hint={img.cloudinaryPublicId ? "Hosted asset ✓" : undefined}
+              >
                 <Input
                   value={img.url}
-                  onChange={(e) => setImageRows((rows) => rows.map((r) => (r.key === img.key ? { ...r, url: e.target.value } : r)))}
+                  onChange={(e) =>
+                    setImageRows((rows) =>
+                      rows.map((r) => (r.key === img.key ? { ...r, url: e.target.value, cloudinaryPublicId: r.url === e.target.value ? r.cloudinaryPublicId : undefined } : r)),
+                    )
+                  }
                   placeholder="https://res.cloudinary.com/…"
                 />
               </Field>
@@ -623,6 +661,20 @@ export function ProductForm({
                   placeholder="Honey jar with dipper"
                 />
               </Field>
+              <MediaUploader
+                variant="ghost"
+                onUploaded={(media) =>
+                  setImageRows((rows) =>
+                    rows.map((r) =>
+                      r.key === img.key
+                        ? { ...r, url: media.url, cloudinaryPublicId: media.publicId, ...(media.width ? { width: media.width } : {}), ...(media.height ? { height: media.height } : {}) }
+                        : r,
+                    ),
+                  )
+                }
+              >
+                Upload
+              </MediaUploader>
               <Button
                 variant="ghost"
                 size="sm"
@@ -633,7 +685,7 @@ export function ProductForm({
               </Button>
             </div>
           ))}
-          {imageRows.length === 0 ? <p className="rounded-md bg-cream p-3 text-sm text-ink/60">No images yet.</p> : null}
+          {imageRows.length === 0 ? <p className="rounded-md bg-cream p-3 text-sm text-ink/60">No images yet — upload the first photo above.</p> : null}
         </div>
       </section>
 

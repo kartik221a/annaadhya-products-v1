@@ -17,6 +17,9 @@ export interface UploadSignature {
   timestamp: number;
   signature: string;
   folder: string;
+  /** Signed eager transformation — MUST be sent verbatim in the upload form or
+   *  Cloudinary rejects the whole request with "Invalid signature". */
+  eager: string;
   uploadUrl: string;
   constraints: { maxFileSizeMb: number; allowedFormats: string[] };
 }
@@ -43,6 +46,7 @@ export class MediaService {
       timestamp,
       signature,
       folder,
+      eager,
       uploadUrl: `https://api.cloudinary.com/v1_1/${this.env.CLOUDINARY_CLOUD_NAME}/image/upload`,
       constraints: { maxFileSizeMb: 10, allowedFormats: ["jpg", "jpeg", "png", "webp", "avif"] },
     };

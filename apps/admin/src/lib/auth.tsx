@@ -62,6 +62,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [mode, setMode] = useState<PlatformMode | null>(null);
 
+  const refreshMode = useCallback(async () => {
+    try {
+      const status = await apiGet<{ mode?: PlatformMode }>("/auth/platform-status");
+      if (status?.mode) setMode(status.mode);
+    } catch {
+      setMode(null);
+    }
+  }, []);
+
   // Session restore. Firebase builds restore from the Firebase SDK session (survives new
   // tabs via its own persistence); mock builds restore from sessionStorage as before.
   useEffect(() => {
@@ -97,7 +106,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         } else {
           const stored = getStoredPrincipal();
-          if (stored && getToken()) setPrincipal(stored);
+          if (stored && getToken()) {
+            setPrincipal(stored);
+            // Dev-token sessions have no SDK session to re-verify against, so the
+            // platform mode descriptor (e.g. cloudinaryConfigured) must be re-fetched
+            // after every full page navigation — otherwise server-config surfaces go stale.
+            void refreshMode();
+          }
         }
       } finally {
         if (!cancelled) setReady(true);
@@ -106,7 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshMode]);
 
   // Keep the stored bearer token fresh — Firebase ID tokens expire after ~1 hour and the
   // API verifies the token on every call. Only touches an existing session; logout clears it.
@@ -125,15 +140,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     })();
     return () => unsub?.();
-  }, []);
-
-  const refreshMode = useCallback(async () => {
-    try {
-      const status = await apiGet<{ mode?: PlatformMode }>("/auth/platform-status");
-      if (status?.mode) setMode(status.mode);
-    } catch {
-      setMode(null);
-    }
   }, []);
 
   const loginDev = useCallback(
