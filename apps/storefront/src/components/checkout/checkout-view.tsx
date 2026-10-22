@@ -13,6 +13,9 @@
  *   → /checkout/status?order=…&result=…&attemptId=… (polls the attempt)
  *
  * Honesty rules encoded here:
+ *  - no guest purchase: placing an order requires an Annaadhya account (Google or
+ *    email). Browsing, basket and wishlist stay open to everyone — the checkout
+ *    gate only guards the paying step, and the basket survives the sign-in round-trip
  *  - no fabricated delivery dates, "verified PIN" badges, GST rows, coupons or
  *    calligraphy-note services — only what the backend actually computes
  *  - mock mode is labelled as demo mode; Razorpay copy appears only when Razorpay
@@ -514,6 +517,13 @@ export function CheckoutView() {
     );
   }
 
+  // No guest purchase: an account (Google or email) is required to place an order.
+  // Browsing stays open — this gate guards only the paying step, and the basket
+  // survives the sign-in round-trip via ?next=/checkout.
+  if (!auth.principal) {
+    return <CheckoutSignInGate />;
+  }
+
   return (
     <div className="mx-auto w-full max-w-[1320px] px-margin-mobile py-space-lg lg:px-margin lg:py-space-xl">
       <header className="mb-space-lg lg:mb-space-xl">
@@ -663,18 +673,6 @@ export function CheckoutView() {
               </div>
             )}
 
-            {/* Guest sign-in hint — shown alongside their open delivery form */}
-            {!auth.customer && !auth.principal && (
-              <div className="mb-4 rounded-xl bg-surface-container p-4">
-                <p className="text-body-sm text-on-surface-variant">
-                  Checking out as a guest.{" "}
-                  <Link href="/account/login?next=/checkout" className="font-semibold text-primary underline underline-offset-2">
-                    Sign in
-                  </Link>{" "}
-                  to use your saved addresses — your basket stays with you.
-                </p>
-              </div>
-            )}
             {!auth.customer && auth.principal && (
               <div className="mb-4 rounded-xl bg-surface-container p-4">
                 <p className="text-body-sm text-on-surface-variant">
@@ -894,17 +892,10 @@ export function CheckoutView() {
                       />
                       <span className="text-body-sm text-on-surface">Save this address to my profile</span>
                     </label>
-                  ) : auth.principal ? (
+                  ) : (
                     <p className="text-body-sm text-on-surface-variant">
                       Your saved address book is unavailable right now — you can still check out with the address you
                       enter here.
-                    </p>
-                  ) : (
-                    <p className="text-body-sm text-on-surface-variant">
-                      <Link href="/account/login?next=/checkout" className="font-semibold text-primary underline underline-offset-2">
-                        Sign in
-                      </Link>{" "}
-                      to save addresses to your profile.
                     </p>
                   )}
                   {auth.customer && (
@@ -1212,6 +1203,132 @@ export function CheckoutView() {
           </div>
         </aside>
       </form>
+    </div>
+  );
+}
+
+/* ------------------ sign-in gate — no guest purchase ----------------------- */
+/**
+ * Shown instead of the checkout form when no account session exists. Browsing stays
+ * open to everyone; only the paying step requires an account (Google or email).
+ * A successful Google sign-in right here swaps the gate for the checkout form —
+ * the basket never left. Email users round-trip through /account/login?next=/checkout.
+ */
+
+function IconGoogle() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0" aria-hidden="true">
+      <path
+        fill="#4285F4"
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+      />
+    </svg>
+  );
+}
+
+function CheckoutSignInGate() {
+  const auth = useAuth();
+  const [googleBusy, setGoogleBusy] = useState(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
+
+  function continueWithGoogle() {
+    if (googleBusy) return;
+    setGoogleBusy(true);
+    setGoogleError(null);
+    auth
+      .signInGoogle()
+      .catch((err: { code?: string; message?: string }) => {
+        const code = err?.code ?? "";
+        setGoogleError(
+          code.includes("popup-closed")
+            ? "The Google window closed before sign-in finished. Give it another go whenever you're ready."
+            : code.includes("popup-blocked")
+              ? "Your browser blocked the Google sign-in window. Allow popups for this site, or continue with email below."
+              : code.includes("operation-not-allowed")
+                ? "Google sign-in isn't enabled for this site yet — continue with email below."
+                : code.includes("unauthorized-domain")
+                  ? "This domain isn't authorised for Google sign-in in the Firebase console yet — continue with email below."
+                  : err?.message || "Google sign-in failed just now. You can continue with email in the meantime.",
+        );
+      })
+      .finally(() => setGoogleBusy(false));
+  }
+
+  return (
+    <div className="mx-auto w-full max-w-[1320px] px-margin-mobile py-space-lg lg:px-margin lg:py-space-xl" aria-live="polite">
+      <div className="mx-auto flex max-w-lg flex-col items-center rounded-2xl bg-surface-container-lowest p-space-lg text-center shadow-sm sm:p-space-xl">
+        <span className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary-fixed text-primary">
+          <IconShieldCheck size={28} />
+        </span>
+        <span className="text-label-sm font-bold uppercase tracking-widest text-secondary">Members-only checkout</span>
+        <h1 className="mt-2 font-display text-headline-md tracking-tight text-primary">Sign in to place your order</h1>
+        <p className="mt-3 max-w-md text-body-md text-on-surface-variant">
+          Browsing the pantry is open to everyone — placing an order needs an Annaadhya account. Your basket is
+          saved and will be waiting right here when you return.
+        </p>
+
+        {auth.mode === "firebase" ? (
+          <>
+            <button
+              type="button"
+              onClick={continueWithGoogle}
+              disabled={googleBusy}
+              className="mt-space-lg flex h-12 w-full items-center justify-center gap-3 rounded-lg bg-surface-container-lowest text-[14px] font-semibold tracking-[0.04em] text-on-surface shadow-sm ring-1 ring-outline-variant transition hover:bg-surface-container-low active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              <IconGoogle />
+              {googleBusy ? "Authenticating with Google…" : "Continue with Google"}
+            </button>
+            {googleError && (
+              <p className="mt-3 w-full rounded-lg bg-error-container px-4 py-2.5 text-body-sm text-on-error-container" role="alert">
+                {googleError}
+              </p>
+            )}
+            <div className="relative mt-space-lg flex w-full items-center justify-center" aria-hidden="true">
+              <div className="h-px w-full bg-surface-container-highest" />
+              <span className="absolute bg-surface-container-lowest px-4 text-[11px] font-bold uppercase tracking-[0.08em] text-on-surface-variant">
+                or
+              </span>
+            </div>
+            <Link
+              href="/account/login?next=/checkout"
+              className="btn-primary mt-space-lg flex h-12 w-full items-center justify-center gap-2 rounded-lg px-space-lg text-label-lg shadow-md"
+            >
+              Continue with email
+              <IconArrowRight size={17} />
+            </Link>
+          </>
+        ) : (
+          <>
+            <p className="mt-space-lg w-full rounded-lg bg-surface-container px-4 py-3 text-body-sm text-on-surface-variant">
+              Demo build: Firebase isn&apos;t configured yet, so sign-in runs through the honest dev sign-in on the
+              account page. Your basket stays saved either way.
+            </p>
+            <Link
+              href="/account/login?next=/checkout"
+              className="btn-primary mt-space-md flex h-12 w-full items-center justify-center gap-2 rounded-lg px-space-lg text-label-lg shadow-md"
+            >
+              Go to sign-in
+              <IconArrowRight size={17} />
+            </Link>
+          </>
+        )}
+
+        <Link href="/cart" className="mt-space-lg text-label-md font-semibold text-primary underline underline-offset-2">
+          Back to basket
+        </Link>
+      </div>
     </div>
   );
 }

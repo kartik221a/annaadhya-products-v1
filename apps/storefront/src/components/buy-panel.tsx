@@ -16,6 +16,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/lib/cart";
 import { useWishlist } from "@/lib/wishlist";
+import { useAuth } from "@/lib/auth";
 import { availableQty, formatINR } from "@/lib/format";
 import type { ProductWithVariantsShape, PublicStoreSettings } from "@/lib/types";
 import { IconBadgeCheck, IconCheck, IconHeart, IconShieldCheck, IconShoppingBag, IconTruck } from "./icons";
@@ -28,6 +29,7 @@ export function BuyPanel({
   shipping?: PublicStoreSettings["shipping"] | null;
 }) {
   const router = useRouter();
+  const auth = useAuth();
   const cart = useCart();
   const wishlist = useWishlist();
 
@@ -83,7 +85,9 @@ export function BuyPanel({
   }
 
   function handleBuyNow() {
-    if (addToBag()) router.push("/checkout");
+    // No guest purchase: Buy Now routes through sign-in when there is no session —
+    // the item is already in the basket and /checkout brings it right back.
+    if (addToBag()) router.push(auth.principal ? "/checkout" : "/account/login?next=/checkout");
   }
 
   if (!selected) {

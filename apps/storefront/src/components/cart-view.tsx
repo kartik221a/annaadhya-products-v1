@@ -17,6 +17,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCart, type CartItem } from "@/lib/cart";
 import { useWishlist } from "@/lib/wishlist";
+import { useAuth } from "@/lib/auth";
 import { availableQty, formatINR } from "@/lib/format";
 import { PUBLIC_API_URL } from "@/lib/api";
 import type { ProductWithVariantsShape, PublicStoreSettings } from "@/lib/types";
@@ -58,6 +59,7 @@ const EMPTY_STATE_SHELVES = [
 
 export function CartView({ shipping, crossSell }: { shipping: ShippingPolicy; crossSell: ProductWithVariantsShape[] }) {
   const cart = useCart();
+  const auth = useAuth();
   const wishlist = useWishlist();
 
   const [quote, setQuote] = useState<Quote | null>(null);
@@ -594,7 +596,7 @@ export function CartView({ shipping, crossSell }: { shipping: ShippingPolicy; cr
               </div>
 
               <Link
-                href="/checkout"
+                href={auth.principal ? "/checkout" : "/account/login?next=/checkout"}
                 onClick={(e) => {
                   if (cart.items.length === 0) e.preventDefault();
                 }}
@@ -606,7 +608,10 @@ export function CartView({ shipping, crossSell }: { shipping: ShippingPolicy; cr
 
               <div className="flex items-center gap-space-xs rounded-lg bg-surface-container-low/40 p-space-sm text-body-sm text-on-surface-variant">
                 <IconCheck size={18} className="shrink-0 text-secondary" />
-                <span>The basket is a shopping intent — the server confirms every price, and the final bill is set at checkout.</span>
+                <span>
+                  The basket is a shopping intent — the server confirms every price at checkout, and a free account
+                  (Google or email) is all it takes to place the order. Browsing stays open to everyone.
+                </span>
               </div>
             </div>
           </aside>

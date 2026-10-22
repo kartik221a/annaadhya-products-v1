@@ -213,6 +213,27 @@ describe("order creation — reservations & oversell protection", () => {
     await checkout.createOrder(payload, customer);
     await expect(checkout.createOrder(payload, customer)).rejects.toThrow(/already used/);
   });
+
+  it("refuses guest orders — placing an order requires a signed-in account", async () => {
+    // The route guard rejects tokenless requests before the service is reached;
+    // this asserts the same invariant at the service layer (defence in depth).
+    const quote = await checkout.quote({ items: [{ variantId: findVariant("AN-HNY-001-250G").id, qty: 1 }] });
+    await expect(
+      checkout.createOrder(
+        {
+          quoteId: quote.quoteId,
+          paymentMethod: "gateway",
+          customer: { displayName: "Guest", email: "", phone: "9876543210" },
+          address: address(),
+          acceptTerms: true,
+        },
+        null as never,
+      ),
+    ).rejects.toThrow(/sign in/i);
+    // The quote was never consumed by the refused order.
+    const fresh = await db.get<{ consumed: boolean }>(COLLECTIONS.checkoutQuotes, quote.quoteId);
+    expect(fresh!.consumed).toBe(false);
+  });
 });
 
 describe("payment verification & idempotency", () => {

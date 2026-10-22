@@ -52,7 +52,7 @@ only). Staff roles are resolved server-side from `adminUsers` — never from cli
 | Method | Path | Auth | Notes |
 |---|---|---|---|
 | POST | `/checkout/quote` | public (rate-limited) | `{ items:[{variantId, qty}], pincode? }` → server-priced quote |
-| POST | `/checkout/orders` | optional bearer (guest OK) | `{ quoteId, paymentMethod, customer, address, acceptTerms:true }` → order + client payment payload |
+| POST | `/checkout/orders` | **required bearer** (no guest checkout — order links to the signed-in account) | `{ quoteId, paymentMethod, customer, address, acceptTerms:true }` → order + client payment payload |
 | GET | `/payments/:attemptId/status` | public | poll payment + order state |
 | POST | `/payments/razorpay/verify` | public | Razorpay checkout handshake (signature verified) |
 | POST | `/payments/webhook/:provider` | public | raw-body signature verification; idempotent |

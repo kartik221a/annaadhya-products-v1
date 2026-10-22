@@ -26,16 +26,13 @@ import {
   type CheckoutQuoteDto,
   type AuthPrincipal,
 } from "@annaadhya/contracts";
-import { AppError, badRequest, conflict, gone, notFound, unprocessable, type DataClient } from "@annaadhya/data-core";
+import { AppError, badRequest, conflict, gone, notFound, unauthenticated, unprocessable, type DataClient } from "@annaadhya/data-core";
 import { newId, sumPaise } from "@annaadhya/utils";
 import type { ApiEnv } from "../../config/env";
 import { DATA_CLIENT } from "../../data/data.module";
 import { SettingsService } from "../settings/settings.service";
 import { AuditService } from "../audit/audit.service";
 import type { PaymentProvider, VerifiedEvent } from "../payments/provider.interface";
-
-const CUSTOMER_PRINCIPAL = (p: AuthPrincipal | null) =>
-  p && p.role !== "customer" ? p : p; // staff test orders are recorded as themselves
 
 @Injectable()
 export class CheckoutService {
@@ -118,7 +115,10 @@ export class CheckoutService {
 
   /* ------------------------------ order create ----------------------------- */
 
-  async createOrder(dto: CreateOrderDto, principal: AuthPrincipal | null): Promise<OrderDoc> {
+  async createOrder(dto: CreateOrderDto, principal: AuthPrincipal): Promise<OrderDoc> {
+    // No guest checkout: every order belongs to a signed-in account. The route guard
+    // already enforces the bearer token; this re-check is defence in depth.
+    if (!principal) throw unauthenticated("Sign in to place an order");
     const settings = await this.settings.get();
     const quote = await this.data.get<CheckoutQuoteDoc>(COLLECTIONS.checkoutQuotes, dto.quoteId);
     if (!quote) throw notFound("Checkout quote not found — refresh your cart and try again");
@@ -187,7 +187,7 @@ export class CheckoutService {
     const order: OrderDoc = {
       id: orderId,
       orderNumber,
-      customerUid: principal?.uid,
+      customerUid: principal.uid,
       // Explicit construction (validated non-empty by zod) so the OrderDoc
       // contract holds under both strict and non-strict type-checking.
       customerContact: {
@@ -566,5 +566,3 @@ export class CheckoutService {
     }
   }
 }
-
-export { CUSTOMER_PRINCIPAL };

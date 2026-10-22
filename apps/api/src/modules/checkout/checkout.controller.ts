@@ -9,7 +9,7 @@ import {
   type CheckoutQuoteDto,
   type CreateOrderDto,
 } from "@annaadhya/contracts";
-import { AppError, notFound, type DataClient } from "@annaadhya/data-core";
+import { AppError, notFound, unauthenticated, type DataClient } from "@annaadhya/data-core";
 import { COLLECTIONS, type OrderDoc, type PaymentAttemptDoc } from "@annaadhya/contracts";
 import { CurrentUser, Public, RateLimit } from "../../common/auth/guards";
 import { ZodValidationPipe } from "../../common/validation/zod.pipe";
@@ -41,11 +41,13 @@ export class CheckoutController {
     return this.checkout.quote(dto);
   }
 
-  /** Order creation from a server quote. Guest checkout allowed. */
-  @Public()
+  /** Order creation from a server quote. Requires a signed-in account — browsing is
+   *  open to everyone, purchasing is not (no guest checkout). The AuthGuard enforces
+   *  the bearer token; the service re-checks the principal as defence in depth. */
   @RateLimit(30)
   @Post("checkout/orders")
   async createOrder(@Body(new ZodValidationPipe(createOrderSchema)) dto: CreateOrderDto, @CurrentUser() principal: AuthPrincipal) {
+    if (!principal) throw unauthenticated("Sign in to place an order");
     const order = await this.checkout.createOrder(dto, principal);
     const { clientPaymentPayload, ...orderDoc } = order as OrderDoc & { clientPaymentPayload?: Record<string, unknown> };
     return { order: orderDoc, payment: clientPaymentPayload ?? null };
