@@ -1,9 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getPublicSettings } from "@/lib/api";
+import { POLICIES, POLICY_ORDER, type PolicyDoc } from "@/lib/policies";
+import { PolicyBlockRenderer } from "@/components/policy/policy-blocks";
+import { PolicyToc } from "@/components/policy/policy-toc";
 import {
-  IconCalendar,
-  IconHeadset,
+  IconBadgeCheck,
+  IconChevronRight,
+  IconHouse,
+  IconMail,
   IconPenLine,
   IconRefresh,
   IconShieldCheck,
@@ -11,89 +17,38 @@ import {
 } from "@/components/icons";
 
 /**
- * Policy pages — DRAFT CONTENT with explicit review markers.
- * These drafts must be reviewed/approved by the business before launch.
- * See docs/launch-checklist.md ("Legal & policy review").
+ * Policy pages — the approved Stitch document design (breadcrumb, editorial
+ * header, policy switcher, sticky table of contents, numbered article cards,
+ * related-policies band) wired to the repo's typed content module.
  *
- * Presentation follows the approved heritage design system (M3 tokens, the same
- * page family as /about, /contact and /faq). The legal wording itself is verbatim
- * draft copy — only the business (or its lawyer) may change what a policy says.
+ * Truth rules carried from lib/policies.ts:
+ *  - shipping figures render LIVE from public settings (same source as cart +
+ *    checkout), never hardcoded;
+ *  - no invented contacts, couriers, dates or automation — the help cards
+ *    route to the real contact workflow;
+ *  - the DRAFT review status is stated on every page via the header chips;
+ *  - unknown slugs fall through to the site-wide not-found experience.
  */
-type PolicyMeta = {
-  title: string;
-  /** Short honest summary — used in <meta> descriptions and the sibling cards. */
-  description: string;
-  updated: string;
-  body: string[];
-};
 
-const POLICIES: Record<string, PolicyMeta> = {
-  shipping: {
-    title: "Shipping & Delivery Policy",
-    description:
-      "Dispatch timelines, honest delivery estimates, shipping charges, and what happens if a parcel arrives damaged.",
-    updated: "2026-10-19",
-    body: [
-      "**DRAFT — NOT LEGALLY REVIEWED. Business must confirm shipping partners, rates, SLAs and serviceable pincodes before launch.**",
-      "We currently ship across India. Orders are dispatched within 2–3 working days of payment confirmation. Estimated delivery time after dispatch is 3–7 working days depending on your pincode; this estimate is a planning figure and is shown as guidance only, not a guarantee.",
-      "Shipping charges: a flat fee applies per order, and orders above the free-shipping threshold visible at checkout ship free. The exact figures are configured by the business in admin settings and shown on the checkout page before you pay.",
-      "Some remote pincodes may not be serviceable by our courier partners; if your pincode cannot be served, checkout will tell you before payment.",
-      "For perishable-adjacent goods (honey can crystallise in cold weather; dry fruits are sensitive to heat) we pack to withstand normal transit conditions. If your parcel arrives damaged, contact us within 48 hours with photos and we will make it right.",
-    ],
-  },
-  returns: {
-    title: "Returns, Cancellations & Refunds Policy",
-    description:
-      "How to cancel before dispatch, when returns are accepted for food-safety reasons, and how refunds are processed.",
-    updated: "2026-10-19",
-    body: [
-      "**DRAFT — NOT LEGALLY REVIEWED. Business must confirm the final returns window and refund SLA before launch.**",
-      "Cancellations: you may cancel an unpaid or not-yet-dispatched order from your account page or by contacting support. Prepaid orders that are cancelled before dispatch are refunded in full to the original payment method within 5–7 working days (gateway processing times apply).",
-      "Returns: because these are food products, we accept returns only for genuine quality issues, damaged shipments or wrong items. Contact us within 48 hours of delivery with your order number and photographs. Approved returns are refunded fully including shipping.",
-      "Refunds are recorded through the original payment provider. Depending on your bank, refunds reflect in 5–7 working days. Cash-on-delivery refunds (when enabled) are made by bank transfer to the account you nominate.",
-      "We cannot accept returns for change of mind on opened food products — this protects every customer's food safety.",
-    ],
-  },
-  privacy: {
-    title: "Privacy Policy",
-    description:
-      "What we collect, how it is used to fulfil orders and support you, and the choices you have over your data.",
-    updated: "2026-10-19",
-    body: [
-      "**DRAFT — NOT LEGALLY REVIEWED. Must be reviewed against the Digital Personal Data Protection Act, 2023 and final data flows before launch.**",
-      "What we collect: your name, contact details, delivery addresses and order history — only what is needed to fulfil your orders and support you. Sign-in is handled by Google Firebase Authentication; we never store passwords. If you sign in with Google or by email, we receive your verified identifier and basic profile.",
-      "How we use it: to process orders, arrange delivery, provide support, prevent fraud, and — only with your explicit opt-in — to send occasional product news. You can opt out anytime from your account.",
-      "Who we share it with: payment gateways (to process payments), courier partners (to deliver), and infrastructure providers (Firebase, hosting). We do not sell your personal data. Ever.",
-      "Data location & retention: business records are stored in Google Cloud Firestore. We keep order records for statutory accounting periods; you may request deletion of your profile and non-transactional data from your account page, subject to identity verification.",
-      "Contact for privacy requests: use the message form on our contact page — every enquiry is recorded and reviewed. Our official support address will be published there once the business confirms it.",
-    ],
-  },
-  terms: {
-    title: "Terms & Conditions",
-    description:
-      "The ground rules for ordering from Annaadhya Products — pricing, payments, order acceptance and liability.",
-    updated: "2026-10-19",
-    body: [
-      "**DRAFT — NOT LEGALLY REVIEWED. Business must confirm legal entity name, GST registration status and FSSAI licence details before launch.**",
-      "These terms govern your use of the Annaadhya Products website. By placing an order you confirm you are at least 18 years old and providing accurate information.",
-      "Products: we sell honey, dry fruits and saffron through our website. Product pages describe each item's pack sizes and price. Natural products vary batch to batch in colour, texture and aroma; product pages state what is verified and what is pending verification.",
-      "Pricing & payment: all prices are in Indian Rupees and include applicable taxes where stated. We may update prices; the price shown at checkout is the price you pay. Payments are processed by our payment gateway partner; we do not store card details.",
-      "Orders: an order is accepted when we confirm it after successful payment verification. In the rare case of pricing or stock errors, we will contact you and cancel with a full refund if you choose not to proceed.",
-      "Liability: to the extent permitted by law, our liability for any claim relating to an order is limited to the order value. Nothing limits liability that cannot be limited by law.",
-      "Governing law: these terms are governed by the laws of India; courts at Meerut, Uttar Pradesh have exclusive jurisdiction (to be confirmed by the business).",
-    ],
-  },
-};
-
-const POLICY_ICONS: Record<string, typeof IconTruck> = {
+/** Icons for the switcher chips + aside badge, keyed by policy slug. */
+const SWITCHER_ICONS: Record<PolicyDoc["slug"], typeof IconTruck> = {
   shipping: IconTruck,
   returns: IconRefresh,
   privacy: IconShieldCheck,
   terms: IconPenLine,
 };
 
+function formatReviewDate(iso: string): string {
+  const [y, m, d] = iso.split("-").map((n) => Number(n));
+  const months = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+  ];
+  return `${d} ${months[m - 1]} ${y}`;
+}
+
 export function generateStaticParams() {
-  return Object.keys(POLICIES).map((slug) => ({ slug }));
+  return POLICY_ORDER.map((slug) => ({ slug }));
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -112,140 +67,213 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   };
 }
 
-/** Minimal **bold** renderer for the draft bodies. DRAFT markers carry the error
- *  tone so "not legally reviewed" can never read as settled copy. */
-function renderInline(text: string) {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
-  return parts.map((p, i) =>
-    p.startsWith("**") && p.endsWith("**") ? (
-      <strong key={i} className={p.includes("DRAFT") ? "font-semibold text-error" : "font-semibold text-on-surface"}>
-        {p.slice(2, -2)}
-      </strong>
-    ) : (
-      <span key={i}>{p}</span>
-    ),
-  );
-}
-
 export default async function PolicyPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const policy = POLICIES[slug];
+  const policy: PolicyDoc | undefined = POLICIES[slug];
   if (!policy) notFound();
 
-  const siblings = Object.entries(POLICIES).filter(([key]) => key !== slug);
+  const settings = await getPublicSettings();
+  const shipping = settings?.shipping ?? null;
+  const siblings = POLICY_ORDER.filter((s) => s !== policy.slug).map((s) => POLICIES[s]);
+  const tocItems = policy.sections.map((section) => ({ id: section.id, label: section.toc ?? section.title }));
+  const contactHref = policy.contactEnquiry
+    ? `/contact?enquiry=${encodeURIComponent(policy.contactEnquiry)}#contact-form-section`
+    : "/contact";
 
   return (
     <div className="bg-surface">
-      {/* ==================== HEADER ==================== */}
-      <section className="relative overflow-hidden">
+      {/* ==================== EDITORIAL HEADER ==================== */}
+      <div className="relative w-full overflow-hidden">
         <div
-          className="pointer-events-none absolute inset-0 bg-gradient-to-b from-surface-container-low/70 via-surface to-surface"
+          className="pointer-events-none absolute -top-24 left-1/2 h-[340px] w-[1000px] -translate-x-1/2 bg-gradient-to-b from-surface-container via-surface-container-low/40 to-transparent blur-3xl"
           aria-hidden
         />
-        <div className="relative mx-auto flex max-w-3xl flex-col items-center px-margin-mobile pb-space-lg pt-space-lg text-center lg:pt-space-xl">
-          {/* Eyebrow with antique-gold motifs (same family as /faq) */}
-          <div className="mb-3 flex items-center gap-3">
-            <svg className="h-2 w-6 text-tertiary-fixed-dim" viewBox="0 0 24 8" fill="currentColor" aria-hidden>
-              <circle cx="2" cy="4" r="2" />
-              <rect x="8" y="3.25" width="16" height="1.5" rx="0.75" />
-            </svg>
-            <span className="text-label-sm font-bold uppercase tracking-[0.25em] text-tertiary-container">
-              Store policies
-            </span>
-            <svg className="h-2 w-6 text-tertiary-fixed-dim" viewBox="0 0 24 8" fill="currentColor" aria-hidden>
-              <rect x="0" y="3.25" width="16" height="1.5" rx="0.75" />
-              <circle cx="22" cy="4" r="2" />
-            </svg>
-          </div>
-          <h1 className="font-display text-headline-lg-mobile font-semibold text-on-surface lg:text-headline-lg">
-            {policy.title}
-          </h1>
-          <div className="mt-space-md flex flex-wrap items-center justify-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-container-high px-3 py-1 text-label-md text-on-surface-variant">
-              <IconCalendar size={14} aria-hidden />
-              Last reviewed {policy.updated}
-            </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-tertiary-fixed px-3 py-1 text-label-md text-on-tertiary-fixed-variant">
-              <IconPenLine size={14} aria-hidden />
-              Draft pending business review
-            </span>
-          </div>
-        </div>
-      </section>
+        <section className="mx-auto w-full max-w-7xl px-margin-mobile pb-6 pt-6 lg:px-margin">
+          {/* Breadcrumb */}
+          <nav
+            aria-label="Breadcrumb"
+            className="mb-space-lg flex flex-wrap items-center gap-space-xs font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant"
+          >
+            <Link href="/" className="flex items-center gap-1 transition-colors hover:text-primary">
+              <IconHouse size={14} aria-hidden />
+              <span>Home</span>
+            </Link>
+            <span className="font-light text-outline-variant" aria-hidden>/</span>
+            <span>Policies</span>
+            <span className="font-light text-outline-variant" aria-hidden>/</span>
+            <span className="font-bold text-primary">{policy.title}</span>
+          </nav>
 
-      {/* ==================== DRAFT NOTICE ==================== */}
-      <section aria-label="Draft notice" className="px-margin-mobile lg:px-margin">
-        <div className="mx-auto max-w-3xl">
-          <div className="flex items-start gap-3 rounded-md border border-tertiary-fixed-dim bg-tertiary-fixed/40 p-space-md">
-            <IconPenLine size={20} className="mt-0.5 shrink-0 text-on-tertiary-fixed-variant" aria-hidden />
-            <p className="text-body-sm leading-relaxed text-on-tertiary-fixed-variant">
-              <strong className="font-semibold">Draft notice:</strong> this page is editable draft content. It has
-              not been reviewed by the business or a lawyer. All business details shown are placeholders pending
-              approval — see the launch checklist in the project repository.
-            </p>
+          {/* Editorial heading */}
+          <div className="flex flex-col justify-between gap-space-lg lg:flex-row lg:items-end">
+            <div className="max-w-3xl">
+              <span className="mb-space-xs inline-flex items-center gap-2 font-label-sm text-label-sm font-bold uppercase tracking-widest text-primary-container">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary-container" aria-hidden />
+                Our Policies • {policy.eyebrowTopic}
+              </span>
+              <h1 className="mb-space-sm mt-1 font-display text-headline-lg-mobile font-semibold tracking-tight text-primary lg:text-headline-lg">
+                {policy.title}
+              </h1>
+              <p className="max-w-2xl font-body-lg text-body-lg leading-relaxed text-on-surface-variant">
+                {policy.lede}
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              <span className="flex items-center gap-space-sm rounded-lg bg-surface-container-low px-space-md py-space-sm shadow-sm">
+                <IconBadgeCheck size={20} className="text-secondary" aria-hidden />
+                <span className="flex flex-col">
+                  <span className="font-label-sm text-label-sm uppercase text-on-surface-variant">Last reviewed</span>
+                  <span className="font-label-md text-label-md text-on-surface">{formatReviewDate(policy.updated)}</span>
+                </span>
+              </span>
+              <span className="flex items-center gap-1.5 rounded-lg bg-tertiary-fixed px-space-md py-space-sm">
+                <IconPenLine size={16} className="text-on-tertiary-fixed-variant" aria-hidden />
+                <span className="font-label-md text-label-md text-on-tertiary-fixed-variant">
+                  Draft pending business review
+                </span>
+              </span>
+            </div>
           </div>
-        </div>
-      </section>
 
-      {/* ==================== BODY ==================== */}
-      <article className="px-margin-mobile py-space-lg lg:px-margin">
-        <div className="mx-auto max-w-3xl space-y-space-md">
-          {policy.body.map((para, i) => (
-            <p key={i} className="text-body-md leading-relaxed text-on-surface-variant">
-              {renderInline(para)}
-            </p>
-          ))}
-        </div>
-      </article>
-
-      {/* ==================== OTHER POLICIES ==================== */}
-      <section aria-label="Other store policies" className="px-margin-mobile pb-space-lg lg:px-margin">
-        <div className="mx-auto max-w-3xl">
-          <h2 className="font-display text-headline-sm text-on-surface">Other store policies</h2>
-          <div className="mt-space-md grid grid-cols-1 gap-space-md sm:grid-cols-3">
-            {siblings.map(([siblingSlug, sibling]) => {
-              const SiblingIcon = POLICY_ICONS[siblingSlug];
+          {/* Quick policy switcher */}
+          <div className="flex items-center gap-space-xs overflow-x-auto py-space-md">
+            {POLICY_ORDER.map((s) => {
+              const doc = POLICIES[s];
+              const active = s === policy.slug;
+              const Icon = SWITCHER_ICONS[s];
               return (
                 <Link
-                  key={siblingSlug}
-                  href={`/policies/${siblingSlug}`}
-                  className="card-soft group flex items-start gap-3 p-space-md transition-shadow hover:shadow-lg"
+                  key={s}
+                  href={`/policies/${s}`}
+                  aria-current={active ? "page" : undefined}
+                  className={`flex shrink-0 items-center gap-1.5 rounded-full px-space-md py-space-xs font-label-md text-label-md tracking-wider transition-colors ${
+                    active
+                      ? "bg-primary text-on-primary shadow-sm"
+                      : "bg-surface-container text-on-surface hover:bg-surface-container-high"
+                  }`}
                 >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-container-high text-primary-container">
-                    <SiblingIcon size={20} aria-hidden />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-label-lg font-semibold text-on-surface transition-colors group-hover:text-primary">
-                      {sibling.title}
-                    </span>
-                    <span className="mt-1 block text-body-sm leading-relaxed text-on-surface-variant">
-                      {sibling.description}
-                    </span>
-                  </span>
+                  {active ? <Icon size={16} aria-hidden /> : null}
+                  <span>{doc.shortLabel}</span>
                 </Link>
               );
             })}
           </div>
+        </section>
+      </div>
+
+      {/* ==================== 2-COLUMN EDITORIAL GRID ==================== */}
+      <section className="mx-auto w-full max-w-7xl px-margin-mobile pb-20 lg:px-margin">
+        <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-12">
+          {/* Left: sticky TOC + concierge plinth */}
+          <aside className="flex flex-col gap-space-lg lg:col-span-4 lg:sticky lg:top-32">
+            <PolicyToc items={tocItems} />
+
+            {/* Help card — routes to the real contact workflow; no invented
+                email/phone/hours, ever. */}
+            <div className="relative overflow-hidden rounded-xl bg-surface-container-low p-space-lg shadow-[0_2px_12px_rgba(39,24,16,0.03)]">
+              <div className="mb-space-sm flex items-center gap-space-sm">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary text-on-secondary">
+                  <IconMail size={18} aria-hidden />
+                </span>
+                <div>
+                  <h2 className="font-display text-[18px] font-semibold leading-snug text-primary">{policy.help.title}</h2>
+                  <p className="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">
+                    {policy.help.kicker}
+                  </p>
+                </div>
+              </div>
+              <p className="mb-space-md font-body-sm text-body-sm leading-relaxed text-on-surface-variant">
+                {policy.help.text}
+              </p>
+              <Link
+                href={contactHref}
+                className="flex items-center gap-2 font-body-sm text-body-sm font-semibold text-primary hover:underline"
+              >
+                <IconMail size={16} className="text-primary-container" aria-hidden />
+                <span>Message us via the contact page</span>
+              </Link>
+              <div className="mt-space-md flex items-center justify-between pt-space-xs font-label-sm text-label-sm text-on-surface-variant">
+                <span>Replies within one working day</span>
+                <span>Monday to Saturday</span>
+              </div>
+            </div>
+
+            {/* Grounded assurance badge (per-policy, from the approved drafts) */}
+            <div className="flex items-center gap-space-sm rounded-lg bg-surface-container-highest p-space-md">
+              {(() => {
+                const Icon = SWITCHER_ICONS[policy.slug];
+                return <Icon size={24} className="shrink-0 text-primary" aria-hidden />;
+              })()}
+              <span className="font-body-sm text-body-sm font-medium leading-tight text-on-surface">
+                {policy.assurance.text}
+              </span>
+            </div>
+          </aside>
+
+          {/* Right: numbered article cards */}
+          <div className="flex max-w-3xl flex-col gap-12 lg:col-span-8">
+            {policy.sections.map((section) => (
+              <article
+                key={section.id}
+                id={section.id}
+                className="scroll-mt-32 rounded-xl bg-surface-container-lowest p-6 shadow-[0_1px_12px_rgba(39,24,16,0.03)] sm:p-8"
+              >
+                <div className="mb-space-xs flex items-center gap-space-xs font-label-sm text-label-sm font-bold uppercase tracking-widest text-primary-container">
+                  <span>{section.eyebrow}</span>
+                </div>
+                <h2 className="mb-space-md font-display font-medium text-primary text-headline-md">{section.title}</h2>
+                <div className="space-y-4 font-body-md text-body-md leading-relaxed text-on-surface">
+                  {section.blocks.map((block, i) => (
+                    <PolicyBlockRenderer key={i} block={block} shipping={shipping} contactHref={contactHref} />
+                  ))}
+                </div>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* ==================== QUESTIONS CTA ==================== */}
-      <section aria-label="Questions about this policy" className="px-margin-mobile pb-space-xl lg:px-margin">
-        <div className="mx-auto max-w-3xl">
-          <div className="card-soft flex flex-col items-center gap-space-md p-space-xl text-center sm:flex-row sm:text-left">
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-surface-container-high text-primary-container">
-              <IconHeadset size={24} aria-hidden />
-            </span>
-            <div className="flex-1">
-              <h2 className="font-display text-headline-sm text-on-surface">Questions about this policy?</h2>
-              <p className="mt-1 text-body-sm leading-relaxed text-on-surface-variant">
-                Write to us through the contact page — every enquiry is recorded, and we reply within one working
-                day, Monday to Saturday.
+      {/* ==================== RELATED POLICIES BAND ==================== */}
+      <section aria-label="Related policies" className="bg-surface-container-low/40 px-margin-mobile py-space-xl lg:px-margin">
+        <div className="mx-auto max-w-7xl">
+          <div className="flex flex-col justify-between gap-space-md sm:flex-row sm:items-end">
+            <div>
+              <p className="font-label-sm text-label-sm font-bold uppercase tracking-[0.25em] text-tertiary-container">
+                Related Policies
               </p>
+              <h2 className="mt-1 font-display text-headline-lg-mobile font-semibold text-primary lg:text-headline-lg">
+                {policy.relatedTitle}
+              </h2>
             </div>
-            <Link href="/contact" className="btn-primary shrink-0 px-5 py-2.5 text-label-lg">
-              Contact us
-            </Link>
+            <p className="max-w-md text-body-sm text-on-surface-variant">
+              Every policy on this site is draft content pending business review — read them together for the full picture.
+            </p>
+          </div>
+          <div className="mt-space-lg grid grid-cols-1 gap-space-md md:grid-cols-3">
+            {siblings.map((sibling) => {
+              const Icon = SWITCHER_ICONS[sibling.slug];
+              return (
+                <Link
+                  key={sibling.slug}
+                  href={`/policies/${sibling.slug}`}
+                  className="card-soft group flex flex-col gap-2 p-space-lg transition-shadow hover:shadow-lg"
+                >
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-container-high text-primary-container">
+                    <Icon size={20} aria-hidden />
+                  </span>
+                  <span className="font-label-lg text-label-lg font-semibold text-on-surface transition-colors group-hover:text-primary">
+                    {sibling.title}
+                  </span>
+                  <span className="flex-1 text-body-sm leading-relaxed text-on-surface-variant">
+                    {sibling.description}
+                  </span>
+                  <span className="mt-1 flex items-center gap-1 font-label-md text-label-md font-semibold text-primary">
+                    Read the policy
+                    <IconChevronRight size={14} aria-hidden />
+                  </span>
+                </Link>
+              );
+            })}
           </div>
         </div>
       </section>
