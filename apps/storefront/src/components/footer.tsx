@@ -35,7 +35,11 @@ export function Footer({ categories }: { categories: { slug: string; name: strin
                   </Link>
                 </li>
               ))}
-              <li><Link className="transition-colors hover:text-primary" href="/category/gift-boxes">Gift Hampers</Link></li>
+              {/* Fallback only: the catalogue already lists Gift Hampers via the API —
+                  render this static link solely when it is absent (API offline / empty). */}
+              {categories.some((c) => c.slug === "gift-boxes") ? null : (
+                <li><Link className="transition-colors hover:text-primary" href="/category/gift-boxes">Gift Hampers</Link></li>
+              )}
             </ul>
           </nav>
 
