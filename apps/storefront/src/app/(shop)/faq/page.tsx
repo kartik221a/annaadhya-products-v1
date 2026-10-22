@@ -33,7 +33,7 @@ const FAQS = [
   },
   {
     q: "How do I create an account?",
-    a: "Click 'Sign in' in the header. You can register with email and password, continue with Google, or sign in with a phone OTP. Guest checkout is also available — an account just makes reordering and tracking easier.",
+    a: "Click 'Sign in' in the header. You can register with email and password, or continue with Google. Guest checkout is also available — an account just makes reordering and tracking easier.",
   },
   {
     q: "Is my payment information safe?",

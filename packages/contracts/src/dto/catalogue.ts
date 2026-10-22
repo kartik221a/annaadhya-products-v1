@@ -1,6 +1,9 @@
 /** Zod DTO schemas for public catalogue + checkout endpoints. */
 import { z } from "zod";
 import { paiseSchema, quantitySchema } from "@annaadhya/utils";
+import { CONTACT_ENQUIRY_TYPES, type ContactEnquiryType } from "../enums";
+
+export { CONTACT_ENQUIRY_TYPES, type ContactEnquiryType };
 
 /** Query params are always strings — coerce to a number before the paise bounds check.
  *  (A bare paiseSchema rejects the string form, which silently broke price filtering.) */
@@ -105,3 +108,28 @@ export const newsletterSubscribeSchema = z.object({
   source: z.string().trim().max(40).optional(),
 });
 export type NewsletterSubscribeDto = z.infer<typeof newsletterSubscribeSchema>;
+
+/* --------------------------------- Contact ---------------------------------- */
+
+/**
+ * Public contact-form submission. `clientRef` is generated once per composed
+ * message in the browser and makes retries idempotent: the backend derives a
+ * deterministic document id from (email, clientRef), so a network-timeout retry
+ * converges on the same document instead of creating a duplicate.
+ */
+export const contactMessageSchema = z.object({
+  clientRef: z.string().trim().regex(/^[A-Za-z0-9_-]{8,64}$/, "Invalid message reference"),
+  fullName: z.string().trim().min(2, "Please enter your full name").max(80),
+  email: z.string().trim().toLowerCase().email({ message: "Enter a valid email address" }).max(254),
+  enquiryType: z.enum(CONTACT_ENQUIRY_TYPES),
+  orderNumber: z
+    .string()
+    .trim()
+    .max(20, "Order number looks too long")
+    .regex(/^[A-Za-z0-9-]*$/, "Letters, numbers and dashes only")
+    .optional()
+    .or(z.literal("")),
+  subject: z.string().trim().max(120).optional().or(z.literal("")),
+  message: z.string().trim().min(10, "Please tell us a little more (at least 10 characters)").max(2000),
+});
+export type ContactMessageDto = z.infer<typeof contactMessageSchema>;

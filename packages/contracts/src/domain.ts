@@ -5,6 +5,7 @@
 import type {
   AccountStatus,
   AdminRole,
+  ContactEnquiryType,
   ExportJobStatus,
   InventoryMovementType,
   OrderStatus,
@@ -149,6 +150,20 @@ export interface NewsletterSubscriberDoc extends BaseDoc {
   source: string; // capture surface, e.g. "footer" | "homepage-hero" | "api"
   customerUid?: string; // set when the subscriber was signed in at capture time
   unsubscribedAt?: number; // epoch millis; set by the (future) unsubscribe workflow
+}
+
+/** Storefront contact-form submission (public, unauthenticated, rate-limited).
+ *  Doc id is deterministic from (email, clientRef) — retries never duplicate.
+ *  There is no email-delivery provider configured; persistence + the audit-log
+ *  entry ARE the delivery workflow until a provider is approved. */
+export interface ContactMessageDoc extends BaseDoc {
+  fullName: string;
+  email: string; // normalized lowercase
+  enquiryType: ContactEnquiryType;
+  orderNumber?: string; // optional, format-loose (letters/digits/dashes)
+  subject?: string;
+  message: string;
+  customerUid?: string; // set when the sender was signed in at submission time
 }
 
 /* ------------------------------------ Orders ---------------------------------- */

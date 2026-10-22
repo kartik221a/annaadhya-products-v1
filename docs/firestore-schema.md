@@ -92,6 +92,18 @@ Public capture via `POST /newsletter/subscribe`; consumed for marketing via Admi
 Newsletter subscribers (.xlsx). No unsubscribe workflow yet — flip the tool's own list hygiene
 until the in-platform flow ships.
 
+### contactMessages
+Storefront /contact form submissions. fullName, email (normalized lowercase), enquiryType
+(one of CONTACT_ENQUIRY_TYPES), orderNumber?, subject?, message, customerUid? (when signed in at
+submission time). Deterministic doc id `cmsg_<sha256(email + "\n" + clientRef)[:24]>` where
+clientRef is generated once per composed message in the browser — retries after a network
+timeout converge on the same document, so duplicate submissions are structurally impossible.
+Public capture via `POST /contact/messages` (@Public, per-IP rate limit 8/window, server-side
+zod validation). No email provider is configured: persistence IS the delivery workflow, and each
+submission writes a `contact.message_received` audit entry (reference + enquiry type only) that
+the owner reads in the existing Admin → Audit log. Message bodies are retrieved by querying this
+collection by document id.
+
 ### suppliers / purchases
 Suppliers: name, phone?, email?, location?, notes?, productSkus[].
 Purchases: supplierId, reference, status (draft|ordered|partially_received|received|cancelled),

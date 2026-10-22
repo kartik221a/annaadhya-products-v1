@@ -9,6 +9,7 @@ export const COLLECTIONS = {
   orders: "orders",
   customers: "customers",
   newsletterSubscribers: "newsletterSubscribers",
+  contactMessages: "contactMessages",
   inventoryMovements: "inventoryMovements",
   stockReservations: "stockReservations",
   suppliers: "suppliers",

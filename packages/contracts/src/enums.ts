@@ -69,3 +69,15 @@ export type SupplierQuoteStatus = "new" | "negotiating" | "accepted" | "rejected
 export type PurchaseStatus = "draft" | "ordered" | "partially_received" | "received" | "cancelled";
 export type ExportJobStatus = "queued" | "running" | "completed" | "failed" | "expired";
 export type RefundStatus = "none" | "initiated" | "completed" | "failed";
+
+/** Enquiry routing options shown on the storefront contact form — validated server-side. */
+export const CONTACT_ENQUIRY_TYPES = [
+  "General Enquiry",
+  "Product Question",
+  "Order Support",
+  "Shipping and Delivery",
+  "Return or Refund",
+  "Gifting or Business Enquiry",
+  "Other",
+] as const;
+export type ContactEnquiryType = (typeof CONTACT_ENQUIRY_TYPES)[number];
