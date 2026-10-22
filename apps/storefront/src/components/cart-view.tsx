@@ -566,12 +566,12 @@ export function CartView({ shipping, crossSell }: { shipping: ShippingPolicy; cr
                 </p>
               )}
               {unavailableNotice && !quoting && (
-                <p className="rounded-lg bg-berry/10 p-2.5 text-body-sm text-berry" role="alert">
+                <p className="rounded-lg bg-error-container p-2.5 text-body-sm text-on-error-container" role="alert">
                   {unavailableNotice}
                 </p>
               )}
               {quoteError && (
-                <p className="rounded-lg bg-berry/10 p-2.5 text-body-sm text-berry" role="alert">
+                <p className="rounded-lg bg-error-container p-2.5 text-body-sm text-on-error-container" role="alert">
                   {quoteError}{" "}
                   <button type="button" className="font-semibold underline" onClick={() => void runQuote()}>
                     Retry

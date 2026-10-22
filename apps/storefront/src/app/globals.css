@@ -72,20 +72,6 @@
   --color-gold-bright: #edc06a;
   --color-gold-deep: #c39a48;
 
-  /* --- Legacy aliases → new palette (pre-redesign pages stay coherent) --- */
-  --color-cream: #fff8f5;
-  --color-cream-deep: #fff1ea;
-  --color-forest: #476554;
-  --color-forest-deep: #3a5244;
-  --color-forest-soft: #5a7b69;
-  --color-honey: #d3a955;
-  --color-honey-deep: #5d4200;
-  --color-saffron: #edc06a;
-  --color-sand: #f9ddce;
-  --color-ink: #271810;
-  --color-ink-soft: #534344;
-  --color-berry: #b66d50; /* terracotta */
-
   /* --- Typography --- */
   --font-display: var(--font-playfair), Georgia, "Times New Roman", serif;
   --font-body: var(--font-jakarta), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;

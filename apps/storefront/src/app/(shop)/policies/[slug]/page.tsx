@@ -1,14 +1,37 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import {
+  IconCalendar,
+  IconHeadset,
+  IconPenLine,
+  IconRefresh,
+  IconShieldCheck,
+  IconTruck,
+} from "@/components/icons";
 
 /**
  * Policy pages — DRAFT CONTENT with explicit review markers.
  * These drafts must be reviewed/approved by the business before launch.
  * See docs/launch-checklist.md ("Legal & policy review").
+ *
+ * Presentation follows the approved heritage design system (M3 tokens, the same
+ * page family as /about, /contact and /faq). The legal wording itself is verbatim
+ * draft copy — only the business (or its lawyer) may change what a policy says.
  */
-const POLICIES: Record<string, { title: string; updated: string; body: string[] }> = {
+type PolicyMeta = {
+  title: string;
+  /** Short honest summary — used in <meta> descriptions and the sibling cards. */
+  description: string;
+  updated: string;
+  body: string[];
+};
+
+const POLICIES: Record<string, PolicyMeta> = {
   shipping: {
     title: "Shipping & Delivery Policy",
+    description:
+      "Dispatch timelines, honest delivery estimates, shipping charges, and what happens if a parcel arrives damaged.",
     updated: "2026-10-19",
     body: [
       "**DRAFT — NOT LEGALLY REVIEWED. Business must confirm shipping partners, rates, SLAs and serviceable pincodes before launch.**",
@@ -20,6 +43,8 @@ const POLICIES: Record<string, { title: string; updated: string; body: string[] 
   },
   returns: {
     title: "Returns, Cancellations & Refunds Policy",
+    description:
+      "How to cancel before dispatch, when returns are accepted for food-safety reasons, and how refunds are processed.",
     updated: "2026-10-19",
     body: [
       "**DRAFT — NOT LEGALLY REVIEWED. Business must confirm the final returns window and refund SLA before launch.**",
@@ -31,6 +56,8 @@ const POLICIES: Record<string, { title: string; updated: string; body: string[] 
   },
   privacy: {
     title: "Privacy Policy",
+    description:
+      "What we collect, how it is used to fulfil orders and support you, and the choices you have over your data.",
     updated: "2026-10-19",
     body: [
       "**DRAFT — NOT LEGALLY REVIEWED. Must be reviewed against the Digital Personal Data Protection Act, 2023 and final data flows before launch.**",
@@ -43,6 +70,8 @@ const POLICIES: Record<string, { title: string; updated: string; body: string[] 
   },
   terms: {
     title: "Terms & Conditions",
+    description:
+      "The ground rules for ordering from Annaadhya Products — pricing, payments, order acceptance and liability.",
     updated: "2026-10-19",
     body: [
       "**DRAFT — NOT LEGALLY REVIEWED. Business must confirm legal entity name, GST registration status and FSSAI licence details before launch.**",
@@ -56,6 +85,13 @@ const POLICIES: Record<string, { title: string; updated: string; body: string[] 
   },
 };
 
+const POLICY_ICONS: Record<string, typeof IconTruck> = {
+  shipping: IconTruck,
+  returns: IconRefresh,
+  privacy: IconShieldCheck,
+  terms: IconPenLine,
+};
+
 export function generateStaticParams() {
   return Object.keys(POLICIES).map((slug) => ({ slug }));
 }
@@ -63,15 +99,28 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const policy = POLICIES[slug];
-  return { title: policy?.title ?? "Policy" };
+  if (!policy) return { title: "Policy" };
+  return {
+    title: policy.title,
+    description: policy.description,
+    openGraph: {
+      title: `${policy.title} | Annaadhya Products`,
+      description: policy.description,
+      type: "website",
+      siteName: "Annaadhya Products",
+    },
+  };
 }
 
-/** Minimal **bold** renderer for the draft bodies. */
+/** Minimal **bold** renderer for the draft bodies. DRAFT markers carry the error
+ *  tone so "not legally reviewed" can never read as settled copy. */
 function renderInline(text: string) {
   const parts = text.split(/(\*\*[^*]+\*\*)/g);
   return parts.map((p, i) =>
     p.startsWith("**") && p.endsWith("**") ? (
-      <strong key={i} className={p.includes("DRAFT") ? "text-berry" : "text-ink"}>{p.slice(2, -2)}</strong>
+      <strong key={i} className={p.includes("DRAFT") ? "font-semibold text-error" : "font-semibold text-on-surface"}>
+        {p.slice(2, -2)}
+      </strong>
     ) : (
       <span key={i}>{p}</span>
     ),
@@ -83,20 +132,123 @@ export default async function PolicyPage({ params }: { params: Promise<{ slug: s
   const policy = POLICIES[slug];
   if (!policy) notFound();
 
+  const siblings = Object.entries(POLICIES).filter(([key]) => key !== slug);
+
   return (
-    <article className="mx-auto max-w-3xl px-4 py-12">
-      <h1 className="font-display text-3xl font-semibold text-forest">{policy.title}</h1>
-      <p className="mt-2 text-xs text-ink-soft">Draft updated {policy.updated}</p>
-      <div className="mt-4 rounded-xl border border-honey/60 bg-honey/10 p-4 text-sm leading-relaxed text-ink">
-        <strong>Draft notice:</strong> this page is editable draft content. It has not been reviewed by
-        the business or a lawyer. All business details shown are placeholders pending approval — see the
-        launch checklist in the project repository.
-      </div>
-      <div className="mt-8 space-y-5 text-[0.95rem] leading-relaxed text-ink-soft">
-        {policy.body.map((para, i) => (
-          <p key={i}>{renderInline(para)}</p>
-        ))}
-      </div>
-    </article>
+    <div className="bg-surface">
+      {/* ==================== HEADER ==================== */}
+      <section className="relative overflow-hidden">
+        <div
+          className="pointer-events-none absolute inset-0 bg-gradient-to-b from-surface-container-low/70 via-surface to-surface"
+          aria-hidden
+        />
+        <div className="relative mx-auto flex max-w-3xl flex-col items-center px-margin-mobile pb-space-lg pt-space-lg text-center lg:pt-space-xl">
+          {/* Eyebrow with antique-gold motifs (same family as /faq) */}
+          <div className="mb-3 flex items-center gap-3">
+            <svg className="h-2 w-6 text-tertiary-fixed-dim" viewBox="0 0 24 8" fill="currentColor" aria-hidden>
+              <circle cx="2" cy="4" r="2" />
+              <rect x="8" y="3.25" width="16" height="1.5" rx="0.75" />
+            </svg>
+            <span className="text-label-sm font-bold uppercase tracking-[0.25em] text-tertiary-container">
+              Store policies
+            </span>
+            <svg className="h-2 w-6 text-tertiary-fixed-dim" viewBox="0 0 24 8" fill="currentColor" aria-hidden>
+              <rect x="0" y="3.25" width="16" height="1.5" rx="0.75" />
+              <circle cx="22" cy="4" r="2" />
+            </svg>
+          </div>
+          <h1 className="font-display text-headline-lg-mobile font-semibold text-on-surface lg:text-headline-lg">
+            {policy.title}
+          </h1>
+          <div className="mt-space-md flex flex-wrap items-center justify-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-container-high px-3 py-1 text-label-md text-on-surface-variant">
+              <IconCalendar size={14} aria-hidden />
+              Last reviewed {policy.updated}
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-tertiary-fixed px-3 py-1 text-label-md text-on-tertiary-fixed-variant">
+              <IconPenLine size={14} aria-hidden />
+              Draft pending business review
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* ==================== DRAFT NOTICE ==================== */}
+      <section aria-label="Draft notice" className="px-margin-mobile lg:px-margin">
+        <div className="mx-auto max-w-3xl">
+          <div className="flex items-start gap-3 rounded-md border border-tertiary-fixed-dim bg-tertiary-fixed/40 p-space-md">
+            <IconPenLine size={20} className="mt-0.5 shrink-0 text-on-tertiary-fixed-variant" aria-hidden />
+            <p className="text-body-sm leading-relaxed text-on-tertiary-fixed-variant">
+              <strong className="font-semibold">Draft notice:</strong> this page is editable draft content. It has
+              not been reviewed by the business or a lawyer. All business details shown are placeholders pending
+              approval — see the launch checklist in the project repository.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ==================== BODY ==================== */}
+      <article className="px-margin-mobile py-space-lg lg:px-margin">
+        <div className="mx-auto max-w-3xl space-y-space-md">
+          {policy.body.map((para, i) => (
+            <p key={i} className="text-body-md leading-relaxed text-on-surface-variant">
+              {renderInline(para)}
+            </p>
+          ))}
+        </div>
+      </article>
+
+      {/* ==================== OTHER POLICIES ==================== */}
+      <section aria-label="Other store policies" className="px-margin-mobile pb-space-lg lg:px-margin">
+        <div className="mx-auto max-w-3xl">
+          <h2 className="font-display text-headline-sm text-on-surface">Other store policies</h2>
+          <div className="mt-space-md grid grid-cols-1 gap-space-md sm:grid-cols-3">
+            {siblings.map(([siblingSlug, sibling]) => {
+              const SiblingIcon = POLICY_ICONS[siblingSlug];
+              return (
+                <Link
+                  key={siblingSlug}
+                  href={`/policies/${siblingSlug}`}
+                  className="card-soft group flex items-start gap-3 p-space-md transition-shadow hover:shadow-lg"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-container-high text-primary-container">
+                    <SiblingIcon size={20} aria-hidden />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-label-lg font-semibold text-on-surface transition-colors group-hover:text-primary">
+                      {sibling.title}
+                    </span>
+                    <span className="mt-1 block text-body-sm leading-relaxed text-on-surface-variant">
+                      {sibling.description}
+                    </span>
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ==================== QUESTIONS CTA ==================== */}
+      <section aria-label="Questions about this policy" className="px-margin-mobile pb-space-xl lg:px-margin">
+        <div className="mx-auto max-w-3xl">
+          <div className="card-soft flex flex-col items-center gap-space-md p-space-xl text-center sm:flex-row sm:text-left">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-surface-container-high text-primary-container">
+              <IconHeadset size={24} aria-hidden />
+            </span>
+            <div className="flex-1">
+              <h2 className="font-display text-headline-sm text-on-surface">Questions about this policy?</h2>
+              <p className="mt-1 text-body-sm leading-relaxed text-on-surface-variant">
+                Write to us through the contact page — every enquiry is recorded, and we reply within one working
+                day, Monday to Saturday.
+              </p>
+            </div>
+            <Link href="/contact" className="btn-primary shrink-0 px-5 py-2.5 text-label-lg">
+              Contact us
+            </Link>
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }
