@@ -17,7 +17,8 @@ import Image from "next/image";
  * (a still of the animation's first frame) covers playback-unavailable cases.
  *
  * `dark` is accepted for call-site compatibility — both supplied assets are
- * transparent and read correctly on every canvas the design system uses.
+ * transparent and read correctly on every canvas the design system uses, so
+ * it is a deliberate no-op.
  */
 
 const VIDEO_SRC = "/brand/annaadhya-animated-logo.mp4";
@@ -28,18 +29,26 @@ const NAME_SRC = "/brand/annaadhya-name-logo.png";
 export function Logo({
   height = 40,
   withWordmark = true,
-  dark = false,
   compactOnMobile = false,
+  wordmarkHeight,
 }: {
   /** Rendered size of the animated mark in px (the name lockup scales with it). */
   height?: number;
   withWordmark?: boolean;
+  /** Accepted for call-site compatibility — both supplied assets are transparent
+   *  and read correctly on every canvas the design system uses, so `dark` is a
+   *  deliberate no-op and is intentionally not destructured. */
   dark?: boolean;
   /** Hide the name logo below the sm breakpoint (animated mark only). Used by
    *  the sticky header so the lockup can never force horizontal overflow on phones. */
   compactOnMobile?: boolean;
+  /** Explicit rendered height for the name lockup, independent of the mark.
+   *  Defaults to 0.72 * height (min 18px) so existing call sites keep their
+   *  proportions; the header pins it so the wordmark stays unchanged while the
+   *  animated mark fills the full navbar height. */
+  wordmarkHeight?: number;
 }) {
-  const nameHeight = Math.max(18, Math.round(height * 0.72));
+  const nameHeight = wordmarkHeight ?? Math.max(18, Math.round(height * 0.72));
 
   return (
     <Link href="/" className="flex shrink-0 items-center gap-2.5" aria-label="Annaadhya Products home">

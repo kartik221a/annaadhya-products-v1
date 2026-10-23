@@ -80,7 +80,10 @@ export function Header() {
           >
             {menuOpen ? <IconX size={22} /> : <IconMenu size={22} />}
           </button>
-          <Logo compactOnMobile />
+          {/* Animated mark fills the entire h-20 (80px) navbar height so the honey
+              drop reads at full size — the bar's own height and the wordmark size
+              are untouched (wordmarkHeight = the 40px default's derived 29px). */}
+          <Logo height={80} wordmarkHeight={29} compactOnMobile />
         </div>
 
         <nav className="hidden items-center gap-space-lg xl:flex" aria-label="Primary">
