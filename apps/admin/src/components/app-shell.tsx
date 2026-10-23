@@ -52,8 +52,8 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 function Brand() {
   return (
     <Link href="/dashboard" className="flex items-center gap-2.5">
-      {/* eslint-disable-next-line @next/next/no-img-element -- tiny static SVG */}
-      <img src="/logo.svg" alt="" width={32} height={32} className="rounded" />
+      {/* eslint-disable-next-line @next/next/no-img-element -- tiny static SVG; /admin prefix required by basePath (next.config.ts) */}
+      <img src="/admin/logo.svg" alt="" width={32} height={32} className="rounded" />
       <span className="font-display text-lg font-semibold tracking-tight text-forest">Annaadhya Admin</span>
     </Link>
   );
@@ -62,12 +62,21 @@ function Brand() {
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { principal, ready, logout } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // Guard: no session or not staff → /login. (Client-side; the API re-checks every request.)
+  // Guard: no session or not staff → /login, carrying the attempted path (usePathname is
+  // already basePath-clean) so the login page can return here after authorization.
+  // (Client-side; the API re-checks every request, and /login sanitizes the ?next= value.)
   useEffect(() => {
-    if (ready && (!principal || !principal.isStaff)) router.replace("/login");
-  }, [ready, principal, router]);
+    if (ready && (!principal || !principal.isStaff)) {
+      const search = typeof window !== "undefined" && window.location.search.startsWith("?")
+        ? window.location.search
+        : "";
+      const attempted = `${pathname ?? "/dashboard"}${search}`;
+      router.replace(`/login?next=${encodeURIComponent(attempted)}`);
+    }
+  }, [ready, principal, router, pathname]);
 
   // While restoring the session, avoid flashing the console.
   if (!ready) {
