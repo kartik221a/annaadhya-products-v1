@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     template: "%s · Annaadhya Admin",
   },
   description: "Administration console for the Annaadhya Products storefront — products, orders, inventory, purchases, expenses, reports and team.",
-  icons: { icon: "/logo.svg" },
+  // favicon: src/app/icon.png (Next file convention — basePath-prefixed automatically)
 };
 
 export const viewport: Viewport = {

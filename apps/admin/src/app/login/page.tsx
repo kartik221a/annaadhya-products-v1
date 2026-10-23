@@ -349,8 +349,8 @@ function BrandPanel() {
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-surface-container-lowest p-1.5 shadow-sm flex items-center justify-center">
-              {/* eslint-disable-next-line @next/next/no-img-element -- static SVG crest, next/image adds nothing */}
-              <img src={`${ASSET_BASE}/logo.svg`} alt="Annaadhya crest" className="w-full h-full object-contain" />
+              {/* eslint-disable-next-line @next/next/no-img-element -- static PNG crest, next/image adds nothing */}
+              <img src={`${ASSET_BASE}/brand/annaadhya-logo.png`} alt="Annaadhya crest" className="w-full h-full object-contain" />
             </div>
             <div className="flex flex-col">
               <span className="font-heritage-display text-headline-sm text-primary leading-tight">Annaadhya</span>

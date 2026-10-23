@@ -103,8 +103,8 @@ function Brand({ onNavigate }: { onNavigate?: () => void }) {
       onClick={onNavigate}
       className="flex items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-primary"
     >
-      {/* eslint-disable-next-line @next/next/no-img-element -- static SVG; /admin prefix required by basePath (next.config.ts) */}
-      <img src="/admin/logo.svg" alt="Annaadhya Products logo" width={32} height={32} className="h-8 w-8 shrink-0" />
+      {/* eslint-disable-next-line @next/next/no-img-element -- static PNG; /admin prefix required by basePath (next.config.ts) */}
+      <img src="/admin/brand/annaadhya-logo.png" alt="Annaadhya Products logo" width={32} height={32} className="h-8 w-8 shrink-0 object-contain" />
       <span className="flex min-w-0 flex-col leading-tight">
         <span className="font-heritage-display text-headline-sm font-semibold text-primary">Annaadhya</span>
         <span className="text-label-sm font-bold uppercase tracking-[0.14em] text-secondary">Products</span>
