@@ -369,7 +369,16 @@ export default function ProductsPage() {
         sku = `${baseSku.slice(0, 39)}${suffix}`.slice(0, 41);
         suffix++;
       }
-      const payload = { ...productDocToPayload(product, "draft"), sku, name: `${product.name} (Copy)`.slice(0, 120) };
+      // Variant SKUs are globally unique — a copy must NOT reuse the source's
+      // variant SKUs or the create call always 409s. Same for the slug.
+      const renameVariantSku = (vs: string) => `${vs}-C`.toUpperCase().replace(/[^A-Z0-9\-_.]/g, "").slice(0, 39) + "2";
+      const payload = {
+        ...productDocToPayload(product, "draft"),
+        sku,
+        name: `${product.name} (Copy)`.slice(0, 120),
+        slug: undefined,
+        variants: product.variants.map((v) => ({ ...v, id: undefined, sku: renameVariantSku(v.sku) })),
+      };
       await apiPost("/admin/catalogue/products", payload);
       toast.success("Draft copy created", `${sku} — review and publish when ready`);
       reload();

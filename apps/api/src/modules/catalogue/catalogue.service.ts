@@ -81,9 +81,13 @@ export class CatalogueService {
   }
 
   async listProducts(q: ListQueryDto): Promise<Page<ProductWithVariants>> {
-    const where: { field: string; op: "==" | ">=" | "<=" | "in"; value: unknown }[] = [
-      { field: "status", op: "==", value: "published" },
-    ];
+    // Admin view (includeUnavailable): ALL statuses and variants, including products
+    // that are still drafts or have no sellable packs yet — nothing may silently
+    // disappear from the console. Public browsing stays strictly published-only.
+    const adminView = q.includeUnavailable === true;
+    const where: { field: string; op: "==" | ">=" | "<=" | "in"; value: unknown }[] = adminView
+      ? []
+      : [{ field: "status", op: "==", value: "published" }];
 
     let categoryId: string | undefined;
     if (q.category) {
@@ -99,7 +103,7 @@ export class CatalogueService {
 
     // Load all variants of matching products, then filter/sort on the min variant price.
     const variantRows = await this.data.list<ProductVariantDoc>(COLLECTIONS.productVariants, {
-      where: [{ field: "status", op: "==", value: "published" }],
+      where: adminView ? [] : [{ field: "status", op: "==", value: "published" }],
     });
     const variantsByProduct = new Map<string, ProductVariantDoc[]>();
     for (const v of variantRows) {
@@ -111,7 +115,7 @@ export class CatalogueService {
     let rows: ProductWithVariants[] = [];
     for (const p of products) {
       const variants = variantsByProduct.get(p.id) ?? [];
-      if (variants.length === 0) continue; // products without variants are not sellable yet
+      if (!adminView && variants.length === 0) continue; // public: products without variants are not sellable yet
       if (!q.includeUnavailable && variants.every((v) => availableQty(v) <= 0)) continue;
       if (q.search) {
         const needle = q.search.toLowerCase();
@@ -281,10 +285,21 @@ export class CatalogueService {
     const id = productId ?? `prod_${slugify(dto.sku)}`;
     const existingDoc = await this.data.get<ProductDoc>(COLLECTIONS.products, id);
 
+    // Slug: an explicit custom slug wins; otherwise keep the existing slug on update,
+    // or derive one from the name on create. Either way it must stay unique — the
+    // storefront routes every product through /product/{slug}.
+    const slug = dto.slug && dto.slug.trim() !== "" ? dto.slug.trim() : existingDoc?.slug ?? slugify(dto.name);
+    const bySlug = await this.data.list<ProductDoc>(COLLECTIONS.products, {
+      where: [{ field: "slug", op: "==", value: slug }],
+      limit: 2,
+    });
+    const slugClash = bySlug.find((p) => p.id !== id);
+    if (slugClash) throw conflict(`Slug ${slug} is already used by another product`);
+
     const product: ProductDoc = {
       id,
       sku: dto.sku,
-      slug: existingDoc?.slug ?? slugify(dto.name),
+      slug,
       name: dto.name,
       subtitle: dto.subtitle,
       description: dto.description,
@@ -301,6 +316,9 @@ export class CatalogueService {
         width: im.width,
         height: im.height,
       })),
+      origin: dto.origin || undefined,
+      shelfLife: dto.shelfLife || undefined,
+      specs: (dto.specs ?? []).filter((s) => s.value.trim() !== "" && s.label.trim() !== ""),
       ingredients: dto.ingredients,
       netQuantityLabel: dto.netQuantityLabel,
       storageInstructions: dto.storageInstructions,

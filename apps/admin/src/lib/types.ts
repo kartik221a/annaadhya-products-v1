@@ -130,6 +130,12 @@ export interface ProductImage {
   height?: number;
 }
 
+/** Category-specific compliance/spec line (mirrors contracts ProductSpec). */
+export interface ProductSpec {
+  label: string;
+  value: string;
+}
+
 export interface ProductDoc extends BaseDoc {
   sku: string;
   slug: string;
@@ -140,6 +146,9 @@ export interface ProductDoc extends BaseDoc {
   typeLabel: string;
   status: ProductStatus;
   images: ProductImage[];
+  origin?: string;
+  shelfLife?: string;
+  specs?: ProductSpec[];
   ingredients?: string;
   netQuantityLabel?: string;
   storageInstructions?: string;
@@ -446,6 +455,10 @@ export interface ProductUpsertPayload {
   typeLabel: string;
   status: ProductStatus;
   images: ProductImage[];
+  slug?: string;
+  origin?: string;
+  shelfLife?: string;
+  specs?: ProductSpec[];
   ingredients?: string;
   netQuantityLabel?: string;
   storageInstructions?: string;

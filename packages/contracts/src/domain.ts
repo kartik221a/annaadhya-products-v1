@@ -37,6 +37,12 @@ export interface CategoryDoc extends BaseDoc {
   status: ProductStatus;
 }
 
+/** Category-specific compliance/spec line (label → value), e.g. "Moisture Level" → "18.2%". */
+export interface ProductSpec {
+  label: string;
+  value: string;
+}
+
 export interface ProductDoc extends BaseDoc {
   sku: string; // unique, e.g. AN-HNY-001
   slug: string; // unique
@@ -47,6 +53,9 @@ export interface ProductDoc extends BaseDoc {
   typeLabel: string; // variety / type e.g. "Wild forest / multifloral honey"
   status: ProductStatus; // only `published` is publicly visible
   images: ProductImage[]; // ordered
+  origin?: string; // terroir / geographical origin / sourcing estate
+  shelfLife?: string; // free-text shelf life, e.g. "24 months from harvest"
+  specs?: ProductSpec[]; // category-specific compliance & lab-testing lines
   ingredients?: string;
   netQuantityLabel?: string;
   storageInstructions?: string;
@@ -57,6 +66,47 @@ export interface ProductDoc extends BaseDoc {
   featuredRank?: number; // drives "featured products"
   giftItem: boolean;
   seo: { title?: string; description?: string };
+}
+
+/** Body for POST /admin/catalogue/products and POST /admin/catalogue/products/:id.
+ *  Additive fields (slug/origin/shelfLife/specs) are optional and backward compatible:
+ *  omitted slug keeps the existing/auto-generated slug; old clients never send them. */
+export interface ProductUpsertPayload {
+  sku: string;
+  name: string;
+  subtitle: string;
+  description: string;
+  categoryId: string;
+  typeLabel: string;
+  status: ProductStatus;
+  images: ProductImage[];
+  slug?: string; // custom storefront slug; omit to keep/auto-derive
+  origin?: string;
+  shelfLife?: string;
+  specs?: ProductSpec[];
+  ingredients?: string;
+  netQuantityLabel?: string;
+  storageInstructions?: string;
+  allergenInfo?: string;
+  manufacturerDetails?: string;
+  fssaiLicense?: string;
+  bestsellerRank?: number;
+  featuredRank?: number;
+  giftItem: boolean;
+  seo: { title?: string; description?: string };
+  variants: VariantUpsertPayload[];
+}
+
+export interface VariantUpsertPayload {
+  id?: string;
+  sku: string;
+  packLabel: string;
+  grams: number;
+  pricePaise: number;
+  mrpPaise?: number;
+  status: ProductStatus;
+  stockOnHand: number;
+  lowStockThreshold: number;
 }
 
 export interface ProductImage {

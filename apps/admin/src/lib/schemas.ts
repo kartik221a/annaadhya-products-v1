@@ -11,8 +11,19 @@ const skuSchema = z
   .trim()
   .regex(/^[A-Z0-9][A-Z0-9\-_.]{2,40}$/, "SKU must be 3-41 chars: A-Z, 0-9, dashes");
 
+/** Absolute https(s) URLs (Cloudinary) and site-rooted paths (/demo-images/…) are both real,
+ *  supported image references — the demo catalogue ships with the latter. */
+const imageUrlSchema = z
+  .string()
+  .trim()
+  .max(600)
+  .refine(
+    (v) => /^https?:\/\/.+/i.test(v) || v.startsWith("/"),
+    "Image URL must be absolute (https://…) or a site-rooted path (/demo-images/…)",
+  );
+
 export const productImageSchema = z.object({
-  url: z.string().url().max(600),
+  url: imageUrlSchema,
   cloudinaryPublicId: z.string().max(200).optional(),
   alt: z.string().trim().max(160),
   width: z.number().int().positive().max(20000).optional(),
@@ -45,6 +56,25 @@ export const productUpsertSchema = z.object({
   typeLabel: z.string().trim().max(120),
   status: z.enum(["draft", "published", "archived"]),
   images: z.array(productImageSchema).max(10),
+  slug: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug must be lowercase letters, numbers and dashes")
+    .min(3, "Slug must be at least 3 characters")
+    .max(96)
+    .optional(),
+  origin: z.string().trim().max(200).optional(),
+  shelfLife: z.string().trim().max(80).optional(),
+  specs: z
+    .array(
+      z.object({
+        label: z.string().trim().min(1).max(60),
+        value: z.string().trim().max(200),
+      }),
+    )
+    .max(12)
+    .optional(),
   ingredients: z.string().trim().max(2000).optional(),
   netQuantityLabel: z.string().trim().max(80).optional(),
   storageInstructions: z.string().trim().max(1000).optional(),

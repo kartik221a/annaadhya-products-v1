@@ -1,12 +1,13 @@
 "use client";
 /**
- * /products/[id] — edit a product. Loads GET /admin/catalogue/products/:id
- * (ProductWithVariants), prefills the shared form, supports the archive action.
+ * /products/[id] — Edit Product page per the approved heritage design:
+ * back link, serif "Edit Product: {name}" header with Preview / Duplicate /
+ * Archive / Save actions, and the shared ProductForm in edit mode.
  */
 import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ApiError, apiDelete, apiGet, can } from "@/lib/api";
+import { ApiError, apiDelete, apiGet, apiPost, can } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useApiQuery, usePageTitle } from "@/lib/hooks";
 import { useToast } from "@/lib/toast";
@@ -18,6 +19,7 @@ import { TableSkeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/states";
 import {
   ProductForm,
+  buildDuplicatePayload,
   docImagesToRows,
   docVariantsToRows,
   emptyProductForm,
@@ -34,20 +36,21 @@ export default function EditProductPage() {
   const toast = useToast();
   const { principal } = useAuth();
   const canWrite = can(principal, "products:write");
-  usePageTitle("Edit product");
+  usePageTitle("Edit Product");
 
   const [form, setForm] = useState(emptyProductForm);
   const [variantRows, setVariantRows] = useState<VariantRow[]>([]);
   const [imageRows, setImageRows] = useState<ImageRow[]>([]);
   const [hydratedId, setHydratedId] = useState<string | null>(null);
   const [archiving, setArchiving] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
 
   const { data, loading, error, reload } = useApiQuery<ProductWithVariants>(
     () => apiGet<ProductWithVariants>(`/admin/catalogue/products/${productId}`),
     [productId],
   );
 
-  // Hydrate the editable state once per loaded product (not on every keystroke).
+  // Hydrate the editable state once per loaded product revision (not on every keystroke).
   if (data && hydratedId !== data.id) {
     setHydratedId(data.id);
     setForm(productDocToForm(data));
@@ -69,9 +72,22 @@ export default function EditProductPage() {
     }
   }
 
+  async function duplicate() {
+    if (!data) return;
+    setDuplicating(true);
+    try {
+      const created = await apiPost<ProductWithVariants>("/admin/catalogue/products", buildDuplicatePayload(data));
+      toast.success("Draft copy created", `${created.sku} — review and publish when ready`);
+      router.push(`/products/${created.id}`);
+    } catch (err) {
+      toast.error("Could not duplicate product", err instanceof ApiError ? err.message : "Unexpected error");
+      setDuplicating(false);
+    }
+  }
+
   if (loading) {
     return (
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-6xl">
         <Card>
           <TableSkeleton rows={10} cols={4} />
         </Card>
@@ -81,7 +97,7 @@ export default function EditProductPage() {
 
   if (error || !data) {
     return (
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-6xl">
         <Card>
           <ErrorState message={error?.message ?? "Product not found"} status={error?.status} onRetry={reload} />
         </Card>
@@ -89,15 +105,27 @@ export default function EditProductPage() {
     );
   }
 
-  // Published products can be inspected on the storefront (same origin as the admin console).
-  const storefrontHref = typeof window !== "undefined" ? `${window.location.origin}/product/${data.slug}` : `/product/${data.slug}`;
+  const storefrontHref =
+    data.status === "published" && data.slug && typeof window !== "undefined"
+      ? `${window.location.origin}/product/${data.slug}`
+      : null;
 
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="mx-auto max-w-6xl">
+      <Link
+        href="/products"
+        className="group mb-2 inline-flex items-center gap-1.5 text-label-md font-semibold text-on-surface-variant transition-colors hover:text-primary"
+      >
+        <svg viewBox="0 0 24 24" className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M19 12H5m0 0 6 6m-6-6 6-6" />
+        </svg>
+        Back to Products
+      </Link>
       <PageHeader
-        title={data.name}
+        title={`Edit Product: ${data.name}`}
         description={
           <>
+            Update harvest provenance, package variants, tiered pricing, batch inventory and storefront visibility.{" "}
             <span className="font-mono text-xs">{data.sku}</span> · {data.variants.length} variant
             {data.variants.length === 1 ? "" : "s"}
             {data.isDemo ? " · demo record" : ""}
@@ -105,17 +133,46 @@ export default function EditProductPage() {
         }
         actions={
           <>
-            <Link href="/products">
-              <Button variant="outline">Back to list</Button>
-            </Link>
-            {data.status === "published" ? (
+            {storefrontHref ? (
               <a href={storefrontHref} target="_blank" rel="noreferrer">
-                <Button variant="outline">View on Store</Button>
+                <Button variant="outline">
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Zm10 3a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+                  </svg>
+                  Preview
+                </Button>
               </a>
+            ) : (
+              <Button
+                variant="outline"
+                disabled
+                title={data.status === "published" ? "Save to generate the storefront slug first" : "Only published products are on the storefront"}
+              >
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Zm10 3a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+                </svg>
+                Preview
+              </Button>
+            )}
+            {canWrite ? (
+              <Button variant="outline" onClick={() => void duplicate()} loading={duplicating}>
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M8 8h12v12H8zM4 16V4h12" />
+                </svg>
+                Duplicate
+              </Button>
             ) : null}
             {canWrite && data.status !== "archived" ? (
-              <Button variant="outline" className="text-error" onClick={archive} loading={archiving}>
+              <Button variant="outline" className="text-error hover:bg-error-container/40" onClick={() => void archive()} loading={archiving}>
                 Archive
+              </Button>
+            ) : null}
+            {canWrite ? (
+              <Button type="submit" form="product-form">
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="m5 12 5 5L20 7" />
+                </svg>
+                Save Changes
               </Button>
             ) : null}
           </>
@@ -125,6 +182,7 @@ export default function EditProductPage() {
         <ProductForm
           mode="edit"
           productId={data.id}
+          hydrationKey={`${data.id}:${data.updatedAt}`}
           form={form}
           setForm={setForm}
           variantRows={variantRows}
@@ -137,7 +195,7 @@ export default function EditProductPage() {
           }}
         />
       ) : (
-        <Card className="p-6 text-sm text-ink/70">
+        <Card className="p-6 text-body-sm text-on-surface-variant">
           You have <strong>products:read</strong> only — the edit form is hidden. Ask an owner for <strong>products:write</strong> to make changes.
         </Card>
       )}
