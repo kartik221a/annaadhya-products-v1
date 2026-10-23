@@ -492,7 +492,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         {/* Main content region — future admin pages render here */}
         <main
           id="admin-main"
-          className="flex-1 px-margin-mobile py-space-lg pb-[max(1.5rem,env(safe-area-inset-bottom))] lg:px-margin lg:py-space-xl"
+          className="flex-1 px-margin-mobile pt-20 pb-[max(1.5rem,env(safe-area-inset-bottom))] lg:px-margin lg:py-space-xl lg:pt-20"
         >
           {children}
         </main>
