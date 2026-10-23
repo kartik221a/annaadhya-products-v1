@@ -80,6 +80,20 @@ export function formatDateTime(millis: number): string {
   return dateTimeFormatter.format(new Date(millis));
 }
 
+const dateTimeCompactFormatter = new Intl.DateTimeFormat("en-IN", {
+  day: "2-digit",
+  month: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+  timeZone: "Asia/Kolkata",
+});
+
+/** epoch millis → "05 Feb, 03:42 pm" (IST) — compact table cells. */
+export function formatDateTimeCompact(millis: number): string {
+  return dateTimeCompactFormatter.format(new Date(millis));
+}
+
 /** "2026-02-05" → epoch millis (UTC midnight of that calendar day). */
 export function dateInputToMillis(dateStr: string): number {
   return new Date(`${dateStr}T00:00:00Z`).getTime();

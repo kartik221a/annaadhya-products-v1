@@ -365,20 +365,60 @@ export interface SettingsDoc {
 
 /* -------------------------------- dashboard -------------------------------- */
 
+export interface DashboardLowStockRow {
+  variantId: string;
+  productId: string;
+  sku: string;
+  name: string;
+  packLabel: string;
+  available: number;
+  threshold: number;
+}
+
+export interface DashboardRecentOrderRow {
+  id: string;
+  orderNumber: string;
+  customerName: string | null;
+  totalPaise: number;
+  status: string;
+  paymentStatus: string;
+  paymentProvider: string;
+  createdAt: number;
+}
+
+export interface DashboardCategorySale {
+  categoryId: string;
+  name: string;
+  revenuePaise: number;
+}
+
+export interface DashboardComparison {
+  label: string;
+  ordersCount: number;
+  paidCount: number;
+  netSalesPaise: number;
+  averageOrderValuePaise: number | null;
+  unitsSold: number;
+}
+
 export interface DashboardMetrics {
   range: { from: number; to: number; label: string };
   orders: { count: number; paidCount: number };
+  statusCounts: Record<string, number>;
   grossSalesPaise: number;
   discountsPaise: number;
   refundsPaise: number;
   netSalesPaise: number;
   paymentsCollectedPaise: number;
   averageOrderValuePaise: number | null;
+  unitsSold: number;
+  comparison: DashboardComparison | null;
   profitPaise: null;
   profitNote: string;
   bestsellers: { sku: string; name: string; qty: number; revenuePaise: number }[];
-  lowStock: { sku: string; available: number }[];
-  recentOrders: { orderNumber: string; totalPaise: number; status: string; createdAt: number }[];
+  categorySales: DashboardCategorySale[];
+  lowStock: DashboardLowStockRow[];
+  recentOrders: DashboardRecentOrderRow[];
   salesTrend: { date: string; netSalesPaise: number; orders: number }[];
   demoDataIncluded: boolean;
 }

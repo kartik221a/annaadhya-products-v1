@@ -3,7 +3,7 @@
  * /orders — admin order list with search + status/payment filters and pagination.
  * GET /admin/orders?search=&status=&paymentStatus=&page=&pageSize= (Page<OrderDoc>).
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiGet } from "@/lib/api";
 import { useApiQuery, usePageTitle } from "@/lib/hooks";
@@ -28,6 +28,17 @@ export default function OrdersPage() {
   const [status, setStatus] = useState<OrderStatus | "">("");
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | "">("");
   const [page, setPage] = useState(1);
+
+  // Deep link support (?status=shipped) — the dashboard attention cards link here
+  // with a preselected status. Read once after mount from the real URL; unknown or
+  // invalid values are ignored so the page behaves exactly as before.
+  useEffect(() => {
+    const param = new URLSearchParams(window.location.search).get("status");
+    if (param && (ORDER_STATUSES as readonly string[]).includes(param)) {
+      setStatus(param as OrderStatus);
+      setPage(1);
+    }
+  }, []);
 
   const { data, loading, error, reload } = useApiQuery<Page<OrderDoc>>(
     () =>
