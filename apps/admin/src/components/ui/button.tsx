@@ -6,11 +6,12 @@ type Variant = "primary" | "secondary" | "outline" | "ghost" | "danger";
 type Size = "sm" | "md";
 
 const VARIANT_CLASSES: Record<Variant, string> = {
-  primary: "bg-forest text-cream hover:bg-forest-dark focus-visible:outline-forest",
-  secondary: "bg-honey text-ink hover:bg-honey-dark focus-visible:outline-honey",
-  outline: "border border-sand bg-white text-ink hover:bg-cream focus-visible:outline-forest",
-  ghost: "text-forest hover:bg-cream focus-visible:outline-forest",
-  danger: "bg-red-700 text-white hover:bg-red-800 focus-visible:outline-red-700",
+  primary: "bg-primary text-on-primary shadow-md hover:bg-primary-container focus-visible:outline-primary",
+  secondary: "bg-secondary-container text-on-secondary-container hover:bg-secondary/20 focus-visible:outline-secondary",
+  outline:
+    "border border-outline-variant/70 bg-surface-container-lowest text-on-surface shadow-sm hover:bg-surface-container focus-visible:outline-primary",
+  ghost: "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface focus-visible:outline-primary",
+  danger: "bg-error text-on-error hover:bg-error/90 focus-visible:outline-error",
 };
 
 const SIZE_CLASSES: Record<Size, string> = {
@@ -39,7 +40,7 @@ export function Button({
     <button
       type={type}
       disabled={disabled || loading}
-      className={`inline-flex items-center justify-center gap-2 rounded-md font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${VARIANT_CLASSES[variant]} ${SIZE_CLASSES[size]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${VARIANT_CLASSES[variant]} ${SIZE_CLASSES[size]} ${className}`}
       {...rest}
     >
       {loading ? (

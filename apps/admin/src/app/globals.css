@@ -170,3 +170,34 @@ body {
 .scroll-slim::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* Design-system label styles (label-sm / label-md from DESIGN.md, uppercase-tracked)
+   used by the catalogue console page and its primitives. */
+.label-eyebrow {
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.label-tracked {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+/* Decorative quarter-circle blob in the corner of the catalogue metric cards. */
+.metric-decor {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 6rem;
+  height: 6rem;
+  border-bottom-left-radius: 9999px;
+  pointer-events: none;
+  transition: transform 0.2s ease;
+}
+.group:hover .metric-decor {
+  transform: scale(1.1);
+}

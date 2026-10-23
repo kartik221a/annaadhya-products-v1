@@ -24,9 +24,9 @@ interface ToastContextValue {
 const ToastContext = createContext<ToastContextValue | null>(null);
 
 const VARIANT_STYLES: Record<ToastVariant, string> = {
-  success: "border-l-4 border-l-forest",
-  error: "border-l-4 border-l-red-700",
-  info: "border-l-4 border-l-honey",
+  success: "border-l-4 border-l-secondary",
+  error: "border-l-4 border-l-error",
+  info: "border-l-4 border-l-tertiary-fixed-dim",
 };
 
 const VARIANT_ICON: Record<ToastVariant, string> = {
@@ -73,24 +73,24 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           <div
             key={toast.id}
             role="status"
-            className={`pointer-events-auto flex items-start gap-3 rounded-md border border-[--color-sand] bg-white p-3 shadow-lg shadow-black/10 ${VARIANT_STYLES[toast.variant]}`}
+            className={`pointer-events-auto flex items-start gap-3 rounded-lg border border-outline-variant/50 bg-surface-container-lowest p-3 shadow-lg shadow-black/10 ${VARIANT_STYLES[toast.variant]}`}
           >
             <span
               aria-hidden
               className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${
-                toast.variant === "success" ? "bg-forest" : toast.variant === "error" ? "bg-red-700" : "bg-honey"
+                toast.variant === "success" ? "bg-secondary" : toast.variant === "error" ? "bg-error" : "bg-tertiary-fixed-dim"
               }`}
             >
               {VARIANT_ICON[toast.variant]}
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-ink">{toast.title}</p>
-              {toast.description ? <p className="mt-0.5 text-xs break-words text-ink/70">{toast.description}</p> : null}
+              <p className="text-sm font-semibold text-on-surface">{toast.title}</p>
+              {toast.description ? <p className="mt-0.5 text-xs break-words text-on-surface-variant">{toast.description}</p> : null}
             </div>
             <button
               type="button"
               onClick={() => dismiss(toast.id)}
-              className="shrink-0 rounded p-1 text-ink/40 hover:bg-cream hover:text-ink"
+              className="shrink-0 rounded p-1 text-on-surface-variant/60 hover:bg-surface-container-high hover:text-on-surface"
               aria-label="Dismiss notification"
             >
               <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">

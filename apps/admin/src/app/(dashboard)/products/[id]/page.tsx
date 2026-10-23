@@ -89,6 +89,9 @@ export default function EditProductPage() {
     );
   }
 
+  // Published products can be inspected on the storefront (same origin as the admin console).
+  const storefrontHref = typeof window !== "undefined" ? `${window.location.origin}/product/${data.slug}` : `/product/${data.slug}`;
+
   return (
     <div className="mx-auto max-w-5xl">
       <PageHeader
@@ -105,8 +108,13 @@ export default function EditProductPage() {
             <Link href="/products">
               <Button variant="outline">Back to list</Button>
             </Link>
+            {data.status === "published" ? (
+              <a href={storefrontHref} target="_blank" rel="noreferrer">
+                <Button variant="outline">View on Store</Button>
+              </a>
+            ) : null}
             {canWrite && data.status !== "archived" ? (
-              <Button variant="outline" className="text-red-700" onClick={archive} loading={archiving}>
+              <Button variant="outline" className="text-error" onClick={archive} loading={archiving}>
                 Archive
               </Button>
             ) : null}

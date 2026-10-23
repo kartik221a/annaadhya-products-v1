@@ -4,16 +4,16 @@ import { humanize } from "@/lib/format";
 type Tone = "neutral" | "green" | "amber" | "red" | "honey";
 
 const TONE_CLASSES: Record<Tone, string> = {
-  neutral: "bg-ink/5 text-ink/70 border-ink/10",
-  green: "bg-forest/10 text-forest border-forest/20",
-  amber: "bg-amber-100 text-amber-800 border-amber-200",
-  red: "bg-red-100 text-red-800 border-red-200",
-  honey: "bg-honey/15 text-honey-dark border-honey/30",
+  neutral: "bg-surface-container-high text-on-surface-variant",
+  green: "bg-secondary-container text-on-secondary-container",
+  amber: "bg-tertiary-fixed text-on-tertiary-fixed",
+  red: "bg-error-container text-on-error-container",
+  honey: "bg-tertiary-container text-on-tertiary-container",
 };
 
 export function Badge({ tone = "neutral", children }: { tone?: Tone; children: ReactNode }) {
   return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${TONE_CLASSES[tone]}`}>
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${TONE_CLASSES[tone]}`}>
       {children}
     </span>
   );
@@ -43,7 +43,7 @@ export function StatusBadge({ status }: { status: string }) {
       case "failed":
       case "suspended":
       case "archived":
-        return "red";
+        return "neutral";
       case "draft":
       case "created":
       case "pending_payment":

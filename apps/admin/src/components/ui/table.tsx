@@ -4,21 +4,21 @@ import type { HTMLAttributes, TdHTMLAttributes, ThHTMLAttributes } from "react";
 export function Table({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
     <div className={`w-full overflow-x-auto ${className}`}>
-      <table className="w-full min-w-max border-collapse text-left text-sm">{children}</table>
+      <table className="w-full min-w-max border-collapse text-left text-[13px]">{children}</table>
     </div>
   );
 }
 
 export function THead({ children }: { children: React.ReactNode }) {
   return (
-    <thead className="border-b border-sand bg-cream/60 text-xs tracking-wide text-ink/60 uppercase">
+    <thead className="border-b border-outline-variant/40 bg-surface-container-low label-eyebrow text-on-surface-variant">
       {children}
     </thead>
   );
 }
 
 export function TBody({ children }: { children: React.ReactNode }) {
-  return <tbody className="divide-y divide-sand/70">{children}</tbody>;
+  return <tbody className="divide-y divide-outline-variant/30">{children}</tbody>;
 }
 
 export function TR({
@@ -27,16 +27,16 @@ export function TR({
   ...rest
 }: HTMLAttributes<HTMLTableRowElement>) {
   return (
-    <tr className={`transition-colors hover:bg-cream/50 ${className}`} {...rest}>
+    <tr className={`transition-colors hover:bg-surface-container-low ${className}`} {...rest}>
       {children}
     </tr>
   );
 }
 
 export function TH({ className = "", ...rest }: ThHTMLAttributes<HTMLTableCellElement>) {
-  return <th className={`px-4 py-2.5 font-semibold whitespace-nowrap ${className}`} {...rest} />;
+  return <th className={`px-2.5 py-3 font-bold whitespace-nowrap ${className}`} {...rest} />;
 }
 
 export function TD({ className = "", ...rest }: TdHTMLAttributes<HTMLTableCellElement>) {
-  return <td className={`px-4 py-3 align-middle whitespace-nowrap ${className}`} {...rest} />;
+  return <td className={`px-2.5 py-3.5 align-middle whitespace-nowrap ${className}`} {...rest} />;
 }

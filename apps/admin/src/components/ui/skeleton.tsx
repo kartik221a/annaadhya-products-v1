@@ -1,6 +1,6 @@
 /** Skeletons for the standard loading states. */
 export function Skeleton({ className = "" }: { className?: string }) {
-  return <div aria-hidden className={`animate-pulse rounded bg-sand/70 ${className}`} />;
+  return <div aria-hidden className={`animate-pulse rounded bg-surface-container-highest ${className}`} />;
 }
 
 export function TableSkeleton({ rows = 6, cols = 5 }: { rows?: number; cols?: number }) {
@@ -28,7 +28,7 @@ export function CardsSkeleton({ count = 3 }: { count?: number }) {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" role="status" aria-label="Loading">
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="rounded-lg border border-sand bg-white p-4">
+        <div key={i} className="rounded-xl bg-surface-container-lowest p-4 shadow-[0_1px_8px_rgba(39,24,16,0.05)]">
           <Skeleton className="h-3 w-20" />
           <Skeleton className="mt-3 h-7 w-32" />
           <Skeleton className="mt-2 h-3 w-24" />
