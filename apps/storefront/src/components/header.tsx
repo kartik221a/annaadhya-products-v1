@@ -66,7 +66,9 @@ export function Header() {
     setSearchOpen(false);
   }
 
-  const cartLabel = ready ? `₹ ${formatINR(subtotalPaise, false).slice(1)} / (${count})` : "₹ — / (0)";
+  const cartLabel = ready
+    ? `₹${formatINR(subtotalPaise, false).slice(1)} · ${count} ${count === 1 ? "item" : "items"}`
+    : "Bag";
 
   return (
     <header className="sticky top-0 z-40 w-full bg-surface/90 shadow-[0_2px_12px_rgba(39,24,16,0.06)] backdrop-blur-xl">

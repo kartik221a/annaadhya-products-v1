@@ -75,6 +75,16 @@ export function ShopControls({ current, showing, allCount, categoryName, basePat
     return () => window.removeEventListener("keydown", onKey);
   }, [sheetOpen]);
 
+  // The mobile bottom nav's Search tile deep-links to /shop#shopSearch — pull the
+  // field into view and hand it focus so the tap lands in a ready-to-type input.
+  useEffect(() => {
+    if (window.location.hash !== "#shopSearch") return;
+    const el = document.getElementById("shopSearch");
+    if (!el) return;
+    el.scrollIntoView({ block: "center" });
+    el.focus({ preventScroll: true });
+  }, []);
+
   const chips: { key: string; label: string; remove: () => void }[] = [];
   if (current.search) chips.push({ key: "search", label: `Search: “${current.search}”`, remove: () => navigate({ search: undefined }) });
   if (current.category) chips.push({ key: "category", label: categoryName ?? "Category", remove: () => navigate({ category: undefined }) });
