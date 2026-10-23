@@ -10,6 +10,14 @@ export interface NavItem {
   icon: ComponentType<{ className?: string }>;
 }
 
+export interface NavGroup {
+  /** Small uppercase section caption, e.g. "OVERVIEW" / "COMMERCE". */
+  title: string;
+  /** Tailwind text color for the group's icons (heritage palette accents). */
+  iconClass: string;
+  items: NavItem[];
+}
+
 const svgProps = {
   viewBox: "0 0 24 24",
   fill: "none",
@@ -19,34 +27,50 @@ const svgProps = {
   strokeLinejoin: "round" as const,
 };
 
-/* Inline SVG icons — 24px grid, no icon library. */
-export const IconOverview = ({ className = "" }: { className?: string }) => (
+/* Inline SVG icons — 24px grid, no icon library. Glyphs follow the Material
+ * Symbols used in the approved heritage design (dashboard, inventory_2,
+ * receipt_long, warehouse, local_shipping, group, payments, analytics, badge,
+ * settings, history) redrawn in the console's consistent stroke style. */
+
+export const IconDashboard = ({ className = "" }: { className?: string }) => (
   <svg className={className} {...svgProps} aria-hidden>
-    <path d="M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-5H3zM13 8h8V3h-8z" />
+    <rect x="3" y="3" width="7.5" height="9" rx="1.4" />
+    <rect x="13.5" y="3" width="7.5" height="5" rx="1.4" />
+    <rect x="13.5" y="11" width="7.5" height="10" rx="1.4" />
+    <rect x="3" y="15" width="7.5" height="6" rx="1.4" />
   </svg>
 );
 
 export const IconProducts = ({ className = "" }: { className?: string }) => (
   <svg className={className} {...svgProps} aria-hidden>
-    <path d="M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5m0 0 9-5m-9 5v10" />
+    <path d="M21 8.2v9.2a1.8 1.8 0 0 1-1.06 1.64l-7.2 2.7a2 2 0 0 1-1.48 0l-7.2-2.7A1.8 1.8 0 0 1 3 17.4V8.2" />
+    <path d="M3.3 7.1 12 3.6l8.7 3.5L12 10.6 3.3 7.1Z" />
+    <path d="M12 10.6V22" />
   </svg>
 );
 
 export const IconOrders = ({ className = "" }: { className?: string }) => (
   <svg className={className} {...svgProps} aria-hidden>
-    <path d="M6 2 4 6v14h16V6l-2-4zM4 6h16M9 10a3 3 0 0 0 6 0" />
+    <path d="M6.5 3h11a1 1 0 0 1 1 1v17l-2.17-1.3-2.16 1.3-2.17-1.3L9.83 21l-2.16-1.3L5.5 21V4a1 1 0 0 1 1-1Z" />
+    <path d="M9 8h6M9 12h6M9 15.5h3.5" />
   </svg>
 );
 
 export const IconInventory = ({ className = "" }: { className?: string }) => (
   <svg className={className} {...svgProps} aria-hidden>
-    <path d="M3 9.5 12 4l9 5.5M5 10v9h14v-9M9 19v-5h6v5" />
+    <path d="M3 21V9.3L12 3.8l9 5.5V21" />
+    <path d="M6.5 21v-7.5h11V21" />
+    <path d="M9.5 21v-3.8h5V21" />
+    <path d="M3 21h18" />
   </svg>
 );
 
 export const IconSuppliers = ({ className = "" }: { className?: string }) => (
   <svg className={className} {...svgProps} aria-hidden>
-    <path d="M3 21V8l7-5 7 5m-14 0v13h14V8m-14 0h14M9 21v-6h6v6M8 8h4M13 8h4" />
+    <path d="M2.5 6.5h11v10.5h-11z" />
+    <path d="M13.5 10h3.6l3.4 3.4v3.6h-7" />
+    <circle cx="7" cy="18.6" r="1.9" />
+    <circle cx="16.6" cy="18.6" r="1.9" />
   </svg>
 );
 
@@ -58,19 +82,25 @@ export const IconCustomers = ({ className = "" }: { className?: string }) => (
 
 export const IconExpenses = ({ className = "" }: { className?: string }) => (
   <svg className={className} {...svgProps} aria-hidden>
-    <path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+    <rect x="2.5" y="6" width="19" height="12" rx="2" />
+    <circle cx="12" cy="12" r="2.7" />
+    <path d="M6 12h.01M18 12h.01" />
   </svg>
 );
 
 export const IconReports = ({ className = "" }: { className?: string }) => (
   <svg className={className} {...svgProps} aria-hidden>
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h2m-2 4h6M16 13h.01" />
+    <path d="M4 20h16" />
+    <path d="M7 20v-6M12 20V7M17 20v-9" />
   </svg>
 );
 
 export const IconTeam = ({ className = "" }: { className?: string }) => (
   <svg className={className} {...svgProps} aria-hidden>
-    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm14 10v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+    <rect x="3" y="4.5" width="18" height="16" rx="2" />
+    <circle cx="9" cy="11" r="2.1" />
+    <path d="M5.6 17.5c.6-1.9 1.9-2.8 3.4-2.8s2.8.9 3.4 2.8" />
+    <path d="M15.5 9h3.5M15.5 12.5h3.5" />
   </svg>
 );
 
@@ -83,20 +113,75 @@ export const IconSettings = ({ className = "" }: { className?: string }) => (
 
 export const IconAudit = ({ className = "" }: { className?: string }) => (
   <svg className={className} {...svgProps} aria-hidden>
-    <path d="M12 8v4l2.5 2.5M21 12a9 9 0 1 1-9-9 9 9 0 0 1 9 9Z" />
+    <path d="M3.5 4.5V9H8" />
+    <path d="M4.6 13.5a8 8 0 1 0 .9-6.7L3.5 9" />
+    <path d="M12 8.5V12l2.5 2.5" />
   </svg>
 );
 
-export const NAV_ITEMS: NavItem[] = [
-  { href: "/dashboard", label: "Overview", permission: "dashboard:read", icon: IconOverview },
-  { href: "/products", label: "Products", permission: "products:read", icon: IconProducts },
-  { href: "/orders", label: "Orders", permission: "orders:read", icon: IconOrders },
-  { href: "/inventory", label: "Inventory", permission: "inventory:read", icon: IconInventory },
-  { href: "/purchases", label: "Suppliers & Purchases", permission: "suppliers:read", anyOf: ["suppliers:read", "purchases:read"], icon: IconSuppliers },
-  { href: "/customers", label: "Customers", permission: "customers:read", icon: IconCustomers },
-  { href: "/expenses", label: "Expenses", permission: "expenses:read", icon: IconExpenses },
-  { href: "/reports", label: "Reports", permission: "reports:read", icon: IconReports },
-  { href: "/team", label: "Team", permission: "team:read", icon: IconTeam },
-  { href: "/settings", label: "Settings", permission: "settings:read", icon: IconSettings },
-  { href: "/audit", label: "Audit log", permission: "audit:read", icon: IconAudit },
+/**
+ * Sidebar sections in the approved design order: OVERVIEW → COMMERCE →
+ * OPERATIONS → INSIGHTS → ADMINISTRATION. Items link to the routes that
+ * actually exist in this app; permission gating stays per-item.
+ */
+export const NAV_GROUPS: NavGroup[] = [
+  {
+    title: "Overview",
+    iconClass: "text-primary",
+    items: [
+      { href: "/dashboard", label: "Dashboard", permission: "dashboard:read", icon: IconDashboard },
+    ],
+  },
+  {
+    title: "Commerce",
+    iconClass: "text-primary",
+    items: [
+      { href: "/products", label: "Products", permission: "products:read", icon: IconProducts },
+      { href: "/orders", label: "Orders", permission: "orders:read", icon: IconOrders },
+    ],
+  },
+  {
+    title: "Operations",
+    iconClass: "text-secondary",
+    items: [
+      { href: "/inventory", label: "Inventory", permission: "inventory:read", icon: IconInventory },
+      { href: "/purchases", label: "Suppliers & Purchases", permission: "suppliers:read", anyOf: ["suppliers:read", "purchases:read"], icon: IconSuppliers },
+      { href: "/customers", label: "Customers", permission: "customers:read", icon: IconCustomers },
+      { href: "/expenses", label: "Expenses", permission: "expenses:read", icon: IconExpenses },
+    ],
+  },
+  {
+    title: "Insights",
+    iconClass: "text-on-tertiary-container",
+    items: [
+      { href: "/reports", label: "Reports", permission: "reports:read", icon: IconReports },
+    ],
+  },
+  {
+    title: "Administration",
+    iconClass: "text-outline",
+    items: [
+      { href: "/team", label: "Team", permission: "team:read", icon: IconTeam },
+      { href: "/settings", label: "Settings", permission: "settings:read", icon: IconSettings },
+      { href: "/audit", label: "Audit Log", permission: "audit:read", icon: IconAudit },
+    ],
+  },
 ];
+
+/** Flat list (title derivation + active-route matching). */
+export const NAV_ITEMS: NavItem[] = NAV_GROUPS.flatMap((group) => group.items);
+
+/**
+ * Resolve the current section for a pathname — exact match first, then the
+ * LONGEST nav prefix (so /orders/123 highlights Orders, /products/abc/xyz
+ * highlights Products) and never a bare substring check.
+ */
+export function matchNavItem(pathname: string): NavItem | undefined {
+  let best: NavItem | undefined;
+  for (const item of NAV_ITEMS) {
+    if (pathname === item.href || pathname.startsWith(`${item.href}/`)) {
+      if (!best || item.href.length > best.href.length) best = item;
+    }
+  }
+  return best;
+}

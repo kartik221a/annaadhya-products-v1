@@ -117,10 +117,25 @@
 
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-display: Georgia, "Times New Roman", serif;
+
+  /*
+   * Named spacing from DESIGN.md (Stitch heritage design). Tailwind v4 turns each
+   * --spacing-<name> into the matching utilities: p-space-md, px-margin, gap-gutter…
+   */
+  --spacing-space-xs: 0.25rem;
+  --spacing-space-sm: 0.5rem;
+  --spacing-space-md: 1rem;
+  --spacing-space-lg: 1.5rem;
+  --spacing-space-xl: 2.5rem;
+  --spacing-gutter: 1.5rem;
+  --spacing-gutter-mobile: 1rem;
+  --spacing-margin: 3rem;
+  --spacing-margin-mobile: 1.25rem;
 }
 
 /* Heritage families — Playfair for editorial headings, Jakarta for UI text.
-   The --font-heritage-* variables come from next/font/local in login/layout.tsx. */
+   The --font-heritage-* variables come from next/font/local in src/app/layout.tsx
+   (loaded once at the root so both /login and the console shell inherit them). */
 .font-heritage-display {
   font-family: var(--font-heritage-display), Georgia, "Times New Roman", serif;
 }
@@ -130,12 +145,12 @@
 }
 
 html {
-  background-color: var(--color-cream);
+  background-color: var(--color-surface);
 }
 
 body {
-  font-family: var(--font-sans);
-  color: var(--color-ink);
+  font-family: var(--font-heritage-sans), var(--font-sans);
+  color: var(--color-on-surface);
   -webkit-font-smoothing: antialiased;
 }
 
