@@ -21,6 +21,8 @@ export function PublishingCard({
   onStatus,
   giftItem,
   onGiftItem,
+  searchVisible,
+  onSearchVisible,
   featuredRank,
   onFeaturedRank,
   bestsellerRank,
@@ -31,6 +33,8 @@ export function PublishingCard({
   onStatus: (next: ProductStatus) => void;
   giftItem: boolean;
   onGiftItem: (next: boolean) => void;
+  searchVisible: boolean;
+  onSearchVisible: (next: boolean) => void;
   featuredRank: string;
   onFeaturedRank: (next: string) => void;
   bestsellerRank: string;
@@ -64,6 +68,23 @@ export function PublishingCard({
             <span className="block text-xs font-normal text-on-surface-variant">Shows the product in the storefront gifts collection.</span>
           </span>
           <input type="checkbox" checked={giftItem} disabled={disabled} onChange={(e) => onGiftItem(e.target.checked)} className="h-4 w-4 shrink-0 accent-primary" />
+        </label>
+
+        {/* Storefront Search Visibility — enforced by the API catalogue search filter. */}
+        <label className="flex cursor-pointer items-center justify-between gap-3">
+          <span className="text-label-md font-semibold text-on-surface">
+            Storefront search visibility
+            <span className="block text-xs font-normal text-on-surface-variant">
+              {searchVisible ? "Product appears in storefront search results." : "Hidden from search — still reachable via category pages and direct links."}
+            </span>
+          </span>
+          <input
+            type="checkbox"
+            checked={searchVisible}
+            disabled={disabled}
+            onChange={(e) => onSearchVisible(e.target.checked)}
+            className="h-4 w-4 shrink-0 accent-primary"
+          />
         </label>
 
         <div className="grid grid-cols-2 gap-3">
@@ -108,7 +129,19 @@ export function PublishingCard({
 
 /* ---------------------------- 2. inventory matrix --------------------------- */
 
-export function InventoryCard({ variantRows }: { variantRows: VariantRow[] }) {
+export function InventoryCard({
+  variantRows,
+  trackInventory = true,
+  onTrackInventory,
+  backorderPolicy = "deny",
+  onBackorderPolicy,
+}: {
+  variantRows: VariantRow[];
+  trackInventory?: boolean;
+  onTrackInventory?: (next: boolean) => void;
+  backorderPolicy?: "deny" | "allow" | "notify";
+  onBackorderPolicy?: (next: "deny" | "allow" | "notify") => void;
+}) {
   const onHand = variantRows.reduce((sum, r) => {
     const n = Number(r.stockOnHand || "0");
     return sum + (Number.isFinite(n) && n > 0 ? n : 0);
@@ -139,6 +172,47 @@ export function InventoryCard({ variantRows }: { variantRows: VariantRow[] }) {
         <span className="rounded-full bg-secondary-container px-2.5 py-1 text-label-sm font-semibold text-on-secondary-container">
           Across {skuCount} SKU{skuCount === 1 ? "" : "s"}
         </span>
+      </div>
+
+      {/* Auto-Track Inventory + Backorders Policy — enforced by the checkout service. */}
+      <div className="mb-4 space-y-3 rounded-lg bg-surface-container-low p-3">
+        <label className="flex cursor-pointer items-center justify-between gap-3">
+          <span className="text-label-md font-semibold text-on-surface">
+            Auto-track inventory
+            <span className="block text-xs font-normal text-on-surface-variant">
+              {trackInventory
+                ? "Stock is reserved on checkout and decremented on payment."
+                : "Sold without stock limits — stock fields and low-stock alerts are ignored."}
+            </span>
+          </span>
+          <input
+            type="checkbox"
+            checked={trackInventory}
+            disabled={!onTrackInventory}
+            onChange={(e) => onTrackInventory?.(e.target.checked)}
+            className="h-4 w-4 shrink-0 accent-primary"
+          />
+        </label>
+        <label className="block">
+          <span className="label-eyebrow text-outline">Backorders policy</span>
+          <select
+            value={backorderPolicy}
+            disabled={!onBackorderPolicy || !trackInventory}
+            onChange={(e) => onBackorderPolicy?.(e.target.value as "deny" | "allow" | "notify")}
+            className="mt-1 w-full rounded-lg border border-outline-variant/50 bg-surface-container-lowest px-3 py-2 text-body-sm text-on-surface outline-none focus:border-primary disabled:opacity-55"
+          >
+            <option value="deny">Stop sales when stock runs out (default)</option>
+            <option value="allow">Keep selling — fulfil the shortfall after restock</option>
+            <option value="notify">Keep selling and flag the shortfall on the order</option>
+          </select>
+          <span className="mt-1 block text-xs font-normal text-on-surface-variant">
+            {trackInventory
+              ? backorderPolicy === "deny"
+                ? "Sales stop when available stock hits zero."
+                : "Orders past stock record the uncovered quantity for fulfilment after restock."
+              : "Only applies when auto-track inventory is on."}
+          </span>
+        </label>
       </div>
 
       <div className="space-y-2">

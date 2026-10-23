@@ -201,3 +201,33 @@ body {
 .group:hover .metric-decor {
   transform: scale(1.1);
 }
+
+/* Rich-text description editor + preview (sanitised HTML from the admin toolbar) */
+.rich-editor > * + * {
+  margin-top: 0.6em;
+}
+.rich-editor ul,
+.rich-editor ol {
+  padding-left: 1.4rem;
+}
+.rich-editor ul {
+  list-style: disc;
+}
+.rich-editor ol {
+  list-style: decimal;
+}
+.rich-editor a {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+.rich-editor h3,
+.rich-editor h4 {
+  font-weight: 600;
+  color: var(--color-on-surface);
+}
+.rich-editor h3 {
+  font-size: 1.05rem;
+}
+.rich-editor h4 {
+  font-size: 0.95rem;
+}

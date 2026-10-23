@@ -20,6 +20,9 @@ importers:
 
   apps/admin:
     dependencies:
+      '@annaadhya/utils':
+        specifier: workspace:*
+        version: link:../../packages/utils
       firebase:
         specifier: 11.10.0
         version: 11.10.0

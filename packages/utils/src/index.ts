@@ -12,6 +12,7 @@ import {
 } from "./money";
 import { nowMillis, toIso, istDateKey, startOfIstDay, addDays, addMinutes, formatDateIN } from "./time";
 import { loadDotEnvIfPresent } from "./env-file";
+import { sanitizeRichText, stripHtml, looksLikeHtml } from "./rich-text";
 
 export {
   slugify,
@@ -36,4 +37,7 @@ export {
   addMinutes,
   formatDateIN,
   loadDotEnvIfPresent,
+  sanitizeRichText,
+  stripHtml,
+  looksLikeHtml,
 };

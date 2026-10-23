@@ -44,15 +44,21 @@ export function BuyPanel({
 
   const selected = variants.find((v) => v.id === selectedId) ?? firstAvailable;
   const available = selected ? availableQty(selected) : 0;
-  const outOfStock = !selected || available <= 0;
+  // Inventory policy: untracked products sell without limits; allow/notify backorders keep
+  // the buy path open past zero stock (the API records the shortfall server-side).
+  const tracked = product.trackInventory !== false;
+  const backorderable = tracked && (product.backorderPolicy === "allow" || product.backorderPolicy === "notify");
+  const unlimited = !tracked;
+  const openSale = unlimited || backorderable;
+  const outOfStock = !selected || (!openSale && available <= 0);
   // Free-shipping threshold from the store settings (server truth). Null when the
   // store has no numeric threshold configured — the copy then drops the number.
   const freeAbovePaise =
     shipping?.mode === "flat_rate" && shipping.freeAbovePaise && shipping.freeAbovePaise > 0
       ? shipping.freeAbovePaise
       : null;
-  // Cart itself caps quantity at 99 per line.
-  const qtyCap = Math.min(available || 1, 99);
+  // Cart itself caps quantity at 99 per line; open-sale lines share that cap.
+  const qtyCap = openSale ? 99 : Math.min(available || 1, 99);
   const saved = wishlist.has(product.slug);
 
   function cartItem() {
@@ -232,10 +238,10 @@ export function BuyPanel({
                   </span>
                   <span
                     className={`mt-0.5 text-[0.625rem] font-semibold uppercase tracking-wider ${
-                      vOut ? "text-on-error-container" : isSel ? "text-primary-fixed" : "text-secondary"
+                      vOut && !openSale ? "text-on-error-container" : isSel ? "text-primary-fixed" : "text-secondary"
                     }`}
                   >
-                    {vOut ? "Out of stock" : vAvail <= v.lowStockThreshold ? "Low stock" : "In stock"}
+                    {vOut && openSale ? "Backorder" : vOut ? "Out of stock" : vAvail <= v.lowStockThreshold ? "Low stock" : "In stock"}
                   </span>
                 </button>
               );
@@ -247,10 +253,22 @@ export function BuyPanel({
       {/* Stock status line */}
       <p className="flex items-center gap-1.5 pt-1 text-body-sm text-on-surface-variant" role="status">
         <span
-          className={`h-2 w-2 rounded-full ${outOfStock ? "bg-error" : "bg-secondary"}`}
+          className={`h-2 w-2 rounded-full ${outOfStock ? "bg-error" : openSale && available <= 0 ? "bg-tertiary" : "bg-secondary"}`}
           aria-hidden
         />
-        {outOfStock ? (
+        {unlimited ? (
+          <span>In stock and ready to ship.</span>
+        ) : backorderable && outOfStock ? (
+          <span>
+            <strong className="font-semibold text-on-surface">Available on backorder</strong> — order now and it ships
+            after the next verified batch.
+          </span>
+        ) : backorderable && available <= selected.lowStockThreshold ? (
+          <span>
+            <strong className="font-semibold text-on-surface">Only {available} left</strong> — orders beyond that ship
+            after restock.
+          </span>
+        ) : outOfStock ? (
           <span>
             <strong className="font-semibold text-on-error-container">Out of stock</strong> — pick another pack
             size, or check back after the next verified batch.

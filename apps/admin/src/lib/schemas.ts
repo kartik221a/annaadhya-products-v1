@@ -45,13 +45,14 @@ export const variantUpsertSchema = z.object({
   status: z.enum(["draft", "published", "archived"]),
   stockOnHand: z.number().int().min(0).max(1_000_000),
   lowStockThreshold: z.number().int().min(0).max(100_000),
+  sortOrder: z.number().int().min(0).max(9999).optional(),
 });
 
 export const productUpsertSchema = z.object({
   sku: skuSchema,
   name: z.string().trim().min(2).max(120),
   subtitle: z.string().trim().max(180),
-  description: z.string().trim().min(10, "Description must be at least 10 characters").max(8000),
+  description: z.string().trim().min(10, "Description must be at least 10 characters").max(20000),
   categoryId: idSchema,
   typeLabel: z.string().trim().max(120),
   status: z.enum(["draft", "published", "archived"]),
@@ -84,6 +85,9 @@ export const productUpsertSchema = z.object({
   bestsellerRank: z.number().int().min(1).max(1000).optional(),
   featuredRank: z.number().int().min(1).max(1000).optional(),
   giftItem: z.boolean(),
+  searchVisible: z.boolean().optional(),
+  trackInventory: z.boolean().optional(),
+  backorderPolicy: z.enum(["deny", "allow", "notify"]).optional(),
   seo: z.object({
     title: z.string().trim().max(180).optional(),
     description: z.string().trim().max(320).optional(),

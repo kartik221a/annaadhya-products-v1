@@ -43,12 +43,15 @@ export interface ProductSpec {
   value: string;
 }
 
+/** What happens when tracked stock runs out for a product. */
+export type BackorderPolicy = "deny" | "allow" | "notify";
+
 export interface ProductDoc extends BaseDoc {
   sku: string; // unique, e.g. AN-HNY-001
   slug: string; // unique
   name: string;
   subtitle: string;
-  description: string;
+  description: string; // plain text or sanitised rich-text HTML (see sanitizeRichText in @annaadhya/utils)
   categoryId: string;
   typeLabel: string; // variety / type e.g. "Wild forest / multifloral honey"
   status: ProductStatus; // only `published` is publicly visible
@@ -65,7 +68,21 @@ export interface ProductDoc extends BaseDoc {
   bestsellerRank?: number; // smaller = higher placement; drives "bestsellers"
   featuredRank?: number; // drives "featured products"
   giftItem: boolean;
+  searchVisible?: boolean; // false = excluded from storefront search results (still reachable via category/direct link). Default true.
+  trackInventory?: boolean; // false = sell without stock limits — no availability checks, reservations or decrements. Default true.
+  backorderPolicy?: BackorderPolicy; // behaviour when tracked stock runs out. Default "deny".
   seo: { title?: string; description?: string };
+}
+
+/** Undefined-safe normalisers — all consumers must agree on defaults through these. */
+export function searchVisibleOf(p: Pick<ProductDoc, "searchVisible">): boolean {
+  return p.searchVisible !== false;
+}
+export function trackInventoryOf(p: Pick<ProductDoc, "trackInventory">): boolean {
+  return p.trackInventory !== false;
+}
+export function backorderPolicyOf(p: Pick<ProductDoc, "backorderPolicy">): BackorderPolicy {
+  return p.backorderPolicy ?? "deny";
 }
 
 /** Body for POST /admin/catalogue/products and POST /admin/catalogue/products/:id.
@@ -107,6 +124,7 @@ export interface VariantUpsertPayload {
   status: ProductStatus;
   stockOnHand: number;
   lowStockThreshold: number;
+  sortOrder?: number; // explicit display order (admin drag-reorder); missing → ordered by grams (legacy)
 }
 
 export interface ProductImage {
@@ -128,6 +146,7 @@ export interface ProductVariantDoc extends BaseDoc {
   stockOnHand: number; // maintained transactionally
   reservedQty: number; // held for in-flight checkouts
   lowStockThreshold: number;
+  sortOrder?: number; // explicit display order (admin drag-reorder); missing → ordered by grams (legacy)
 }
 
 export function availableQty(v: Pick<ProductVariantDoc, "stockOnHand" | "reservedQty">): number {
@@ -252,6 +271,7 @@ export interface OrderItemSnapshot {
   mrpPaise?: number;
   qty: number;
   lineTotalPaise: number;
+  backorderedQty?: number; // qty not covered by stock — present only when the backorder policy allowed the sale
 }
 
 /* ------------------------------ Payments & checkout --------------------------- */
@@ -271,7 +291,7 @@ export interface PaymentAttemptDoc extends BaseDoc {
 
 export interface CheckoutQuoteDoc extends BaseDoc {
   quoteId: string;
-  items: { variantId: string; qty: number; unitPricePaise: number; lineTotalPaise: number }[];
+  items: { variantId: string; qty: number; unitPricePaise: number; lineTotalPaise: number; backorderedQty?: number }[];
   subtotalPaise: number;
   discountTotalPaise: number;
   shippingPaise: number;

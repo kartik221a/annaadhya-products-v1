@@ -11,6 +11,7 @@ import {
   type CheckoutQuoteDto,
   type OrderDoc,
   type PaymentAttemptDoc,
+  type ProductDoc,
   type ProductVariantDoc,
 } from "@annaadhya/contracts";
 import { loadEnv, resetEnvCache } from "../src/config/env";
@@ -428,5 +429,144 @@ describe("demo data isolation in live reporting", () => {
     const liveOrders = await db.count(COLLECTIONS.orders, [{ field: "isDemo", op: "==", value: false }]);
     expect(demoOrders).toBe(12);
     expect(metrics.orders.count).toBe(liveOrders);
+  });
+});
+describe("inventory policies — auto-track + backorders", () => {
+  let policySeq = 0;
+
+  /** Seed a dedicated product+variant so policy tests never touch the shared demo stock. */
+  async function seedPolicyProduct(opts: {
+    trackInventory?: boolean;
+    backorderPolicy?: "deny" | "allow" | "notify";
+    stockOnHand: number;
+  }): Promise<ProductVariantDoc> {
+    policySeq += 1;
+    const now = Date.now();
+    const productId = `prod_policy_${policySeq}`;
+    const sku = `AN-POL-${String(policySeq).padStart(3, "0")}`;
+    const variant: ProductVariantDoc = {
+      id: `var_policy_${policySeq}`,
+      productId,
+      sku: `${sku}-100G`,
+      packLabel: "100 g",
+      grams: 100,
+      pricePaise: 49000,
+      status: "published",
+      stockOnHand: opts.stockOnHand,
+      reservedQty: 0,
+      lowStockThreshold: 5,
+      createdAt: now,
+      updatedAt: now,
+      isDemo: false,
+    };
+    const product: ProductDoc = {
+      id: productId,
+      sku,
+      slug: productId,
+      name: `Policy Product ${policySeq}`,
+      subtitle: "",
+      description: "Inventory policy test product",
+      categoryId: "cat_seed_honey",
+      typeLabel: "",
+      status: "published",
+      images: [],
+      giftItem: false,
+      trackInventory: opts.trackInventory,
+      backorderPolicy: opts.backorderPolicy,
+      seo: {},
+      createdAt: now,
+      updatedAt: now,
+      isDemo: false,
+    };
+    await db.set(COLLECTIONS.products, productId, product);
+    await db.set(COLLECTIONS.productVariants, variant.id, variant);
+    return variant;
+  }
+
+  async function orderVariant(v: ProductVariantDoc, qty: number): Promise<{ order: OrderDoc; attempt: PaymentAttemptDoc | null }> {
+    const quote = await checkout.quote({ items: [{ variantId: v.id, qty }], pincode: "250002" } satisfies CheckoutQuoteDto);
+    const res = await checkout.createOrder(
+      {
+        quoteId: quote.quoteId,
+        paymentMethod: "gateway",
+        customer: { displayName: "Test Customer", email: "cust@test.dev", phone: "9876543210" },
+        address: address(),
+        acceptTerms: true,
+      },
+      customer,
+    );
+    const order = res as OrderDoc & { clientPaymentPayload?: Record<string, unknown> };
+    const attempt = order.clientPaymentPayload
+      ? await db.get<PaymentAttemptDoc>(
+          COLLECTIONS.paymentAttempts,
+          (order.clientPaymentPayload.attemptId as string) ?? (order.clientPaymentPayload as { attemptId: string }).attemptId,
+        )
+      : null;
+    return { order, attempt };
+  }
+
+  function payEvent(attempt: PaymentAttemptDoc) {
+    return checkout.applyVerifiedEvent(
+      { eventId: `evt_${attempt.id}`, eventType: "mock.succeeded", providerOrderId: attempt!.providerOrderId, outcome: "succeeded" as const, amountPaise: attempt!.amountPaise },
+      "mock",
+    );
+  }
+
+  it("trackInventory=false sells past zero stock — no reservations, no decrements, no backorder flag", async () => {
+    const v = await seedPolicyProduct({ trackInventory: false, stockOnHand: 0 });
+    const quote = await checkout.quote({ items: [{ variantId: v.id, qty: 3 }], pincode: "250002" });
+    expect(quote.unavailable).toHaveLength(0);
+    expect(quote.items[0].backorderedQty).toBeUndefined();
+
+    const { order, attempt } = await orderVariant(v, 3);
+    expect(order.items[0].backorderedQty).toBeUndefined();
+    expect(order.totalPaise).toBe(3 * 49000);
+
+    await payEvent(attempt!);
+    const after = await db.get<ProductVariantDoc>(COLLECTIONS.productVariants, v.id);
+    expect(after!.stockOnHand).toBe(0); // never decremented
+    expect(after!.reservedQty).toBe(0);
+    const reservations = await db.list(COLLECTIONS.stockReservations, { where: [{ field: "orderId", op: "==", value: order.id }] });
+    expect(reservations).toHaveLength(0);
+  });
+
+  it("backorderPolicy=allow sells 5 against stock of 2 — records shortfall 3, reserves only the covered 2", async () => {
+    const v = await seedPolicyProduct({ backorderPolicy: "allow", stockOnHand: 2 });
+    const quote = await checkout.quote({ items: [{ variantId: v.id, qty: 5 }], pincode: "250002" });
+    expect(quote.unavailable).toHaveLength(0);
+    expect(quote.items[0].backorderedQty).toBe(3);
+
+    const { order, attempt } = await orderVariant(v, 5);
+    expect(order.items[0].qty).toBe(5);
+    expect(order.items[0].backorderedQty).toBe(3);
+
+    const reservations = await db.list<{ qty: number }>(COLLECTIONS.stockReservations, {
+      where: [{ field: "orderId", op: "==", value: order.id }],
+    });
+    expect(reservations).toHaveLength(1);
+    expect(reservations[0].qty).toBe(2);
+
+    await payEvent(attempt!);
+    const after = await db.get<ProductVariantDoc>(COLLECTIONS.productVariants, v.id);
+    expect(after!.stockOnHand).toBe(0); // only the covered part decrements — never negative
+    expect(after!.reservedQty).toBe(0);
+  });
+
+  it("backorderPolicy=notify behaves like allow but keeps the shortfall visible on the order", async () => {
+    const v = await seedPolicyProduct({ backorderPolicy: "notify", stockOnHand: 0 });
+    const { order, attempt } = await orderVariant(v, 2);
+    expect(order.items[0].backorderedQty).toBe(2);
+    const reservations = await db.list(COLLECTIONS.stockReservations, { where: [{ field: "orderId", op: "==", value: order.id }] });
+    expect(reservations).toHaveLength(0); // fully backordered — nothing reserved yet
+    await payEvent(attempt!);
+    const after = await db.get<ProductVariantDoc>(COLLECTIONS.productVariants, v.id);
+    expect(after!.stockOnHand).toBe(0);
+  });
+
+  it("default deny policy still refuses overselling — legacy behaviour untouched", async () => {
+    const v = await seedPolicyProduct({ stockOnHand: 0 });
+    const quote = await checkout.quote({ items: [{ variantId: v.id, qty: 1 }], pincode: "250002" });
+    expect(quote.unavailable).toEqual([{ variantId: v.id, reason: "Out of stock" }]);
+    await expect(orderVariant(v, 1)).rejects.toThrow(/unavailable/i);
   });
 });

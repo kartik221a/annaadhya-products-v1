@@ -17,9 +17,10 @@
  *  - every mutation goes through the documented upsert API — no local-only state
  *
  * Honest-UI rules: prototype-only controls from the reference (scenario switcher,
- * rich-text toolbar, Storefront Search Visibility, Auto-Track Inventory, Backorders
- * Policy, drag-to-reorder variants, free-tag collections) have no backend and are
- * intentionally omitted rather than faked.
+ * free-tag collections) have no backend and are intentionally omitted rather than faked.
+ * The five formerly-omitted controls — Storefront Search Visibility, Auto-Track
+ * Inventory, Backorders Policy, drag-to-reorder variants and the rich-text toolbar —
+ * are LIVE: the backend (contracts/api) now persists and enforces all of them.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ApiError, apiGet, apiPost, can } from "@/lib/api";
@@ -27,10 +28,12 @@ import { useAuth } from "@/lib/auth";
 import { paiseToRupeeInput, rupeesToPaise } from "@/lib/format";
 import { productUpsertSchema, zodErrorList } from "@/lib/schemas";
 import { useToast } from "@/lib/toast";
+import { stripHtml } from "@annaadhya/utils/rich-text";
 import type { CategoryDoc, ProductSpec, ProductStatus, ProductUpsertPayload, ProductWithVariants, VariantUpsertPayload } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { HeritageField, HeritageInput, HeritageSelect, HeritageTextarea, SectionCard, SlugField, SerpPreview } from "./form-fields";
 import { VariantsTable } from "./variants-table";
+import { RichTextEditor } from "./rich-text-editor";
 import { MediaGrid } from "./media-grid";
 import { ComplianceCard, InventoryCard, PublishingCard, StorefrontPreviewCard } from "./product-sidebar";
 
@@ -152,6 +155,9 @@ export interface ProductFormState {
   bestsellerRank: string;
   featuredRank: string;
   giftItem: boolean;
+  searchVisible: boolean;
+  trackInventory: boolean;
+  backorderPolicy: "deny" | "allow" | "notify";
   seoTitle: string;
   seoDescription: string;
 }
@@ -179,6 +185,9 @@ export function emptyProductForm(): ProductFormState {
     bestsellerRank: "",
     featuredRank: "",
     giftItem: false,
+    searchVisible: true,
+    trackInventory: true,
+    backorderPolicy: "deny",
     seoTitle: "",
     seoDescription: "",
   };
@@ -207,6 +216,9 @@ export function productDocToForm(doc: ProductWithVariants): ProductFormState {
     bestsellerRank: doc.bestsellerRank !== undefined ? String(doc.bestsellerRank) : "",
     featuredRank: doc.featuredRank !== undefined ? String(doc.featuredRank) : "",
     giftItem: doc.giftItem,
+    searchVisible: doc.searchVisible !== false,
+    trackInventory: doc.trackInventory !== false,
+    backorderPolicy: doc.backorderPolicy ?? "deny",
     seoTitle: doc.seo?.title ?? "",
     seoDescription: doc.seo?.description ?? "",
   };
@@ -282,8 +294,12 @@ export function productDocToPayload(doc: ProductWithVariants, statusOverride?: P
     bestsellerRank: doc.bestsellerRank,
     featuredRank: doc.featuredRank,
     giftItem: doc.giftItem,
+    // Preserve the stored storefront controls on quick actions — never reset them.
+    searchVisible: doc.searchVisible !== false,
+    trackInventory: doc.trackInventory !== false,
+    backorderPolicy: doc.backorderPolicy ?? "deny",
     seo: { title: doc.seo?.title, description: doc.seo?.description },
-    variants: doc.variants.map((v) => ({
+    variants: doc.variants.map((v, idx) => ({
       id: v.id,
       sku: v.sku,
       packLabel: v.packLabel,
@@ -293,6 +309,7 @@ export function productDocToPayload(doc: ProductWithVariants, statusOverride?: P
       status: v.status,
       stockOnHand: v.stockOnHand,
       lowStockThreshold: v.lowStockThreshold,
+      sortOrder: v.sortOrder ?? idx,
     })),
   };
 }
@@ -400,7 +417,7 @@ export function useProductSubmit() {
       problems.push("Name must be at least 2 characters.");
       fieldErrors.name = "Please enter a valid product name (at least 2 characters).";
     }
-    if (form.description.trim().length < 10) problems.push("Description must be at least 10 characters.");
+    if (stripHtml(form.description).trim().length < 10) problems.push("Description must be at least 10 characters of visible text.");
     if (!form.categoryId) {
       problems.push("Pick a category.");
       fieldErrors.categoryId = "Please choose a heritage category.";
@@ -449,6 +466,7 @@ export function useProductSubmit() {
         status: row.status,
         stockOnHand: stock,
         lowStockThreshold: threshold,
+        sortOrder: idx, // row order IS the storefront display order
       });
     });
 
@@ -490,6 +508,9 @@ export function useProductSubmit() {
       bestsellerRank,
       featuredRank,
       giftItem: form.giftItem,
+      searchVisible: form.searchVisible,
+      trackInventory: form.trackInventory,
+      backorderPolicy: form.backorderPolicy,
       seo: {
         title: form.seoTitle.trim() || undefined,
         description: form.seoDescription.trim() || undefined,
@@ -796,16 +817,13 @@ export function ProductForm({
           <HeritageField
             label="Full Product Description"
             required
-            hint="Plain text — the storefront theme applies the heritage typography. At least 10 characters."
+            hint="Rich text — bold, lists and links render on the storefront. At least 10 characters of visible text."
             htmlFor="prod-full-desc"
           >
-            <HeritageTextarea
-              id="prod-full-desc"
+            <RichTextEditor
               value={form.description}
-              disabled={!canWrite}
-              rows={5}
-              maxLength={8000}
-              onChange={(e) => update("description", e.target.value)}
+              onChange={(html) => update("description", html)}
+              readOnly={!canWrite}
             />
           </HeritageField>
           <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -959,13 +977,21 @@ export function ProductForm({
           onStatus={(s) => update("status", s)}
           giftItem={form.giftItem}
           onGiftItem={(v) => update("giftItem", v)}
+          searchVisible={form.searchVisible}
+          onSearchVisible={(v) => update("searchVisible", v)}
           featuredRank={form.featuredRank}
           onFeaturedRank={(v) => update("featuredRank", v)}
           bestsellerRank={form.bestsellerRank}
           onBestsellerRank={(v) => update("bestsellerRank", v)}
           disabled={!canWrite}
         />
-        <InventoryCard variantRows={variantRows} />
+        <InventoryCard
+          variantRows={variantRows}
+          trackInventory={form.trackInventory}
+          onTrackInventory={(v) => update("trackInventory", v)}
+          backorderPolicy={form.backorderPolicy}
+          onBackorderPolicy={(v) => update("backorderPolicy", v)}
+        />
         <ComplianceCard
           values={{
             netQuantityLabel: form.netQuantityLabel,

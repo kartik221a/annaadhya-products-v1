@@ -3,6 +3,9 @@ import { Inject, Injectable } from "@nestjs/common";
 import {
   COLLECTIONS,
   availableQty,
+  backorderPolicyOf,
+  searchVisibleOf,
+  trackInventoryOf,
   type CategoryDoc,
   type ListQueryDto,
   type Page,
@@ -13,7 +16,7 @@ import {
 } from "@annaadhya/contracts";
 import { conflict, notFound, type DataClient } from "@annaadhya/data-core";
 import { DATA_CLIENT } from "../../data/data.module";
-import { slugify } from "@annaadhya/utils";
+import { sanitizeRichText, slugify, stripHtml } from "@annaadhya/utils";
 
 export interface ProductWithVariants extends ProductDoc {
   variants: ProductVariantDoc[];
@@ -116,13 +119,15 @@ export class CatalogueService {
     for (const p of products) {
       const variants = variantsByProduct.get(p.id) ?? [];
       if (!adminView && variants.length === 0) continue; // public: products without variants are not sellable yet
-      if (!q.includeUnavailable && variants.every((v) => availableQty(v) <= 0)) continue;
+      if (!q.includeUnavailable && variants.every((v) => !variantPurchasable(v, p))) continue;
       if (q.search) {
+        // Search-visibility toggle: hidden products stay browsable but never match search.
+        if (!searchVisibleOf(p)) continue;
         const needle = q.search.toLowerCase();
-        const haystack = `${p.name} ${p.subtitle} ${p.typeLabel} ${p.description} ${p.sku}`.toLowerCase();
+        const haystack = `${p.name} ${p.subtitle} ${p.typeLabel} ${stripHtml(p.description)} ${p.sku}`.toLowerCase();
         if (!haystack.includes(needle)) continue;
       }
-      rows.push({ ...p, variants });
+      rows.push({ ...p, variants: sortVariants(variants) });
     }
 
     const minPrice = (r: ProductWithVariants) => Math.min(...r.variants.map((v) => v.pricePaise));
@@ -186,7 +191,7 @@ export class CatalogueService {
       list.push(v);
       map.set(v.productId, list);
     }
-    for (const list of map.values()) list.sort((a, b) => a.grams - b.grams);
+    for (const [productId, list] of map) map.set(productId, sortVariants(list));
     return map;
   }
 
@@ -244,7 +249,7 @@ export class CatalogueService {
       where: [{ field: "productId", op: "==", value: product.id }],
       orderBy: [{ field: "grams", direction: "asc" }],
     });
-    return { ...product, variants };
+    return { ...product, variants: sortVariants(variants) };
   }
 
   /* -------------------------------- admin --------------------------------- */
@@ -296,13 +301,19 @@ export class CatalogueService {
     const slugClash = bySlug.find((p) => p.id !== id);
     if (slugClash) throw conflict(`Slug ${slug} is already used by another product`);
 
+    // Rich-text descriptions are sanitised once at the boundary — stored docs are always safe to render.
+    const description = sanitizeRichText(dto.description);
+    if (stripHtml(description).length < 10) {
+      throw conflict("Description must be at least 10 characters of visible text");
+    }
+
     const product: ProductDoc = {
       id,
       sku: dto.sku,
       slug,
       name: dto.name,
       subtitle: dto.subtitle,
-      description: dto.description,
+      description,
       categoryId: dto.categoryId,
       typeLabel: dto.typeLabel,
       status: dto.status,
@@ -328,6 +339,11 @@ export class CatalogueService {
       bestsellerRank: dto.bestsellerRank,
       featuredRank: dto.featuredRank,
       giftItem: dto.giftItem,
+      // Storefront controls — omit-in-payload preserves the stored value (quick toggles etc.),
+      // a brand-new product gets the documented default.
+      searchVisible: dto.searchVisible ?? existingDoc?.searchVisible ?? true,
+      trackInventory: dto.trackInventory ?? existingDoc?.trackInventory ?? true,
+      backorderPolicy: dto.backorderPolicy ?? existingDoc?.backorderPolicy ?? "deny",
       seo: dto.seo,
       createdAt: existingDoc?.createdAt ?? now,
       updatedAt: now,
@@ -341,7 +357,7 @@ export class CatalogueService {
     });
     const existingBySku = new Map(existingVariants.map((v) => [v.sku, v]));
 
-    for (const v of dto.variants) {
+    for (const [idx, v] of dto.variants.entries()) {
       const prev = existingBySku.get(v.sku);
       const variant: ProductVariantDoc = {
         id: prev?.id ?? `var_${slugify(v.sku)}`,
@@ -355,6 +371,7 @@ export class CatalogueService {
         stockOnHand: v.stockOnHand ?? prev?.stockOnHand ?? 0,
         reservedQty: prev?.reservedQty ?? 0,
         lowStockThreshold: v.lowStockThreshold,
+        sortOrder: v.sortOrder ?? prev?.sortOrder ?? idx,
         createdAt: prev?.createdAt ?? now,
         updatedAt: now,
         isDemo: prev?.isDemo ?? false,
@@ -409,4 +426,21 @@ export class CatalogueService {
 
 function emptyPage(page: number, pageSize: number): Page<ProductWithVariants> {
   return { items: [], page, pageSize, total: 0, totalPages: 1 };
+}
+
+/** A variant is purchasable when untracked (unlimited) or when the product's stock policy admits the sale. */
+export function variantPurchasable(v: ProductVariantDoc, product: Pick<ProductDoc, "trackInventory" | "backorderPolicy">): boolean {
+  if (!trackInventoryOf(product)) return true;
+  if (backorderPolicyOf(product) !== "deny") return true;
+  return availableQty(v) > 0;
+}
+
+/** Display order: explicit sortOrder first (admin drag-reorder), grams as legacy fallback, pack label as tiebreak. */
+export function sortVariants(variants: ProductVariantDoc[]): ProductVariantDoc[] {
+  return [...variants].sort(
+    (a, b) =>
+      (a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER) ||
+      a.grams - b.grams ||
+      a.packLabel.localeCompare(b.packLabel),
+  );
 }

@@ -15,7 +15,8 @@
     "next": "15.5.28",
     "react": "19.1.4",
     "react-dom": "19.1.4",
-    "zod": "3.25.76"
+    "zod": "3.25.76",
+    "@annaadhya/utils": "workspace:*"
   },
   "devDependencies": {
     "@annaadhya/config": "workspace:*",

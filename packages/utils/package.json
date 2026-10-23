@@ -8,6 +8,10 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./dist/index.js"
+    },
+    "./rich-text": {
+      "types": "./src/rich-text.ts",
+      "default": "./dist/rich-text.js"
     }
   },
   "scripts": {

@@ -6,6 +6,7 @@ import { getCategoryOverview, getProduct, getPublicSettings, getRelatedProducts 
 import { productEditorialFor } from "@/lib/product-editorial";
 import { editorialFor } from "@/lib/category-editorial";
 import { availableQty, formatINR } from "@/lib/format";
+import { looksLikeHtml, sanitizeRichText, stripHtml } from "@annaadhya/utils/rich-text";
 import { ProductGrid } from "@/components/product-card";
 import { BuyPanel } from "@/components/buy-panel";
 import { ProductGallery } from "@/components/product-gallery";
@@ -29,7 +30,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!product) return { title: "Product not found" };
   return {
     title: product.seo?.title ?? `${product.name} — ${product.subtitle}`,
-    description: product.seo?.description ?? product.description.slice(0, 160),
+    description: product.seo?.description ?? stripHtml(product.description).slice(0, 160),
     openGraph: {
       title: product.name,
       description: product.subtitle,
@@ -62,13 +63,16 @@ export default async function ProductPage({ params }: Props) {
 
   const variants = product.variants.filter((v) => v.status === "published");
   const cheapest = variants.length ? Math.min(...variants.map((v) => v.pricePaise)) : 0;
-  const inStock = variants.some((v) => availableQty(v) > 0);
+  // Purchasable = in stock, or the product opts out of stock limits / allows backorders.
+  const openSale =
+    product.trackInventory === false || product.backorderPolicy === "allow" || product.backorderPolicy === "notify";
+  const purchasable = variants.length > 0 && (openSale || variants.some((v) => availableQty(v) > 0));
 
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
     name: product.name,
-    description: product.description,
+    description: stripHtml(product.description),
     sku: product.sku,
     brand: { "@type": "Brand", name: "Annaadhya Products" },
     image: product.images.map((i) => i.url),
@@ -80,7 +84,7 @@ export default async function ProductPage({ params }: Props) {
         lowPrice: (cheapest / 100).toFixed(2),
         highPrice: (Math.max(...variants.map((v) => v.pricePaise)) / 100).toFixed(2),
         offerCount: variants.length,
-        availability: inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+        availability: purchasable ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
       },
     }),
   };
@@ -214,7 +218,7 @@ export default async function ProductPage({ params }: Props) {
                       {category ? `The ${category.name} shelf` : "The Annaadhya shelf"}
                     </span>
                     <p className="text-body-md leading-relaxed text-on-surface-variant">
-                      {category?.description ?? product.description}
+                      {category?.description ?? stripHtml(product.description)}
                     </p>
                   </div>
                   <div className="grid grid-cols-1 gap-space-sm pt-2 sm:grid-cols-3">
@@ -262,9 +266,18 @@ export default async function ProductPage({ params }: Props) {
               <div key="specs" className="space-y-space-lg">
                 <div className="rounded-xl bg-surface-container-lowest p-space-lg shadow-sm">
                   <h3 className="font-display text-headline-sm font-medium text-primary">About this product</h3>
-                  <p className="mt-2 whitespace-pre-line text-body-md leading-relaxed text-on-surface-variant">
-                    {product.description}
-                  </p>
+                  {looksLikeHtml(product.description) ? (
+                    // Stored descriptions are sanitised server-side on every write; re-sanitised here so
+                    // even legacy/manual DB edits can never inject markup.
+                    <div
+                      className="rich-text mt-2 text-body-md leading-relaxed text-on-surface-variant"
+                      dangerouslySetInnerHTML={{ __html: sanitizeRichText(product.description) }}
+                    />
+                  ) : (
+                    <p className="mt-2 whitespace-pre-line text-body-md leading-relaxed text-on-surface-variant">
+                      {product.description}
+                    </p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 gap-space-md md:grid-cols-2 lg:grid-cols-3">

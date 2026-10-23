@@ -32,6 +32,7 @@ export interface ProductVariant {
   stockOnHand: number;
   reservedQty: number;
   lowStockThreshold: number;
+  sortOrder?: number;
 }
 
 export interface ProductDoc {
@@ -52,6 +53,9 @@ export interface ProductDoc {
   bestsellerRank?: number;
   featuredRank?: number;
   giftItem: boolean;
+  searchVisible?: boolean; // false = hidden from storefront search results
+  trackInventory?: boolean; // false = sold without stock limits
+  backorderPolicy?: "deny" | "allow" | "notify"; // behaviour when tracked stock runs out
   seo?: { title?: string; description?: string };
 }
 
@@ -67,7 +71,7 @@ export interface Page<T> {
 
 export interface CheckoutQuote {
   quoteId: string;
-  items: { variantId: string; qty: number; unitPricePaise: number; lineTotalPaise: number }[];
+  items: { variantId: string; qty: number; unitPricePaise: number; lineTotalPaise: number; backorderedQty?: number }[];
   subtotalPaise: number;
   discountTotalPaise: number;
   shippingPaise: number;

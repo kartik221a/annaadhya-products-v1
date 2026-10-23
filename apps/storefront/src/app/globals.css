@@ -277,3 +277,31 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Rich-text product descriptions (admin toolbar output — sanitised before render) */
+.rich-text > * + * {
+  margin-top: 0.75em;
+}
+.rich-text ul,
+.rich-text ol {
+  padding-left: 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.rich-text ul {
+  list-style: disc;
+}
+.rich-text ol {
+  list-style: decimal;
+}
+.rich-text a {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.rich-text blockquote {
+  border-left: 3px solid var(--color-tertiary);
+  padding-left: 0.9rem;
+  font-style: italic;
+}

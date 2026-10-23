@@ -6,6 +6,8 @@
  *  - every rupee is computed from database prices in integer paise; client totals are ignored
  *  - checkout quotes are server-stored with a TTL and can be consumed exactly once
  *  - stock is reserved inside a transaction; overselling through concurrent checkouts is refused
+ *    — except where the product opts out: trackInventory=false sells without stock limits, and an
+ *    allow/notify backorder policy sells past stock (the uncovered qty is recorded on the order)
  *  - payment success is accepted ONLY from verified provider events, processed idempotently
  *  - reservation expiry releases stock and cancels still-pending orders
  */
@@ -15,11 +17,14 @@ import {
   COLLECTIONS,
   ORDER_TRANSITIONS,
   availableQty,
+  backorderPolicyOf,
+  trackInventoryOf,
   type CheckoutQuoteDoc,
   type CustomerAddress,
   type InventoryMovementDoc,
   type OrderDoc,
   type PaymentAttemptDoc,
+  type ProductDoc,
   type ProductVariantDoc,
   type StockReservationDoc,
   type CreateOrderDto,
@@ -56,6 +61,10 @@ export class CheckoutService {
     const settings = await this.settings.get();
     const variantIds = dto.items.map((i) => i.variantId);
     const variants = await this.data.getMany<ProductVariantDoc>(COLLECTIONS.productVariants, variantIds);
+    const products = await this.data.getMany<ProductDoc>(
+      COLLECTIONS.products,
+      [...new Set([...variants.values()].map((v) => v.productId))],
+    );
 
     const unavailable: { variantId: string; reason: string }[] = [];
     const lines: CheckoutQuoteDoc["items"] = [];
@@ -66,8 +75,12 @@ export class CheckoutService {
         unavailable.push({ variantId: item.variantId, reason: "Item is no longer available" });
         continue;
       }
+      const product = products.get(v.productId);
+      const tracked = product ? trackInventoryOf(product) : true;
+      const policy = product ? backorderPolicyOf(product) : "deny";
       const qtyAvailable = availableQty(v);
-      if (qtyAvailable < item.qty) {
+      const shortfall = tracked ? Math.max(0, item.qty - qtyAvailable) : 0;
+      if (shortfall > 0 && policy === "deny") {
         unavailable.push({
           variantId: item.variantId,
           reason: qtyAvailable === 0 ? "Out of stock" : `Only ${qtyAvailable} left in stock`,
@@ -79,6 +92,7 @@ export class CheckoutService {
         qty: item.qty,
         unitPricePaise: v.pricePaise,
         lineTotalPaise: v.pricePaise * item.qty,
+        backorderedQty: shortfall > 0 ? shortfall : undefined,
       });
     }
 
@@ -156,6 +170,10 @@ export class CheckoutService {
       COLLECTIONS.productVariants,
       quote.items.map((i) => i.variantId),
     );
+    const products = await this.data.getMany<ProductDoc>(
+      COLLECTIONS.products,
+      [...new Set([...variants.values()].map((v) => v.productId))],
+    );
     for (const line of quote.items) {
       const v = variants.get(line.variantId);
       if (!v || v.status !== "published") {
@@ -164,7 +182,10 @@ export class CheckoutService {
       if (v.pricePaise !== line.unitPricePaise) {
         throw gone("Prices have changed — refresh your cart to get the updated total");
       }
-      if (availableQty(v) < line.qty) {
+      const product = products.get(v.productId);
+      const tracked = product ? trackInventoryOf(product) : true;
+      const policy = product ? backorderPolicyOf(product) : "deny";
+      if (tracked && policy === "deny" && availableQty(v) < line.qty) {
         throw unprocessable(`Insufficient stock for ${v.sku} — only ${availableQty(v)} left`);
       }
     }
@@ -214,11 +235,8 @@ export class CheckoutService {
       isDemo: false,
     };
 
-    // Item snapshots are built from live variant + product docs.
-    const products = await this.data.getMany<{ id: string; name: string; images: { url: string }[] }>(
-      COLLECTIONS.products,
-      [...new Set([...variants.values()].map((v) => v.productId))],
-    );
+    // Item snapshots are built from live variant + product docs. Lines sold past
+    // stock under an allow/notify backorder policy carry the uncovered qty.
     order.items = quote.items.map((line) => {
       const v = variants.get(line.variantId)!;
       const p = products.get(v.productId);
@@ -233,27 +251,40 @@ export class CheckoutService {
         mrpPaise: v.mrpPaise,
         qty: line.qty,
         lineTotalPaise: line.lineTotalPaise,
+        backorderedQty: (() => {
+          const tracked = p ? trackInventoryOf(p) : true;
+          const covered = tracked ? Math.min(availableQty(v), line.qty) : line.qty;
+          const short = tracked && covered < line.qty ? line.qty - covered : 0;
+          return short > 0 ? short : undefined;
+        })(),
       };
     });
 
     await this.data.set(COLLECTIONS.orders, order.id, order);
 
-    // Reserve stock in a transaction (guards against concurrent oversell)
+    // Reserve stock in a transaction (guards against concurrent oversell).
+    // Untracked products reserve nothing; backordered lines reserve only the covered qty.
     const reservationTtl = Date.now() + this.env.STOCK_RESERVATION_TTL_MINUTES * 60 * 1000;
     for (const line of quote.items) {
       const v = variants.get(line.variantId)!;
+      const product = products.get(v.productId);
+      if (product && !trackInventoryOf(product)) continue; // untracked — unlimited, nothing to reserve
       await this.data.runTransaction(async (tx) => {
         const current = await tx.get<ProductVariantDoc>(COLLECTIONS.productVariants, v.id);
         if (!current) throw unprocessable(`Item ${v.sku} disappeared from stock`);
-        if (availableQty(current) < line.qty) {
-          throw unprocessable(`Insufficient stock for ${v.sku} — only ${availableQty(current)} left`);
+        const policy = product ? backorderPolicyOf(product) : "deny";
+        const open = availableQty(current);
+        if (policy === "deny" && open < line.qty) {
+          throw unprocessable(`Insufficient stock for ${v.sku} — only ${open} left`);
         }
-        tx.update(COLLECTIONS.productVariants, v.id, { reservedQty: current.reservedQty + line.qty });
+        const covered = Math.min(open, line.qty);
+        if (covered <= 0) return; // fully backordered — nothing to reserve until restock
+        tx.update(COLLECTIONS.productVariants, v.id, { reservedQty: current.reservedQty + covered });
         const reservation: StockReservationDoc = {
           id: newId("res"),
           orderId: order.id,
           variantId: v.id,
-          qty: line.qty,
+          qty: covered,
           status: "active",
           expiresAt: reservationTtl,
           createdAt: now,

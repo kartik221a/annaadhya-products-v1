@@ -2,13 +2,14 @@
 /**
  * VariantsTable — the design's "Variants & Tiered Pricing" section: an editable
  * heritage table (variant option, SKU, MRP strike, selling price, net weight,
- * stock pill) with add / duplicate / remove. Editing is inline; prices are typed
- * in RUPEES and converted once at submit (see product-form.tsx).
+ * stock pill) with add / duplicate / remove and DRAG-TO-REORDER. Editing is
+ * inline; prices are typed in RUPEES and converted once at submit (see product-form.tsx).
  *
- * Row drag-reordering is intentionally NOT offered: the API upserts variants by
- * SKU and orders them by grams, so a drag handle would imply persistence that
- * does not exist. The grip icon stays as a visual order affordance only.
+ * Row order is the storefront display order: the submit loop stamps each row's
+ * index as sortOrder and the API sorts by (sortOrder, grams) — the grip handle
+ * drags rows, the arrows cover keyboard/touch, both persist.
  */
+import { useState } from "react";
 import type { VariantRow } from "./product-form";
 
 const GripIcon = () => (
@@ -40,6 +41,21 @@ export function VariantsTable({
   setRows: React.Dispatch<React.SetStateAction<VariantRow[]>>;
   canWrite: boolean;
 }) {
+  // Drag-to-reorder: the grip starts the drag, any other row accepts the drop.
+  // Arrow buttons cover keyboard + touch — both paths produce the same row order.
+  const [dragKey, setDragKey] = useState<string | null>(null);
+  const [overKey, setOverKey] = useState<string | null>(null);
+
+  function moveVariant(from: number, to: number) {
+    setRows((prev) => {
+      if (to < 0 || to >= prev.length || from === to) return prev;
+      const next = [...prev];
+      const [row] = next.splice(from, 1);
+      next.splice(to, 0, row);
+      return next;
+    });
+  }
+
   function patch(key: string, changes: Partial<VariantRow>) {
     setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...changes } : r)));
   }
@@ -120,17 +136,53 @@ export function VariantsTable({
               const low = Number.isFinite(stock) && Number.isFinite(threshold) && stock > 0 && stock <= threshold;
               const out = !Number.isFinite(stock) || stock <= 0;
               return (
-                <tr key={row.key} className="border-b border-outline-variant/30 last:border-b-0 hover:bg-surface-container-low/50">
+                <tr
+                  key={row.key}
+                  className={`border-b border-outline-variant/30 last:border-b-0 hover:bg-surface-container-low/50 ${
+                    dragKey === row.key
+                      ? "opacity-50"
+                      : dragKey && overKey === row.key
+                        ? "bg-primary-container/30 ring-1 ring-inset ring-primary/40"
+                        : ""
+                  }`}
+                  onDragOver={(e) => {
+                    if (!dragKey || dragKey === row.key) return;
+                    e.preventDefault();
+                    setOverKey(row.key);
+                  }}
+                  onDragLeave={() => setOverKey((k) => (k === row.key ? null : k))}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const from = rows.findIndex((r) => r.key === dragKey);
+                    const to = rows.findIndex((r) => r.key === row.key);
+                    if (from >= 0 && to >= 0) moveVariant(from, to);
+                    setDragKey(null);
+                    setOverKey(null);
+                  }}
+                >
                   {/* Variant option (pack label) */}
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-2">
-                      <span
-                        aria-hidden
-                        title="Variants are ordered by pack weight"
-                        className="cursor-not-allowed text-outline/60"
-                      >
-                        <GripIcon />
-                      </span>
+                      {canWrite ? (
+                        <button
+                          type="button"
+                          draggable
+                          onDragStart={() => setDragKey(row.key)}
+                          onDragEnd={() => {
+                            setDragKey(null);
+                            setOverKey(null);
+                          }}
+                          aria-label={`Drag to reorder variant ${idx + 1}`}
+                          title="Drag to reorder — the storefront shows variants in this order"
+                          className="cursor-grab text-outline transition-colors hover:text-on-surface active:cursor-grabbing"
+                        >
+                          <GripIcon />
+                        </button>
+                      ) : (
+                        <span aria-hidden className="text-outline/60">
+                          <GripIcon />
+                        </span>
+                      )}
                       <span className="w-5 shrink-0 text-xs font-semibold text-outline">{idx + 1}.</span>
                       <input
                         aria-label={`Variant ${idx + 1} option label`}
@@ -248,6 +300,26 @@ export function VariantsTable({
                     <div className="inline-flex items-center gap-1">
                       {canWrite ? (
                         <>
+                          <button
+                            type="button"
+                            title="Move variant up"
+                            aria-label={`Move variant ${idx + 1} up`}
+                            disabled={idx === 0}
+                            onClick={() => moveVariant(idx, idx - 1)}
+                            className="rounded p-1 text-outline transition-colors hover:bg-surface-container hover:text-on-surface disabled:opacity-30"
+                          >
+                            <MenuIcon path="M12 19V5m-7 7 7-7 7 7" />
+                          </button>
+                          <button
+                            type="button"
+                            title="Move variant down"
+                            aria-label={`Move variant ${idx + 1} down`}
+                            disabled={idx === rows.length - 1}
+                            onClick={() => moveVariant(idx, idx + 1)}
+                            className="rounded p-1 text-outline transition-colors hover:bg-surface-container hover:text-on-surface disabled:opacity-30"
+                          >
+                            <MenuIcon path="M12 5v14m7-7-7 7-7-7" />
+                          </button>
                           <button
                             type="button"
                             title="Duplicate variant"

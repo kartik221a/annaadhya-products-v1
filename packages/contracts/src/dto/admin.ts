@@ -40,6 +40,7 @@ export const variantUpsertSchema = z.object({
   status: z.enum(["draft", "published", "archived"]).default("published"),
   stockOnHand: z.number().int().min(0).max(1_000_000).default(0),
   lowStockThreshold: z.number().int().min(0).max(100_000).default(5),
+  sortOrder: z.number().int().min(0).max(9999).optional(),
 });
 export type VariantUpsertDto = z.infer<typeof variantUpsertSchema>;
 
@@ -47,7 +48,9 @@ export const productUpsertSchema = z.object({
   sku: skuSchema,
   name: z.string().trim().min(2).max(120),
   subtitle: z.string().trim().max(180).default(""),
-  description: z.string().trim().min(10, "Description must be at least 10 characters").max(8000),
+  // Description may be plain text or rich-text HTML — the API sanitises HTML on write
+  // (see sanitizeRichText in @annaadhya/utils). HTML markup inflates length, so the cap is generous.
+  description: z.string().trim().min(10, "Description must be at least 10 characters").max(20000),
   categoryId: idSchema,
   typeLabel: z.string().trim().max(120).default(""),
   status: z.enum(["draft", "published", "archived"]).default("draft"),
@@ -80,6 +83,11 @@ export const productUpsertSchema = z.object({
   bestsellerRank: z.number().int().min(1).max(1000).optional(),
   featuredRank: z.number().int().min(1).max(1000).optional(),
   giftItem: z.boolean().default(false),
+  // Storefront controls — optional (not defaulted) so callers that omit them never reset
+  // an existing doc; the service falls back to the stored value, then to the documented default.
+  searchVisible: z.boolean().optional(),
+  trackInventory: z.boolean().optional(),
+  backorderPolicy: z.enum(["deny", "allow", "notify"]).optional(),
   seo: z
     .object({
       title: z.string().trim().max(180).optional(),

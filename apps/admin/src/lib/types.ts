@@ -158,6 +158,9 @@ export interface ProductDoc extends BaseDoc {
   bestsellerRank?: number;
   featuredRank?: number;
   giftItem: boolean;
+  searchVisible?: boolean; // false = hidden from storefront search results
+  trackInventory?: boolean; // false = sold without stock limits
+  backorderPolicy?: "deny" | "allow" | "notify";
   seo: { title?: string; description?: string };
 }
 
@@ -172,6 +175,7 @@ export interface ProductVariantDoc extends BaseDoc {
   stockOnHand: number;
   reservedQty: number;
   lowStockThreshold: number;
+  sortOrder?: number; // explicit display order (drag-reorder); missing → ordered by grams
 }
 
 export interface ProductWithVariants extends ProductDoc {
@@ -444,6 +448,7 @@ export interface VariantUpsertPayload {
   status: ProductStatus;
   stockOnHand: number;
   lowStockThreshold: number;
+  sortOrder?: number;
 }
 
 export interface ProductUpsertPayload {
@@ -468,6 +473,9 @@ export interface ProductUpsertPayload {
   bestsellerRank?: number;
   featuredRank?: number;
   giftItem: boolean;
+  searchVisible?: boolean;
+  trackInventory?: boolean;
+  backorderPolicy?: "deny" | "allow" | "notify";
   seo: { title?: string; description?: string };
   variants: VariantUpsertPayload[];
 }
