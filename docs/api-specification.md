@@ -111,7 +111,16 @@ Each route requires the listed permission(s) via `RequirePermissions(...)`.
 - `GET/POST/DELETE /admin/expenses(/:id)`, `GET /admin/expenses/total` — expenses:read/write
 - `GET /admin/dashboard/metrics?days=30` — dashboard:read
   Definitions: gross sales (paid orders, range), discounts, refunds, net sales = gross − discounts
-  − refunds, payments collected (succeeded attempts, cash basis), AOV = net/paid orders.
+  − refunds, payments collected (succeeded attempts, cash basis), AOV = net/paid orders,
+  units sold (sum of item quantities across paid orders), status counts (in-range orders grouped by
+  the real lifecycle enum), category sales (paid-order line revenue grouped via product → category,
+  unmapped lines → "Uncategorised"), low stock (published variants at or below their **own**
+  `lowStockThreshold`, enriched with product name/pack label), recent orders (id, order number,
+  customer display name, totals, status, payment status/provider).
+  `comparison` repeats the identical definitions over the immediately preceding equivalent window
+  (`[from − days, from)`) — show period-over-period deltas only against these values.
+  Sales-trend buckets are keyed by the **IST calendar date** of each order, so chart totals
+  reconcile with the headline figures.
   **Profit: `null` + explanatory note until landed costs + expense coverage are supplied.**
 - `GET /admin/reports/types` — reports:read
 - `GET /admin/reports/exports/:type` — reports:export (xlsx; types: products, variants, orders,
