@@ -44,6 +44,13 @@ interface ExportContext {
   includeDemo: boolean;
   from?: number;
   to?: number;
+  /** Optional order-list filters so an export matches what the caller sees on screen. */
+  orderFilters?: {
+    status?: OrderDoc["status"];
+    paymentStatus?: OrderDoc["paymentStatus"];
+    paymentProvider?: OrderDoc["paymentProvider"];
+    search?: string;
+  };
 }
 
 @Injectable()
@@ -64,10 +71,13 @@ export class ReportsService {
     return new ExcelJS.Workbook();
   }
 
-  async generate(type: ExportType, opts: { includeDemo?: boolean; from?: number; to?: number } = {}): Promise<Buffer> {
+  async generate(
+    type: ExportType,
+    opts: { includeDemo?: boolean; from?: number; to?: number; orderFilters?: ExportContext["orderFilters"] } = {},
+  ): Promise<Buffer> {
     const settings: SettingsDoc = await this.settings.get();
     const includeDemo = opts.includeDemo ?? settings.reporting.includeDemoDataByDefault;
-    const ctx: ExportContext = { includeDemo, from: opts.from, to: opts.to };
+    const ctx: ExportContext = { includeDemo, from: opts.from, to: opts.to, orderFilters: opts.orderFilters };
 
     const wb = await this.newWorkbook();
     wb.creator = "Annaadhya Products Admin";
@@ -205,8 +215,20 @@ export class ReportsService {
   }
 
   private async exportOrders(wb: ExcelJS.Workbook, ctx: ExportContext): Promise<void> {
+    const f = ctx.orderFilters;
+    const needle = f?.search?.toLowerCase();
     const rows = (await this.data.list<OrderDoc>(COLLECTIONS.orders, { limit: 10000 })).filter(
-      (o) => (ctx.includeDemo ? true : !o.isDemo) && this.inRange(o, ctx),
+      (o) =>
+        (ctx.includeDemo ? true : !o.isDemo) &&
+        this.inRange(o, ctx) &&
+        (!f?.status || o.status === f.status) &&
+        (!f?.paymentStatus || o.paymentStatus === f.paymentStatus) &&
+        (!f?.paymentProvider || o.paymentProvider === f.paymentProvider) &&
+        (!needle ||
+          o.orderNumber.toLowerCase().includes(needle) ||
+          o.customerContact.email?.toLowerCase().includes(needle) ||
+          o.customerContact.phone?.includes(needle) ||
+          o.customerContact.displayName.toLowerCase().includes(needle)),
     );
     const ws = wb.addWorksheet("Orders");
     ws.columns = [

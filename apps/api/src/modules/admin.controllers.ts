@@ -2,6 +2,9 @@
 import { Body, Controller, Delete, Get, Param, Post, Query } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import {
+  ORDER_STATUSES,
+  PAYMENT_PROVIDERS,
+  PAYMENT_STATUSES,
   expenseUpsertSchema,
   lowStockQuerySchema,
   mediaRegisterSchema,
@@ -19,6 +22,9 @@ import {
   type LowStockQueryDto,
   type MediaRegisterDto,
   type MediaSignatureDto,
+  type OrderStatus,
+  type PaymentProviderName,
+  type PaymentStatus,
   type PurchaseUpsertDto,
   type SettingsUpdateDto,
   type StockMovementDto,
@@ -282,9 +288,29 @@ export class DashboardController {
   @Get("metrics")
   @Protected("dashboard:read")
   @RequirePermissions("dashboard:read")
-  async metrics(@Query("days") days?: string) {
+  async metrics(
+    @Query("days") days?: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+    @Query("includeDemo") includeDemo?: string,
+  ) {
     const n = Math.min(365, Math.max(1, Number(days) || 30));
-    return this.dashboard.metrics(n);
+    // Optional explicit window (epoch millis) — the Orders console passes its table's
+    // date scope so the summary cards and the table never disagree. Invalid values
+    // fall back to the `days` window rather than erroring.
+    const fromMillis = from !== undefined && from !== "" ? Number(from) : NaN;
+    const toMillis = to !== undefined && to !== "" ? Number(to) : NaN;
+    const range =
+      Number.isFinite(fromMillis) &&
+      Number.isFinite(toMillis) &&
+      fromMillis > 0 &&
+      toMillis > fromMillis
+        ? { from: fromMillis, to: toMillis }
+        : undefined;
+    // Optional demo inclusion — the Orders console passes true because its table shows
+    // demo rows (DEMO chips); cards must count the same rows the table lists.
+    const includeDemoOverride = includeDemo === "true" ? true : includeDemo === "false" ? false : undefined;
+    return this.dashboard.metrics(n, range, includeDemoOverride);
   }
 }
 
@@ -314,16 +340,36 @@ export class ReportsController {
     @Query("includeDemo") includeDemo?: string,
     @Query("from") from?: string,
     @Query("to") to?: string,
+    @Query("status") status?: string,
+    @Query("paymentStatus") paymentStatus?: string,
+    @Query("paymentProvider") paymentProvider?: string,
+    @Query("search") search?: string,
     @Res() res?: Response,
     @CurrentUser() actor?: AuthPrincipal,
   ) {
     if (!EXPORT_TYPES.includes(type as ExportType)) {
       return void res?.status(404).json({ ok: false, error: { code: "not_found", message: `Unknown export type ${type}` } });
     }
+    // Order-list filters (Orders console "Export Orders"): only valid enum members are
+    // forwarded; anything else is ignored rather than silently narrowing the export.
+    const orderFilters =
+      type === "orders"
+        ? {
+            status: (ORDER_STATUSES as readonly string[]).includes(status ?? "") ? (status as OrderStatus) : undefined,
+            paymentStatus: (PAYMENT_STATUSES as readonly string[]).includes(paymentStatus ?? "")
+              ? (paymentStatus as PaymentStatus)
+              : undefined,
+            paymentProvider: (PAYMENT_PROVIDERS as readonly string[]).includes(paymentProvider ?? "")
+              ? (paymentProvider as PaymentProviderName)
+              : undefined,
+            search: search?.trim() ? search.trim().slice(0, 120) : undefined,
+          }
+        : undefined;
     const buffer = await this.reports.generate(type as ExportType, {
       includeDemo: includeDemo === "true",
       from: from ? Number(from) : undefined,
       to: to ? Number(to) : undefined,
+      orderFilters,
     });
     if (actor) {
       await this.audit.record({

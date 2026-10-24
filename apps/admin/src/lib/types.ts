@@ -418,6 +418,8 @@ export interface DashboardMetrics {
   range: { from: number; to: number; label: string };
   orders: { count: number; paidCount: number };
   statusCounts: Record<string, number>;
+  /** Orders in range grouped by payment status — drives the honest "payment attention" card. */
+  paymentStatusCounts: Record<string, number>;
   grossSalesPaise: number;
   discountsPaise: number;
   refundsPaise: number;

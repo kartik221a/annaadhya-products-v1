@@ -1,7 +1,7 @@
 /** Zod DTO schemas for admin/business endpoints. All enforce server-side validation. */
 import { z } from "zod";
 import { paiseSchema } from "@annaadhya/utils";
-import { ADMIN_ROLES, INVENTORY_MOVEMENT_TYPES } from "../enums";
+import { ADMIN_ROLES, INVENTORY_MOVEMENT_TYPES, PAYMENT_PROVIDERS } from "../enums";
 
 const idSchema = z.string().trim().min(1).max(128);
 const skuSchema = z
@@ -208,6 +208,7 @@ export const orderListQuerySchema = z.object({
   search: z.string().trim().max(120).optional(),
   status: z.enum(ORDER_STATUS_VALUES).optional(),
   paymentStatus: z.enum(["created", "pending", "succeeded", "failed", "cancelled", "refunded"]).optional(),
+  paymentProvider: z.enum(PAYMENT_PROVIDERS).optional(),
   from: z.coerce.number().int().positive().optional(),
   to: z.coerce.number().int().positive().optional(),
   page: z.coerce.number().int().min(1).max(1000).default(1),

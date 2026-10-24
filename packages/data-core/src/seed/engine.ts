@@ -268,6 +268,22 @@ export async function applySeed(data: DataClient, seedBatch = DEMO_SEED_BATCH): 
   await data.bulkSet(COLLECTIONS.orders, orders);
   await data.bulkSet(COLLECTIONS.inventoryMovements, soldMovements);
 
+  // Advance the checkout order-number counter past the demo block. The generator
+  // (checkout.service nextOrderNumber) reads `counters/order_number_<year>` and starts
+  // at 1 — without this, the first REAL order after a seed collides with demo order
+  // AN-<year>-000001. Demo order numbers are AN-<year>-000001..000012 by construction.
+  const demoMaxSeq = orders.reduce((max, o) => {
+    const seq = Number(o.orderNumber.split("-")[2]);
+    return Number.isFinite(seq) ? Math.max(max, seq) : max;
+  }, 0);
+  if (demoMaxSeq > 0) {
+    const counterId = `order_number_${new Date().getFullYear()}`;
+    const existing = await data.get<{ value: number }>(COLLECTIONS.counters, counterId);
+    if ((existing?.value ?? 0) < demoMaxSeq) {
+      await data.set(COLLECTIONS.counters, counterId, { value: demoMaxSeq });
+    }
+  }
+
   // Demo admin owner (mock/dev logins only — real owners come from team/bootstrap)
   await data.set(
     COLLECTIONS.adminUsers,

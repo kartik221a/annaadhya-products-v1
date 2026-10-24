@@ -21,6 +21,7 @@ import {
   availableQty,
   COLLECTIONS,
   ORDER_STATUSES,
+  PAYMENT_STATUSES,
   type CategoryDoc,
   type OrderDoc,
   type PaymentAttemptDoc,
@@ -73,6 +74,8 @@ export interface DashboardMetrics {
   range: { from: number; to: number; label: string };
   orders: { count: number; paidCount: number };
   statusCounts: Record<string, number>;
+  /** Orders in range grouped by payment status — drives the honest "payment attention" card. */
+  paymentStatusCounts: Record<string, number>;
   grossSalesPaise: number;
   discountsPaise: number;
   refundsPaise: number;
@@ -98,17 +101,25 @@ export class DashboardService {
     @Inject(SettingsService) private readonly settings: SettingsService,
   ) {}
 
-  async metrics(days = 30): Promise<DashboardMetrics> {
-    const span = Math.max(1, days);
+  /**
+   * Console metrics over a window. Default window: the last `days` IST days.
+   * `range.from`/`range.to` (epoch millis) override the window entirely — the Orders
+   * console uses this so its summary cards share the EXACT date scope as the table
+   * below them. Definitions are unchanged; only the window edges move.
+   */
+  async metrics(days = 30, range?: { from?: number; to?: number }, includeDemoOverride?: boolean): Promise<DashboardMetrics> {
     const settings: SettingsDoc = await this.settings.get();
-    const includeDemo = settings.reporting.includeDemoDataByDefault;
-    const to = Date.now();
-    const from = startOfIstDay(addDays(to, -span + 1));
+    const includeDemo = includeDemoOverride ?? settings.reporting.includeDemoDataByDefault;
+    const custom = range?.from !== undefined && range?.to !== undefined;
+    const to = custom ? Math.max(range!.to!, range!.from! + 1) : Date.now();
+    const from = custom ? range!.from! : startOfIstDay(addDays(to, -Math.max(1, days) + 1));
+    // Span length drives the honest period-over-period comparison window below.
+    const spanMillis = Math.max(60_000, to - from);
 
     const orders = (await this.data.list<OrderDoc>(COLLECTIONS.orders, {
       where: [{ field: "createdAt", op: ">=", value: from }],
       limit: 5000,
-    })).filter((o) => (includeDemo ? true : !o.isDemo));
+    })).filter((o) => (includeDemo ? true : !o.isDemo) && o.createdAt <= to);
 
     const paid = orders.filter((o) => o.paymentStatus === "succeeded");
     const grossSales = paid.reduce((s, o) => s + o.totalPaise, 0);
@@ -120,7 +131,7 @@ export class DashboardService {
     const attempts = (await this.data.list<PaymentAttemptDoc>(COLLECTIONS.paymentAttempts, {
       where: [{ field: "createdAt", op: ">=", value: from }],
       limit: 5000,
-    })).filter((a) => (includeDemo ? true : !a.isDemo));
+    })).filter((a) => (includeDemo ? true : !a.isDemo) && a.createdAt <= to);
     const collected = attempts
       .filter((a) => a.status === "succeeded")
       .reduce((s, a) => s + a.amountPaise, 0);
@@ -182,8 +193,9 @@ export class DashboardService {
 
     // Daily IST trend — buckets keyed by the IST calendar date so every in-range order
     // lands in exactly one bucket and chart totals reconcile with the headline figures.
+    const spanDays = Math.max(1, Math.ceil(spanMillis / 86_400_000));
     const trend = new Map<string, { date: string; netSalesPaise: number; orders: number }>();
-    for (let i = 0; i < span; i++) {
+    for (let i = 0; i < spanDays; i++) {
       const key = istDateKey(addDays(from, i));
       trend.set(key, { date: key, netSalesPaise: 0, orders: 0 });
     }
@@ -200,9 +212,14 @@ export class DashboardService {
     for (const status of ORDER_STATUSES) statusCounts[status] = 0;
     for (const o of orders) statusCounts[o.status] = (statusCounts[o.status] ?? 0) + 1;
 
-    // Previous equivalent window ([from - span, from)) with identical definitions so the
-    // dashboard can show honest period-over-period deltas.
-    const prevFrom = startOfIstDay(addDays(from, -span));
+    const paymentStatusCounts: Record<string, number> = {};
+    for (const s of PAYMENT_STATUSES) paymentStatusCounts[s] = 0;
+    for (const o of orders) paymentStatusCounts[o.paymentStatus] = (paymentStatusCounts[o.paymentStatus] ?? 0) + 1;
+
+    // Previous equivalent window ([from - spanMillis, from)) with identical definitions so
+    // the dashboard can show honest period-over-period deltas. IST has no DST, so a raw
+    // millis shift of an IST-aligned `from` lands exactly on the previous IST day boundary.
+    const prevFrom = from - spanMillis;
     const prevOrders = (await this.data.list<OrderDoc>(COLLECTIONS.orders, {
       where: [{ field: "createdAt", op: ">=", value: prevFrom }],
       limit: 5000,
@@ -214,7 +231,7 @@ export class DashboardService {
       prevPaid.reduce((s, o) => s + o.refundPaise, 0);
     const prevUnits = prevPaid.reduce((s, o) => s + o.items.reduce((n, item) => n + item.qty, 0), 0);
     const comparison: DashboardComparison = {
-      label: `previous ${span} ${span === 1 ? "day" : "days"}`,
+      label: custom ? "previous window" : `previous ${Math.max(1, days)} ${Math.max(1, days) === 1 ? "day" : "days"}`,
       ordersCount: prevOrders.length,
       paidCount: prevPaid.length,
       netSalesPaise: prevNet,
@@ -225,9 +242,10 @@ export class DashboardService {
     const aov = paid.length > 0 ? Math.round(netSales / paid.length) : null;
 
     return {
-      range: { from, to, label: `last ${span} ${span === 1 ? "day" : "days"}` },
+      range: { from, to, label: custom ? "selected range" : `last ${Math.max(1, days)} ${Math.max(1, days) === 1 ? "day" : "days"}` },
       orders: { count: orders.length, paidCount: paid.length },
       statusCounts,
+      paymentStatusCounts,
       grossSalesPaise: grossSales,
       discountsPaise: discounts,
       refundsPaise: refunds,

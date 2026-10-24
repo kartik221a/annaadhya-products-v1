@@ -104,6 +104,19 @@ export function millisToDateInput(millis: number): string {
   return new Date(millis).toISOString().slice(0, 10);
 }
 
+const IST_OFFSET_MINUTES = 330; // the platform's reporting timezone (UTC+05:30, no DST)
+
+/** Start of the IST day containing `millis`, as epoch millis. */
+export function istDayStart(millis: number): number {
+  const shifted = millis + IST_OFFSET_MINUTES * 60_000;
+  return Math.floor(shifted / 86_400_000) * 86_400_000 - IST_OFFSET_MINUTES * 60_000;
+}
+
+/** Last millisecond of the IST day containing `millis`. */
+export function istDayEnd(millis: number): number {
+  return istDayStart(millis) + 86_400_000 - 1;
+}
+
 /** Human label for a machine status ("pending_payment" → "Pending payment"). */
 export function humanize(value: string): string {
   return value

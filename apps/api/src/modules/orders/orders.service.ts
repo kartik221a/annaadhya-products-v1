@@ -15,6 +15,14 @@ import type { OrderStatusUpdateDto, OrderRefundDto, OrderTrackingUpdateDto } fro
 import type { AuthPrincipal } from "@annaadhya/contracts";
 import type { PaymentProvider } from "../payments/provider.interface";
 
+/**
+ * Upper bound for the in-memory admin order search scan. Firestore cannot serve
+ * substring queries, so search scans the filtered set in memory; 1000 is Firestore's
+ * own max page size and far above this store's realistic order volume. The response
+ * stays honest within that bound (total reflects the scanned matches).
+ */
+const ORDER_SEARCH_SCAN_LIMIT = 1000;
+
 @Injectable()
 export class OrdersService {
   constructor(
@@ -49,6 +57,7 @@ export class OrdersService {
     search?: string;
     status?: OrderStatus;
     paymentStatus?: OrderDoc["paymentStatus"];
+    paymentProvider?: OrderDoc["paymentProvider"];
     from?: number;
     to?: number;
     page: number;
@@ -57,24 +66,40 @@ export class OrdersService {
     const where: { field: string; op: "==" | ">=" | "<="; value: unknown }[] = [];
     if (filters.status) where.push({ field: "status", op: "==", value: filters.status });
     if (filters.paymentStatus) where.push({ field: "paymentStatus", op: "==", value: filters.paymentStatus });
+    if (filters.paymentProvider) where.push({ field: "paymentProvider", op: "==", value: filters.paymentProvider });
     if (filters.from) where.push({ field: "createdAt", op: ">=", value: filters.from });
     if (filters.to) where.push({ field: "createdAt", op: "<=", value: filters.to });
 
-    let page = await this.paginateOrders(where, filters.page, filters.pageSize);
+    // Search is a substring match over fields Firestore cannot index, so it runs in
+    // memory. It MUST run before pagination — filtering a single page slice after the
+    // fact returned partial matches and lied about `total`. Instead: pull every order
+    // matching the where-filters up to the scan cap, filter, then paginate the result.
     if (filters.search) {
       const needle = filters.search.toLowerCase();
-      page = {
-        ...page,
-        items: page.items.filter(
-          (o) =>
-            o.orderNumber.toLowerCase().includes(needle) ||
-            o.customerContact.email?.toLowerCase().includes(needle) ||
-            o.customerContact.phone?.includes(needle) ||
-            o.customerContact.displayName.toLowerCase().includes(needle),
-        ),
+      const all = await this.data.list<OrderDoc>(COLLECTIONS.orders, {
+        where,
+        orderBy: [{ field: "createdAt", direction: "desc" }],
+        limit: ORDER_SEARCH_SCAN_LIMIT,
+      });
+      const matched = all.filter(
+        (o) =>
+          o.orderNumber.toLowerCase().includes(needle) ||
+          o.customerContact.email?.toLowerCase().includes(needle) ||
+          o.customerContact.phone?.includes(needle) ||
+          o.customerContact.displayName.toLowerCase().includes(needle),
+      );
+      const total = matched.length;
+      const start = (filters.page - 1) * filters.pageSize;
+      return {
+        items: matched.slice(start, start + filters.pageSize),
+        page: filters.page,
+        pageSize: filters.pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / filters.pageSize)),
       };
     }
-    return page;
+
+    return this.paginateOrders(where, filters.page, filters.pageSize);
   }
 
   private async paginateOrders(
