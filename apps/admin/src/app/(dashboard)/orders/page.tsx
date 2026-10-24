@@ -536,7 +536,7 @@ export default function OrdersPage() {
       {/* ---------------------------- search + filters ---------------------------- */}
       <div className="mb-4 rounded-xl bg-surface-container-lowest p-4 shadow-[0_1px_8px_rgba(39,24,16,0.05)]">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
-          <div className="relative min-w-0 flex-1">
+          <div className="relative min-w-[240px] flex-1">
             <svg
               aria-hidden
               viewBox="0 0 24 24"
