@@ -6,10 +6,13 @@ import {
   PAYMENT_PROVIDERS,
   PAYMENT_STATUSES,
   expenseUpsertSchema,
+  inventoryLedgerQuerySchema,
+  inventoryThresholdsSchema,
   lowStockQuerySchema,
   mediaRegisterSchema,
   mediaSignatureSchema,
   purchaseUpsertSchema,
+  stockAdjustmentSchema,
   stockMovementSchema,
   supplierUpsertSchema,
   teamInviteSchema,
@@ -19,6 +22,8 @@ import {
   type AuthPrincipal,
   type CategoryUpsertDto,
   type ExpenseUpsertDto,
+  type InventoryLedgerQueryDto,
+  type InventoryThresholdsDto,
   type LowStockQueryDto,
   type MediaRegisterDto,
   type MediaSignatureDto,
@@ -27,6 +32,7 @@ import {
   type PaymentStatus,
   type PurchaseUpsertDto,
   type SettingsUpdateDto,
+  type StockAdjustmentDto,
   type StockMovementDto,
   type SupplierUpsertDto,
   type TeamInviteDto,
@@ -55,13 +61,24 @@ import { Res } from "@nestjs/common";
 @ApiTags("inventory")
 @Controller("admin/inventory")
 export class InventoryController {
-  constructor(private readonly inventory: InventoryService) {}
+  constructor(
+    private readonly inventory: InventoryService,
+    private readonly audit: AuditService,
+  ) {}
 
   @Get("balances")
   @Protected("inventory:read")
   @RequirePermissions("inventory:read")
   async balances() {
     return this.inventory.balances();
+  }
+
+  /** Inventory console listing: search/filter/sort/pagination + same-scope summary. */
+  @Get("ledger")
+  @Protected("inventory:read")
+  @RequirePermissions("inventory:read")
+  async ledger(@Query(new ZodValidationPipe(inventoryLedgerQuerySchema)) q: InventoryLedgerQueryDto) {
+    return this.inventory.ledger(q);
   }
 
   @Get("low-stock")
@@ -89,6 +106,44 @@ export class InventoryController {
     @CurrentUser() actor: AuthPrincipal,
   ) {
     return this.inventory.applyMovement(dto, actor);
+  }
+
+  /** Guided adjustment from the inventory console drawer (add / remove / set exact). */
+  @Post("adjustments")
+  @Protected("inventory:write")
+  @RequirePermissions("inventory:write")
+  async adjust(
+    @Body(new ZodValidationPipe(stockAdjustmentSchema)) dto: StockAdjustmentDto,
+    @CurrentUser() actor: AuthPrincipal,
+  ) {
+    const movement = await this.inventory.adjust(dto, actor);
+    await this.audit.record({
+      actor,
+      action: "inventory.adjust",
+      targetType: "variant",
+      targetId: dto.variantId,
+      summary: `${dto.mode} ${dto.qty} on ${movement.variantSku} → ${movement.resultingStockOnHand} on hand (${dto.type})`,
+    });
+    return movement;
+  }
+
+  /** Bulk low-stock-threshold update from the console bulk bar. */
+  @Post("thresholds")
+  @Protected("inventory:write")
+  @RequirePermissions("inventory:write")
+  async updateThresholds(
+    @Body(new ZodValidationPipe(inventoryThresholdsSchema)) dto: InventoryThresholdsDto,
+    @CurrentUser() actor: AuthPrincipal,
+  ) {
+    const result = await this.inventory.updateThresholds(dto);
+    await this.audit.record({
+      actor,
+      action: "inventory.thresholds",
+      targetType: "variant",
+      targetId: dto.items.map((i) => i.variantId).join(","),
+      summary: `Low-stock threshold updated on ${dto.items.length} variant(s)`,
+    });
+    return result;
   }
 }
 

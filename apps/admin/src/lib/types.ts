@@ -301,6 +301,66 @@ export interface LowStockRow {
   available: number;
 }
 
+/* ------------------------------ inventory console ------------------------------ */
+
+export type InventoryStockStatus = "in_stock" | "low_stock" | "out_of_stock";
+export type StockStatusFilter = "all" | InventoryStockStatus;
+export type InventorySort = "name_asc" | "stock_asc" | "stock_desc" | "recently_updated";
+export type StockAdjustmentMode = "add" | "remove" | "set";
+/** Ledger types allowed for guided adjustments — order-lifecycle types stay server-owned. */
+export type StockAdjustmentType = "received" | "returned" | "damaged" | "manual_adjustment" | "other";
+
+/** One inventory-console row: variant balance joined with product/category display data. */
+export interface InventoryLedgerRow {
+  variantId: string;
+  sku: string;
+  packLabel: string;
+  productId: string;
+  productName: string;
+  productSlug?: string;
+  productImage?: string;
+  categoryName: string;
+  variantStatus: ProductStatus;
+  productStatus: ProductStatus;
+  stockOnHand: number;
+  reservedQty: number;
+  available: number;
+  lowStockThreshold: number;
+  pricePaise: number;
+  updatedAt: number;
+  stockStatus: InventoryStockStatus;
+  lastMovement: { at: number; byName?: string; type: InventoryMovementType } | null;
+}
+
+export interface InventoryLedgerSummary {
+  totalVariants: number;
+  totalProducts: number;
+  lowStock: number;
+  outOfStock: number;
+  totalStockOnHand: number;
+  /** stock × selling price — presented as "retail value at selling price", never cost. */
+  retailValuePaise: number;
+}
+
+export interface InventoryLedgerPage {
+  items: InventoryLedgerRow[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  summary: InventoryLedgerSummary;
+}
+
+export interface StockAdjustmentPayload {
+  variantId: string;
+  mode: StockAdjustmentMode;
+  qty: number;
+  type: StockAdjustmentType;
+  reason: string;
+  note?: string;
+  reference?: string;
+}
+
 export interface SupplierDoc extends BaseDoc {
   name: string;
   phone?: string;

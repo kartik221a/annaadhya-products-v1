@@ -342,6 +342,55 @@ export interface InventoryMovementDoc extends BaseDoc {
   performedByName?: string;
 }
 
+/** Derived stock health of a variant. `available <= 0` is out of stock; `<= threshold` is low. */
+export type InventoryStockStatus = "in_stock" | "low_stock" | "out_of_stock";
+
+/** One inventory-console row: variant balance joined with product/category display data. */
+export interface InventoryLedgerRow {
+  variantId: string;
+  sku: string;
+  packLabel: string;
+  productId: string;
+  productName: string;
+  productSlug?: string;
+  productImage?: string;
+  categoryName: string;
+  variantStatus: ProductStatus;
+  productStatus: ProductStatus;
+  stockOnHand: number;
+  reservedQty: number;
+  available: number;
+  lowStockThreshold: number;
+  pricePaise: number;
+  updatedAt: number;
+  stockStatus: InventoryStockStatus;
+  /** Latest ledger event for this variant, when one exists (drives "last adjusted"). */
+  lastMovement: { at: number; byName?: string; type: InventoryMovementType } | null;
+}
+
+/**
+ * Summary metrics over the SAME filtered scope as the ledger table.
+ * `retailValuePaise` is stock × selling price — the platform has no unit-cost
+ * valuation, so the UI must never present this as cost value.
+ */
+export interface InventoryLedgerSummary {
+  totalVariants: number;
+  totalProducts: number;
+  lowStock: number;
+  outOfStock: number;
+  totalStockOnHand: number;
+  retailValuePaise: number;
+}
+
+export interface InventoryLedgerPage {
+  items: InventoryLedgerRow[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  summary: InventoryLedgerSummary;
+}
+
 /* ---------------------------------- Expenses ---------------------------------- */
 
 export interface ExpenseDoc extends BaseDoc {

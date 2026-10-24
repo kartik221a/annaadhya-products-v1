@@ -231,3 +231,33 @@ body {
 .rich-editor h4 {
   font-size: 0.95rem;
 }
+
+/* Inventory console slide-over drawer + backdrop (mount-on-open animations). */
+@keyframes drawer-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.drawer-in {
+  animation: drawer-in 0.25s ease-out;
+}
+.backdrop-in {
+  animation: backdrop-in 0.2s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .drawer-in,
+  .backdrop-in {
+    animation: none;
+  }
+}

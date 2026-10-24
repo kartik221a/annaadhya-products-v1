@@ -135,6 +135,59 @@ export const lowStockQuerySchema = z.object({
 });
 export type LowStockQueryDto = z.infer<typeof lowStockQuerySchema>;
 
+/** Inventory console query: search + category + stock status + sort + pagination. */
+export const INVENTORY_STOCK_STATUS_FILTERS = ["all", "in_stock", "low_stock", "out_of_stock"] as const;
+export const INVENTORY_SORT_OPTIONS = ["name_asc", "stock_asc", "stock_desc", "recently_updated"] as const;
+
+export const inventoryLedgerQuerySchema = z.object({
+  search: z.string().trim().max(120).optional(),
+  categoryId: idSchema.optional(),
+  stockStatus: z.enum(INVENTORY_STOCK_STATUS_FILTERS).default("all"),
+  sort: z.enum(INVENTORY_SORT_OPTIONS).default("name_asc"),
+  page: z.coerce.number().int().min(1).max(10000).default(1),
+  pageSize: z.coerce.number().int().min(1).max(500).default(20),
+});
+export type InventoryLedgerQueryDto = z.infer<typeof inventoryLedgerQuerySchema>;
+
+/**
+ * Guided stock adjustment (the inventory console drawer).
+ * Modes: add (+qty), remove (−qty), set (qty becomes the new stock-on-hand total).
+ * Movement type is restricted per mode so the ledger keeps honest semantics —
+ * order-lifecycle types (sold/reserved/released) can never be faked from here.
+ */
+export const STOCK_ADJUSTMENT_MODES = ["add", "remove", "set"] as const;
+export const STOCK_ADJUSTMENT_TYPES = ["received", "returned", "damaged", "manual_adjustment", "other"] as const;
+
+export const stockAdjustmentSchema = z
+  .object({
+    variantId: idSchema,
+    mode: z.enum(STOCK_ADJUSTMENT_MODES),
+    qty: z.coerce.number().int().min(0).max(1_000_000),
+    type: z.enum(STOCK_ADJUSTMENT_TYPES),
+    reason: z.string().trim().min(3, "A reason is required for every stock adjustment").max(300),
+    note: z.string().trim().max(300).optional(),
+    reference: z.string().trim().max(128).optional(),
+  })
+  .refine((v) => v.mode === "set" || v.qty >= 1, {
+    message: "Quantity must be a positive whole number for add/remove adjustments",
+    path: ["qty"],
+  });
+export type StockAdjustmentDto = z.infer<typeof stockAdjustmentSchema>;
+
+/** Bulk low-stock-threshold update for the inventory console's bulk bar. */
+export const inventoryThresholdsSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        variantId: idSchema,
+        lowStockThreshold: z.number().int().min(0).max(100_000),
+      }),
+    )
+    .min(1)
+    .max(200),
+});
+export type InventoryThresholdsDto = z.infer<typeof inventoryThresholdsSchema>;
+
 /* ------------------------------------ Suppliers ---------------------------------- */
 
 export const supplierUpsertSchema = z.object({
