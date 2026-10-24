@@ -19,12 +19,16 @@ import type { AuthPrincipal } from "@annaadhya/contracts";
 import type { PaymentProvider } from "../payments/provider.interface";
 
 /**
- * Upper bound for the in-memory admin order search scan. Firestore cannot serve
- * substring queries, so search scans the filtered set in memory; 1000 is Firestore's
- * own max page size and far above this store's realistic order volume. The response
- * stays honest within that bound (total reflects the scanned matches).
+ * Upper bound for the in-memory admin order-list scan. ANY filtered admin view (search,
+ * status, payment status, gateway, date window) is served by ONE index-free Firestore
+ * shape: a newest-first scan with no where clauses — the exact shape the unfiltered list
+ * already uses in production, so no composite index can ever be missing (the fix for the
+ * "filters → Internal server error" 500s, where equality filters combined with ordering
+ * required composites that were never deployed — notably paymentProvider). 1000 is
+ * Firestore's own max page size and far above this store's realistic order volume; the
+ * response stays honest within that bound (total reflects the scanned matches).
  */
-const ORDER_SEARCH_SCAN_LIMIT = 1000;
+const ORDER_LIST_SCAN_LIMIT = 1000;
 
 @Injectable()
 export class OrdersService {
@@ -37,7 +41,23 @@ export class OrdersService {
   /* ------------------------------- customer ------------------------------- */
 
   async listForCustomer(uid: string, page = 1, pageSize = 10): Promise<Page<OrderDoc>> {
-    return this.paginateOrders([{ field: "customerUid", op: "==" as const, value: uid }], page, pageSize);
+    // Equality-only Firestore query — NO orderBy, so it is always servable by the
+    // automatic single-field index on customerUid, no composite required. Newest-first
+    // ordering and pagination happen in memory (a customer's order count is tiny).
+    const rows = await this.data.list<OrderDoc>(COLLECTIONS.orders, {
+      where: [{ field: "customerUid", op: "==", value: uid }],
+      limit: ORDER_LIST_SCAN_LIMIT,
+    });
+    const sorted = rows.sort((a, b) => b.createdAt - a.createdAt);
+    const total = sorted.length;
+    const start = (page - 1) * pageSize;
+    return {
+      items: sorted.slice(start, start + pageSize),
+      page,
+      pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    };
   }
 
   async getForCustomer(orderId: string, uid: string): Promise<OrderDoc> {
@@ -66,45 +86,61 @@ export class OrdersService {
     page: number;
     pageSize: number;
   }): Promise<Page<OrderDoc>> {
-    const where: { field: string; op: "==" | ">=" | "<="; value: unknown }[] = [];
-    if (filters.status) where.push({ field: "status", op: "==", value: filters.status });
-    if (filters.paymentStatus) where.push({ field: "paymentStatus", op: "==", value: filters.paymentStatus });
-    if (filters.paymentProvider) where.push({ field: "paymentProvider", op: "==", value: filters.paymentProvider });
-    if (filters.from) where.push({ field: "createdAt", op: ">=", value: filters.from });
-    if (filters.to) where.push({ field: "createdAt", op: "<=", value: filters.to });
+    // Unfiltered view: real count + offset pagination on a plain newest-first query —
+    // both shapes Firestore serves from automatic single-field indexes.
+    const hasFilters = Boolean(
+      filters.search ||
+        filters.status ||
+        filters.paymentStatus ||
+        filters.paymentProvider ||
+        filters.from !== undefined ||
+        filters.to !== undefined,
+    );
+    if (!hasFilters) return this.paginateOrders([], filters.page, filters.pageSize);
 
-    // Search is a substring match over fields Firestore cannot index, so it runs in
-    // memory. It MUST run before pagination — filtering a single page slice after the
-    // fact returned partial matches and lied about `total`. Instead: pull every order
-    // matching the where-filters up to the scan cap, filter, then paginate the result.
-    if (filters.search) {
-      const needle = filters.search.toLowerCase();
-      const all = await this.data.list<OrderDoc>(COLLECTIONS.orders, {
-        where,
-        orderBy: [{ field: "createdAt", direction: "desc" }],
-        limit: ORDER_SEARCH_SCAN_LIMIT,
-      });
-      const matched = all.filter(
-        (o) =>
-          o.orderNumber.toLowerCase().includes(needle) ||
-          o.customerContact.email?.toLowerCase().includes(needle) ||
-          o.customerContact.phone?.includes(needle) ||
-          o.customerContact.displayName.toLowerCase().includes(needle),
-      );
-      const total = matched.length;
-      const start = (filters.page - 1) * filters.pageSize;
-      return {
-        items: matched.slice(start, start + filters.pageSize),
-        page: filters.page,
-        pageSize: filters.pageSize,
-        total,
-        totalPages: Math.max(1, Math.ceil(total / filters.pageSize)),
-      };
-    }
-
-    return this.paginateOrders(where, filters.page, filters.pageSize);
+    // ANY filtered view runs ONE index-free Firestore shape: newest-first scan with no
+    // where clauses, then match in memory. Rationale: combining equality filters (status,
+    // paymentStatus, paymentProvider) with createdAt ordering requires composite indexes
+    // that are not guaranteed to exist in the project — a missing one surfaces as an
+    // unhandled Firestore error and the admin UI shows "Internal server error" (the
+    // reported filters bug; the gateway filter's composite was never even deployed).
+    // Search is substring matching Firestore cannot index at all, so it always ran in
+    // memory; filtering BEFORE pagination keeps `total` honest (the pre-Task-44 bug was
+    // exactly filtering a page slice after the fact).
+    const needle = filters.search?.toLowerCase();
+    const scanned = await this.data.list<OrderDoc>(COLLECTIONS.orders, {
+      orderBy: [{ field: "createdAt", direction: "desc" }],
+      limit: ORDER_LIST_SCAN_LIMIT,
+    });
+    const matched = scanned.filter((o) => {
+      if (filters.status && o.status !== filters.status) return false;
+      if (filters.paymentStatus && o.paymentStatus !== filters.paymentStatus) return false;
+      if (filters.paymentProvider && o.paymentProvider !== filters.paymentProvider) return false;
+      if (filters.from !== undefined && o.createdAt < filters.from) return false;
+      if (filters.to !== undefined && o.createdAt > filters.to) return false;
+      if (needle) {
+        const haystack = `${o.orderNumber} ${o.customerContact.email ?? ""} ${o.customerContact.phone ?? ""} ${o.customerContact.displayName}`.toLowerCase();
+        if (!haystack.includes(needle)) return false;
+      }
+      return true;
+    });
+    const total = matched.length;
+    const start = (filters.page - 1) * filters.pageSize;
+    return {
+      items: matched.slice(start, start + filters.pageSize),
+      page: filters.page,
+      pageSize: filters.pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / filters.pageSize)),
+    };
   }
 
+  /**
+   * Unfiltered admin/customer pagination — count + one newest-first page. Both shapes are
+   * index-free (count with no where; list with orderBy on a single field and no filters).
+   * Filtered views intentionally do NOT go through here — they use the in-memory scan in
+   * listAdmin so no composite index is ever required.
+   */
   private async paginateOrders(
     where: { field: string; op: "==" | ">=" | "<="; value: unknown }[],
     page: number,

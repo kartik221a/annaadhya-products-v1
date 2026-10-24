@@ -157,7 +157,7 @@ export class ReportsService {
   /* --------------------------------- exports ------------------------------ */
 
   private async exportProducts(wb: ExcelJS.Workbook, ctx: ExportContext): Promise<void> {
-    const rows = (await this.data.list<ProductDoc>(COLLECTIONS.products, { limit: 5000 })).filter(
+    const rows = (await this.data.list<ProductDoc>(COLLECTIONS.products, { orderBy: [{ field: "createdAt", direction: "desc" }], limit: 5000 })).filter(
       (p) => (ctx.includeDemo ? true : !p.isDemo) && p.status !== "archived",
     );
     const ws = wb.addWorksheet("Products");
@@ -181,7 +181,7 @@ export class ReportsService {
   }
 
   private async exportVariants(wb: ExcelJS.Workbook, ctx: ExportContext): Promise<void> {
-    const rows = (await this.data.list<ProductVariantDoc>(COLLECTIONS.productVariants, { limit: 10000 })).filter(
+    const rows = (await this.data.list<ProductVariantDoc>(COLLECTIONS.productVariants, { orderBy: [{ field: "createdAt", direction: "desc" }], limit: 10000 })).filter(
       (v) => (ctx.includeDemo ? true : !v.isDemo) && v.status !== "archived",
     );
     const ws = wb.addWorksheet("Variants");
@@ -217,7 +217,7 @@ export class ReportsService {
   private async exportOrders(wb: ExcelJS.Workbook, ctx: ExportContext): Promise<void> {
     const f = ctx.orderFilters;
     const needle = f?.search?.toLowerCase();
-    const rows = (await this.data.list<OrderDoc>(COLLECTIONS.orders, { limit: 10000 })).filter(
+    const rows = (await this.data.list<OrderDoc>(COLLECTIONS.orders, { orderBy: [{ field: "createdAt", direction: "desc" }], limit: 10000 })).filter(
       (o) =>
         (ctx.includeDemo ? true : !o.isDemo) &&
         this.inRange(o, ctx) &&
@@ -263,7 +263,7 @@ export class ReportsService {
   }
 
   private async exportCustomers(wb: ExcelJS.Workbook, ctx: ExportContext): Promise<void> {
-    const rows = (await this.data.list<CustomerDoc>(COLLECTIONS.customers, { limit: 5000 })).filter(
+    const rows = (await this.data.list<CustomerDoc>(COLLECTIONS.customers, { orderBy: [{ field: "createdAt", direction: "desc" }], limit: 5000 })).filter(
       (c) => (ctx.includeDemo ? true : !c.isDemo),
     );
     const ws = wb.addWorksheet("Customers");
@@ -291,7 +291,7 @@ export class ReportsService {
   }
 
   private async exportInventoryBalances(wb: ExcelJS.Workbook, _ctx: ExportContext): Promise<void> {
-    const rows = await this.data.list<ProductVariantDoc>(COLLECTIONS.productVariants, { limit: 10000 });
+    const rows = await this.data.list<ProductVariantDoc>(COLLECTIONS.productVariants, { orderBy: [{ field: "createdAt", direction: "desc" }], limit: 10000 });
     const ws = wb.addWorksheet("Inventory");
     ws.columns = [
       { header: "Variant SKU", key: "sku", width: 22 },
@@ -318,7 +318,7 @@ export class ReportsService {
   }
 
   private async exportMovements(wb: ExcelJS.Workbook, ctx: ExportContext): Promise<void> {
-    const rows = (await this.data.list<InventoryMovementDoc>(COLLECTIONS.inventoryMovements, { limit: 20000 })).filter(
+    const rows = (await this.data.list<InventoryMovementDoc>(COLLECTIONS.inventoryMovements, { orderBy: [{ field: "createdAt", direction: "desc" }], limit: 20000 })).filter(
       (m) => (ctx.includeDemo ? true : !m.isDemo) && this.inRange(m, ctx),
     );
     const ws = wb.addWorksheet("Movements");
@@ -350,7 +350,7 @@ export class ReportsService {
   }
 
   private async exportSuppliers(wb: ExcelJS.Workbook, ctx: ExportContext): Promise<void> {
-    const rows = (await this.data.list<SupplierDoc>(COLLECTIONS.suppliers, { limit: 2000 })).filter(
+    const rows = (await this.data.list<SupplierDoc>(COLLECTIONS.suppliers, { orderBy: [{ field: "createdAt", direction: "desc" }], limit: 2000 })).filter(
       (s) => (ctx.includeDemo ? true : !s.isDemo),
     );
     const ws = wb.addWorksheet("Suppliers");
@@ -369,7 +369,7 @@ export class ReportsService {
   }
 
   private async exportPurchases(wb: ExcelJS.Workbook, ctx: ExportContext): Promise<void> {
-    const rows = (await this.data.list<PurchaseDoc>(COLLECTIONS.purchases, { limit: 5000 })).filter(
+    const rows = (await this.data.list<PurchaseDoc>(COLLECTIONS.purchases, { orderBy: [{ field: "createdAt", direction: "desc" }], limit: 5000 })).filter(
       (p) => (ctx.includeDemo ? true : !p.isDemo) && this.inRange(p, ctx),
     );
     const ws = wb.addWorksheet("Purchases");
@@ -400,7 +400,7 @@ export class ReportsService {
   }
 
   private async exportExpenses(wb: ExcelJS.Workbook, ctx: ExportContext): Promise<void> {
-    const rows = (await this.data.list<ExpenseDoc>(COLLECTIONS.expenses, { limit: 10000 })).filter(
+    const rows = (await this.data.list<ExpenseDoc>(COLLECTIONS.expenses, { orderBy: [{ field: "createdAt", direction: "desc" }], limit: 10000 })).filter(
       (e) => (ctx.includeDemo ? true : !e.isDemo) && this.inRange(e, ctx),
     );
     const ws = wb.addWorksheet("Expenses");
@@ -429,7 +429,7 @@ export class ReportsService {
   }
 
   private async exportSalesSummary(wb: ExcelJS.Workbook, ctx: ExportContext): Promise<void> {
-    const orders = (await this.data.list<OrderDoc>(COLLECTIONS.orders, { limit: 20000 })).filter(
+    const orders = (await this.data.list<OrderDoc>(COLLECTIONS.orders, { orderBy: [{ field: "createdAt", direction: "desc" }], limit: 20000 })).filter(
       (o) => (ctx.includeDemo ? true : !o.isDemo) && this.inRange(o, ctx),
     );
     const paid = orders.filter((o) => o.paymentStatus === "succeeded");
@@ -454,7 +454,7 @@ export class ReportsService {
   }
 
   private async exportNewsletterSubscribers(wb: ExcelJS.Workbook, ctx: ExportContext): Promise<void> {
-    const rows = (await this.data.list<NewsletterSubscriberDoc>(COLLECTIONS.newsletterSubscribers, { limit: 20000 })).filter(
+    const rows = (await this.data.list<NewsletterSubscriberDoc>(COLLECTIONS.newsletterSubscribers, { orderBy: [{ field: "createdAt", direction: "desc" }], limit: 20000 })).filter(
       (n) => (ctx.includeDemo ? true : !n.isDemo),
     );
     const ws = wb.addWorksheet("Subscribers");

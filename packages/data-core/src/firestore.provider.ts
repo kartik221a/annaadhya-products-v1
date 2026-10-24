@@ -7,6 +7,12 @@
  *    documented in docs/firestore-schema.md.
  *  - Where clauses are restricted to the query patterns documented in
  *    docs/firestore-schema.md (composite indexes listed in firestore.indexes.json).
+ *  - NO implicit ordering: `orderBy` is applied only when the caller states it. A hidden
+ *    default (createdAt desc) used to silently turn every equality query into an
+ *    "equality + orderBy" query, which Firestore can refuse without a matching composite
+ *    index — a production-500 class of bug (admin order filters, order timeline/notes).
+ *    Callers must now make ordering explicit and keep query shapes index-free (equality
+ *    only, or orderBy on a filtered field), filtering larger sets in memory.
  *  - firebase-admin is an optional peer dependency: this module is imported lazily so
  *    mock-mode development never requires it.
  */
@@ -156,7 +162,9 @@ export class FirestoreDataClient implements DataClient {
     for (const w of opts.where ?? []) {
       query = query.where(w.field, w.op, w.value);
     }
-    for (const ob of opts.orderBy ?? [{ field: "createdAt", direction: "desc" as const }]) {
+    // Explicit ordering only — see the class Notes. No hidden default: an un-ordered
+    // query stays equality-only and is always servable by automatic single-field indexes.
+    for (const ob of opts.orderBy ?? []) {
       query = query.orderBy(ob.field, ob.direction ?? "asc");
     }
     if (opts.offset) query = query.offset(opts.offset);

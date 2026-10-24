@@ -25,7 +25,14 @@ export interface OrderByClause {
 }
 
 export interface QueryOptions {
+  /** Equality/range filters. Keep queries equality-only (or range on the ordered field) so Firestore serves them from automatic single-field indexes — no composite required. */
   where?: WhereClause[];
+  /**
+   * Explicit ordering ONLY — there is no implicit default (a hidden `createdAt desc`
+   * default used to turn equality queries into composite-index-dependent queries in
+   * production). Omit for unordered reads; when filtering with equality clauses, either
+   * order by one of the filtered fields or sort the results in memory.
+   */
   orderBy?: OrderByClause[];
   limit?: number;
   offset?: number;

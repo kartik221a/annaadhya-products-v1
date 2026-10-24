@@ -51,23 +51,28 @@ export class InMemoryDataClient implements DataClient {
   async list<T>(col: string, opts: QueryOptions = {}): Promise<T[]> {
     let rows = [...this.col(col).values()];
     if (opts.where?.length) rows = rows.filter((r) => opts.where!.every((w) => matches(r, w)));
-    const orderBy = opts.orderBy ?? [{ field: "createdAt", direction: "desc" }];
-    rows.sort((a, b) => {
-      for (const ob of orderBy) {
-        const dir = ob.direction === "asc" ? 1 : -1;
-        const av = a[ob.field];
-        const bv = b[ob.field];
-        if (av === bv) continue;
-        if (av === undefined || av === null) return 1; // nulls last regardless of direction
-        if (bv === undefined || bv === null) return -1;
-        const cmp =
-          typeof av === "number" && typeof bv === "number"
-            ? av - bv
-            : String(av).localeCompare(String(bv));
-        return cmp * dir;
-      }
-      return 0;
-    });
+    // Parity with the Firestore provider: NO implicit ordering. When the caller omits
+    // `orderBy`, insertion order is preserved (a stable no-op sort) — ordering must be
+    // an explicit decision at every call site.
+    const orderBy = opts.orderBy ?? [];
+    if (orderBy.length > 0) {
+      rows.sort((a, b) => {
+        for (const ob of orderBy) {
+          const dir = ob.direction === "asc" ? 1 : -1;
+          const av = a[ob.field];
+          const bv = b[ob.field];
+          if (av === bv) continue;
+          if (av === undefined || av === null) return 1; // nulls last regardless of direction
+          if (bv === undefined || bv === null) return -1;
+          const cmp =
+            typeof av === "number" && typeof bv === "number"
+              ? av - bv
+              : String(av).localeCompare(String(bv));
+          return cmp * dir;
+        }
+        return 0;
+      });
+    }
     const offset = opts.offset ?? 0;
     const end = opts.limit !== undefined ? offset + opts.limit : undefined;
     return rows.slice(offset, end).map((r) => ({ ...r })) as T[];

@@ -172,3 +172,23 @@ controls`:
 - auditLogs: `action ASC, createdAt DESC`; `actorUid ASC, createdAt DESC`; `action ASC, actorUid ASC, createdAt DESC`
 - purchases: `supplierId ASC, createdAt DESC`; `status ASC, createdAt DESC`; `supplierId ASC, status ASC, createdAt DESC`
 - expenses: `category ASC, date DESC`
+
+### Query-shape policy (no hidden index dependencies)
+
+The data layer applies **no implicit ordering** — `orderBy` exists only where a caller
+states it (a former hidden `createdAt desc` default silently turned equality queries into
+"equality + orderBy" queries, which Firestore refuses without a matching composite index;
+that was the production-500 class behind the admin order filters and the order
+timeline/notes endpoints). Callers must keep every query shape servable by automatic
+single-field indexes:
+
+- **equality-only** where clauses (no orderBy) — always servable; sort the results in
+  memory (order timeline, order notes, customer order list, order-number lookup);
+- **range + orderBy on the same field** — servable by that field's automatic index
+  (dashboard range scans, report pulls);
+- **newest-first scans with no where clauses** — servable, used where arbitrary filter
+  combinations must never depend on composite indexes: admin order list views filter in
+  memory after a bounded 1000-order scan (same for the admin order search), so no filter
+  combination can ever hit a missing composite again. Totals stay honest within the
+  scan bound, documented at `ORDER_LIST_SCAN_LIMIT` in `orders.service.ts`.
+
