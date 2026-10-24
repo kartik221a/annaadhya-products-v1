@@ -4,15 +4,13 @@
     "storefront": {
       "root": "apps/storefront",
       "framework": "nextjs",
-      "buildCommand": "pnpm install --frozen-lockfile && pnpm --filter @annaadhya/contracts --filter @annaadhya/utils run build && pnpm run build",
       "bindings": [
         { "type": "service", "service": "api", "format": "url", "env": "API_URL" }
       ]
     },
     "admin": {
       "root": "apps/admin",
-      "framework": "nextjs",
-      "buildCommand": "pnpm install --frozen-lockfile && pnpm --filter @annaadhya/contracts --filter @annaadhya/utils run build && pnpm run build"
+      "framework": "nextjs"
     },
     "api": {
       "root": "apps/api",

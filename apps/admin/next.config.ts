@@ -21,6 +21,21 @@ const nextConfig: NextConfig = {
   // keeps the same guard against stray parent lockfiles AND gives the lambda the full
   // dependency closure.
   outputFileTracingRoot: path.join(__dirname, "..", ".."),
+  webpack: (config) => {
+    // The product form and the rich-text editor are the admin's runtime consumers of
+    // @annaadhya/utils/rich-text (stripHtml). The package's exports map points that
+    // specifier at dist/rich-text.js, but a plain `next build` — exactly what the
+    // Vercel admin service runs — never produces workspace dist output, so webpack
+    // resolution dies with "Module not found" and the deployment fails. Alias the
+    // exact specifier to the TS source: the module is pure and dependency-free, so
+    // webpack/SWC compiles it straight into the bundle — no dist step, no Vercel
+    // build orchestration, single source of truth.
+    config.resolve.alias["@annaadhya/utils/rich-text"] = path.resolve(
+      __dirname,
+      "../../packages/utils/src/rich-text.ts",
+    );
+    return config;
+  },
 };
 
 export default nextConfig;
