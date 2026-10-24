@@ -63,6 +63,13 @@ status, paymentStatus, paymentProvider, refundStatus, refundPaise, tracking?, ca
 **Snapshots are immutable** — historical orders keep the exact names/prices purchased even if the
 catalogue changes later.
 
+### orderNotes
+orderId, orderNumber, note, authorUid, authorName, authorRole. Internal staff notes written
+through `POST /admin/orders/:id/notes` (orders:write) and read through `GET :id/notes`
+(orders:read). Admin-only by construction: customer order endpoints return OrderDoc, which
+carries no notes field, and the default-deny Firestore rules block direct client access.
+Every create is audited (`order.note_add`).
+
 ### paymentAttempts
 orderId, provider, providerOrderId?, status (state machine: created→pending→succeeded/failed/
 cancelled; succeeded→refunded), amountPaise, attempts, lastError?, refundPaise.

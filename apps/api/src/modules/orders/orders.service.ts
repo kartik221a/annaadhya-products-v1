@@ -3,15 +3,18 @@ import { Inject, Injectable } from "@nestjs/common";
 import {
   COLLECTIONS,
   ORDER_TRANSITIONS,
+  type AuditLogDoc,
   type OrderDoc,
+  type OrderNoteDoc,
   type OrderStatus,
   type Page,
+  type PaymentAttemptDoc,
 } from "@annaadhya/contracts";
 import { AppError, badRequest, forbidden, notFound, type DataClient } from "@annaadhya/data-core";
-import { nowMillis } from "@annaadhya/utils";
+import { newId, nowMillis } from "@annaadhya/utils";
 import { DATA_CLIENT } from "../../data/data.module";
 import { AuditService } from "../audit/audit.service";
-import type { OrderStatusUpdateDto, OrderRefundDto, OrderTrackingUpdateDto } from "@annaadhya/contracts";
+import type { OrderNoteCreateDto, OrderStatusUpdateDto, OrderRefundDto, OrderTrackingUpdateDto } from "@annaadhya/contracts";
 import type { AuthPrincipal } from "@annaadhya/contracts";
 import type { PaymentProvider } from "../payments/provider.interface";
 
@@ -121,6 +124,81 @@ export class OrdersService {
     const order = await this.data.get<OrderDoc>(COLLECTIONS.orders, orderId);
     if (!order) throw notFound("Order not found");
     return order;
+  }
+
+  /**
+   * Chronological audit trail for one order — only events actually recorded in the
+   * immutable audit log (order creation via COD, verified payment, status changes,
+   * tracking updates, refunds, staff notes). Nothing is synthesised for gaps; a
+   * gateway-created order legitimately starts its timeline at payment.succeeded.
+   * Sorted in memory (equality-only Firestore query — no composite index needed).
+   */
+  async listTimeline(orderId: string): Promise<AuditLogDoc[]> {
+    await this.getAdmin(orderId); // 404 semantics for unknown orders
+    const events = await this.data.list<AuditLogDoc>(COLLECTIONS.auditLogs, {
+      where: [
+        { field: "targetType", op: "==", value: "order" },
+        { field: "targetId", op: "==", value: orderId },
+      ],
+      limit: 200,
+    });
+    return events.sort((a, b) => a.createdAt - b.createdAt);
+  }
+
+  /** Internal staff notes for one order — never exposed through customer endpoints. */
+  async listNotes(orderId: string): Promise<OrderNoteDoc[]> {
+    await this.getAdmin(orderId);
+    const notes = await this.data.list<OrderNoteDoc>(COLLECTIONS.orderNotes, {
+      where: [{ field: "orderId", op: "==", value: orderId }],
+      limit: 200,
+    });
+    return notes.sort((a, b) => b.createdAt - a.createdAt); // newest first, like a ticket thread
+  }
+
+  async addNote(orderId: string, dto: OrderNoteCreateDto, actor: AuthPrincipal): Promise<OrderNoteDoc> {
+    if (!actor.permissions.includes("orders:write")) {
+      throw forbidden("Adding internal notes requires the orders:write permission");
+    }
+    const order = await this.getAdmin(orderId);
+    const now = nowMillis();
+    const note: Omit<OrderNoteDoc, "id"> = {
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      note: dto.note,
+      authorUid: actor.uid,
+      authorName: actor.displayName ?? actor.email ?? "staff",
+      authorRole: actor.role === "customer" ? "system" : actor.role,
+      createdAt: now,
+      updatedAt: now,
+      isDemo: false,
+    };
+    const created = await this.data.create(
+      COLLECTIONS.orderNotes,
+      note,
+      { id: newId("ordnote") },
+    );
+    await this.audit.record({
+      actor,
+      action: "order.note_add",
+      targetType: "order",
+      targetId: order.id,
+      summary: `Internal note on ${order.orderNumber}: ${dto.note.slice(0, 80)}${dto.note.length > 80 ? "…" : ""}`,
+    });
+    return created;
+  }
+
+  /**
+   * Payment attempts recorded for one order (provider order id, payment id, status,
+   * amounts). Read-only display data for the admin detail page — marking payments
+   * paid/failed happens exclusively through verified provider webhooks.
+   */
+  async listPaymentAttempts(orderId: string): Promise<PaymentAttemptDoc[]> {
+    await this.getAdmin(orderId);
+    const attempts = await this.data.list<PaymentAttemptDoc>(COLLECTIONS.paymentAttempts, {
+      where: [{ field: "orderId", op: "==", value: orderId }],
+      limit: 20,
+    });
+    return attempts.sort((a, b) => b.createdAt - a.createdAt);
   }
 
   async updateStatus(orderId: string, dto: OrderStatusUpdateDto, actor: AuthPrincipal): Promise<OrderDoc> {

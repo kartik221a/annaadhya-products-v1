@@ -7,6 +7,7 @@ export const COLLECTIONS = {
   productVariants: "productVariants",
   categories: "categories",
   orders: "orders",
+  orderNotes: "orderNotes",
   customers: "customers",
   newsletterSubscribers: "newsletterSubscribers",
   contactMessages: "contactMessages",

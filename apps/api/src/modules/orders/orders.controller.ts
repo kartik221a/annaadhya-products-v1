@@ -3,11 +3,13 @@ import { Body, Controller, Get, Param, Patch, Post, Query } from "@nestjs/common
 import { ApiTags } from "@nestjs/swagger";
 import {
   orderListQuerySchema,
+  orderNoteCreateSchema,
   orderRefundSchema,
   orderStatusUpdateSchema,
   orderTrackingUpdateSchema,
   type AuthPrincipal,
   type OrderListQueryDto,
+  type OrderNoteCreateDto,
   type OrderRefundDto,
   type OrderStatusUpdateDto,
   type OrderTrackingUpdateDto,
@@ -67,6 +69,41 @@ export class AdminOrdersController {
   @RequirePermissions("orders:read")
   async getOne(@Param("id") id: string) {
     return this.orders.getAdmin(id);
+  }
+
+  /** Chronological audit events recorded against this order (real events only). */
+  @Get(":id/timeline")
+  @Protected("orders:read")
+  @RequirePermissions("orders:read")
+  async timeline(@Param("id") id: string) {
+    return this.orders.listTimeline(id);
+  }
+
+  /** Internal staff notes — admin-only by construction (customer endpoints never join them). */
+  @Get(":id/notes")
+  @Protected("orders:read")
+  @RequirePermissions("orders:read")
+  async notes(@Param("id") id: string) {
+    return this.orders.listNotes(id);
+  }
+
+  @Post(":id/notes")
+  @Protected("orders:write")
+  @RequirePermissions("orders:write")
+  async addNote(
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(orderNoteCreateSchema)) dto: OrderNoteCreateDto,
+    @CurrentUser() actor: AuthPrincipal,
+  ) {
+    return this.orders.addNote(id, dto, actor);
+  }
+
+  /** Provider payment attempts for this order (provider order/payment ids, statuses). */
+  @Get(":id/payments")
+  @Protected("orders:read")
+  @RequirePermissions("orders:read")
+  async payments(@Param("id") id: string) {
+    return this.orders.listPaymentAttempts(id);
   }
 
   @Post(":id/status")

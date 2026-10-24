@@ -34,6 +34,13 @@ const nextConfig: NextConfig = {
       __dirname,
       "../../packages/utils/src/rich-text.ts",
     );
+    // The order detail page uses the shared Shiprocket tracking-URL helper (the same
+    // utility the storefront's Track Order button uses) — pure and dependency-free,
+    // aliased to TS source so no dist step is needed at build time.
+    config.resolve.alias["@annaadhya/utils/tracking"] = path.resolve(
+      __dirname,
+      "../../packages/utils/src/tracking.ts",
+    );
     return config;
   },
 };

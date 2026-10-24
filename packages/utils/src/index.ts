@@ -13,6 +13,7 @@ import {
 import { nowMillis, toIso, istDateKey, startOfIstDay, addDays, addMinutes, formatDateIN } from "./time";
 import { loadDotEnvIfPresent } from "./env-file";
 import { sanitizeRichText, stripHtml, looksLikeHtml } from "./rich-text";
+import { shiprocketTrackingUrl } from "./tracking";
 
 export {
   slugify,
@@ -40,4 +41,5 @@ export {
   sanitizeRichText,
   stripHtml,
   looksLikeHtml,
+  shiprocketTrackingUrl,
 };

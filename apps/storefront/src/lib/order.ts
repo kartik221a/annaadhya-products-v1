@@ -87,22 +87,10 @@ export function fulfilmentRank(status: string): number {
 
 /* ----------------------------- shiprocket URL -------------------------------- */
 
-const SHIPROCKET_TRACKING_HOST = "shiprocket.co";
-/** Conservative AWB shape actually used by carriers on Shiprocket (alnum + . _ -). */
-const AWB_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{2,38}$/;
-
-/**
- * Shiprocket's public tracking page: https://shiprocket.co/tracking/{AWB}.
- * The pattern was verified against Shiprocket's live endpoint and public
- * tracking page (shiprocket.in/shipment-tracking) in Oct 2026. Returns null
- * when the AWB has an unexpected shape — the UI then shows the number without
- * a link instead of constructing a URL we can't vouch for.
- */
-export function shiprocketTrackingUrl(trackingNumber: string): string | null {
-  const awb = trackingNumber.trim();
-  if (!AWB_PATTERN.test(awb)) return null;
-  return `https://${SHIPROCKET_TRACKING_HOST}/tracking/${encodeURIComponent(awb)}`;
-}
+// Canonical implementation lives in @annaadhya/utils (unit-tested); the exact
+// specifier is aliased to the TS source in next.config.ts because a plain
+// `next build` never produces workspace dist output (same pattern as rich-text).
+export { shiprocketTrackingUrl } from "@annaadhya/utils/tracking";
 
 /* ------------------------------- milestones ---------------------------------- */
 

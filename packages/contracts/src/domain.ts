@@ -274,6 +274,21 @@ export interface OrderItemSnapshot {
   backorderedQty?: number; // qty not covered by stock — present only when the backorder policy allowed the sale
 }
 
+/**
+ * Internal staff note attached to an order (admin-visible only, never customer-facing).
+ * Written through POST /admin/orders/:id/notes with the orders:write permission; every
+ * create is audited. Notes are a separate collection — the customer order endpoints
+ * return OrderDoc, which carries no notes field, so internal content cannot leak.
+ */
+export interface OrderNoteDoc extends BaseDoc {
+  orderId: string;
+  orderNumber: string;
+  note: string;
+  authorUid: string;
+  authorName: string;
+  authorRole: AdminRole | "system";
+}
+
 /* ------------------------------ Payments & checkout --------------------------- */
 
 export interface PaymentAttemptDoc extends BaseDoc {

@@ -244,6 +244,31 @@ export interface OrderDoc extends BaseDoc {
   isGiftOrder: boolean;
 }
 
+/** Internal staff note (mirrors contracts OrderNoteDoc) — admin-visible only, never customer-facing. */
+export interface OrderNoteDoc extends BaseDoc {
+  orderId: string;
+  orderNumber: string;
+  note: string;
+  authorUid: string;
+  authorName: string;
+  authorRole: AdminRole | "system";
+}
+
+/** Provider payment attempt (mirrors contracts PaymentAttemptDoc) — read-only display references. */
+export interface PaymentAttemptDoc extends BaseDoc {
+  orderId: string;
+  orderNumber: string;
+  provider: PaymentProviderName;
+  providerOrderId?: string;
+  providerPaymentId?: string;
+  status: PaymentStatus;
+  amountPaise: number;
+  attempts: number;
+  lastError?: string;
+  refundPaise: number;
+  idempotencyKey?: string;
+}
+
 export interface InventoryMovementDoc extends BaseDoc {
   variantId: string;
   variantSku: string;

@@ -204,6 +204,12 @@ export const orderTrackingUpdateSchema = z.object({
 });
 export type OrderTrackingUpdateDto = z.infer<typeof orderTrackingUpdateSchema>;
 
+/** Internal staff note (never customer-visible). Stored with author identity; audited on create. */
+export const orderNoteCreateSchema = z.object({
+  note: z.string().trim().min(2, "A note needs at least 2 characters").max(2000),
+});
+export type OrderNoteCreateDto = z.infer<typeof orderNoteCreateSchema>;
+
 export const orderListQuerySchema = z.object({
   search: z.string().trim().max(120).optional(),
   status: z.enum(ORDER_STATUS_VALUES).optional(),

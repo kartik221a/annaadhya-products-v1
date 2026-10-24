@@ -12,6 +12,10 @@
     "./rich-text": {
       "types": "./src/rich-text.ts",
       "default": "./dist/rich-text.js"
+    },
+    "./tracking": {
+      "types": "./src/tracking.ts",
+      "default": "./dist/tracking.js"
     }
   },
   "scripts": {

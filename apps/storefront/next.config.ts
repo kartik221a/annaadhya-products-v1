@@ -28,6 +28,12 @@ const nextConfig: NextConfig = {
       __dirname,
       "../../packages/utils/src/rich-text.ts",
     );
+    // The order pages use the shared Shiprocket tracking-URL helper — same pure,
+    // dependency-free source-alias treatment as rich-text above.
+    config.resolve.alias["@annaadhya/utils/tracking"] = path.resolve(
+      __dirname,
+      "../../packages/utils/src/tracking.ts",
+    );
     return config;
   },
 };
