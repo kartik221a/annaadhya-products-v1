@@ -190,15 +190,76 @@ export type InventoryThresholdsDto = z.infer<typeof inventoryThresholdsSchema>;
 
 /* ------------------------------------ Suppliers ---------------------------------- */
 
+export const SUPPLIER_TYPES = [
+  "farmer_apiarist",
+  "estate_producer",
+  "wholesaler_coop",
+  "packaging_artisan",
+  "other",
+] as const;
+export const SUPPLIER_SORTS = ["recently_added", "name_asc", "recent_purchase", "value_desc"] as const;
+export const SUPPLIER_STATUS_FILTERS = ["all", "active", "inactive"] as const;
+
+/** One negotiated procurement-rate line (PURCHASE cost — never a selling price). */
+export const supplierRateSchema = z.object({
+  id: z.string().trim().max(64).optional(),
+  label: z.string().trim().min(2, "Rate label must be at least 2 characters").max(160),
+  productSku: skuSchema.optional(),
+  variantSku: skuSchema.optional(),
+  unitCostPaise: paiseSchema,
+  unit: z.string().trim().min(1).max(24),
+  moqQty: z.coerce.number().min(0).max(10_000_000).optional(),
+  notes: z.string().trim().max(300).optional(),
+});
+export type SupplierRateDto = z.infer<typeof supplierRateSchema>;
+
+/**
+ * Supplier create/update. All new fields are additive + defaulted so legacy clients
+ * (the purchases page still posts the old shape) keep working unchanged.
+ */
 export const supplierUpsertSchema = z.object({
   name: z.string().trim().min(2).max(120),
+  type: z.enum(SUPPLIER_TYPES).default("other"),
+  contactPerson: z.string().trim().max(120).optional(),
   phone: z.string().trim().max(20).optional(),
   email: z.string().trim().email().max(160).optional().or(z.literal("")),
   location: z.string().trim().max(160).optional(),
+  village: z.string().trim().max(120).optional(),
+  city: z.string().trim().max(80).optional(),
+  state: z.string().trim().max(80).optional(),
+  pincode: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, "PIN code must be exactly 6 digits")
+    .optional()
+    .or(z.literal("")),
+  addressLines: z.string().trim().max(400).optional(),
+  status: z.enum(["active", "inactive"]).default("active"),
+  paymentTerms: z.string().trim().max(300).optional(),
+  licenseNumber: z.string().trim().max(80).optional(),
   notes: z.string().trim().max(2000).optional(),
   productSkus: z.array(skuSchema).max(200).default([]),
+  rates: z.array(supplierRateSchema).max(50).default([]),
 });
 export type SupplierUpsertDto = z.infer<typeof supplierUpsertSchema>;
+
+/** Suppliers console listing: search + type/category/status filters + sort + pagination. */
+export const supplierLedgerQuerySchema = z.object({
+  search: z.string().trim().max(120).optional(),
+  type: z.enum(SUPPLIER_TYPES).optional(),
+  categoryId: idSchema.optional(),
+  status: z.enum(SUPPLIER_STATUS_FILTERS).default("all"),
+  sort: z.enum(SUPPLIER_SORTS).default("recently_added"),
+  page: z.coerce.number().int().min(1).max(10000).default(1),
+  pageSize: z.coerce.number().int().min(1).max(500).default(20),
+});
+export type SupplierLedgerQueryDto = z.infer<typeof supplierLedgerQuerySchema>;
+
+/** Status change (activate / seasonal pause). Never cascades into purchases. */
+export const supplierStatusSchema = z.object({
+  status: z.enum(["active", "inactive"]),
+});
+export type SupplierStatusDto = z.infer<typeof supplierStatusSchema>;
 
 export const purchaseUpsertSchema = z.object({
   supplierId: idSchema,

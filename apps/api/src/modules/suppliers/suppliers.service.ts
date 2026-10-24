@@ -2,9 +2,16 @@
 import { Inject, Injectable } from "@nestjs/common";
 import {
   COLLECTIONS,
+  type CategoryDoc,
+  type ProductDoc,
   type PurchaseDoc,
   type PurchaseUpsertDto,
   type SupplierDoc,
+  type SupplierLedgerPage,
+  type SupplierLedgerQueryDto,
+  type SupplierLedgerRow,
+  type SupplierLedgerSummary,
+  type SupplierStatus,
   type SupplierUpsertDto,
   type AuthPrincipal,
 } from "@annaadhya/contracts";
@@ -13,6 +20,14 @@ import { newId } from "@annaadhya/utils";
 import { DATA_CLIENT } from "../../data/data.module";
 import { AuditService } from "../audit/audit.service";
 import { InventoryService } from "../inventory/inventory.service";
+
+const IST_OFFSET_MINUTES = 330;
+
+/** Start of the current IST calendar month, as epoch millis. */
+function istMonthStart(now: number): number {
+  const shifted = new Date(now + IST_OFFSET_MINUTES * 60_000);
+  return Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), 1) - IST_OFFSET_MINUTES * 60_000;
+}
 
 @Injectable()
 export class SuppliersService {
@@ -36,20 +51,212 @@ export class SuppliersService {
 
   async upsert(dto: SupplierUpsertDto, id?: string): Promise<SupplierDoc> {
     const existing = id ? await this.data.get<SupplierDoc>(COLLECTIONS.suppliers, id) : null;
+    // Defense-in-depth fallbacks: the zod pipe applies schema defaults on the HTTP path,
+    // but direct callers (seed/tools) may post the legacy payload without the new keys.
+    const productSkus = [...new Set((dto.productSkus ?? []).map((s) => s.toUpperCase()))];
+    const ratesIn = dto.rates ?? [];
     const doc: SupplierDoc = {
       id: id ?? newId("sup"),
       name: dto.name,
+      type: dto.type ?? "other",
+      contactPerson: dto.contactPerson,
       phone: dto.phone,
       email: dto.email || undefined,
       location: dto.location,
+      village: dto.village,
+      city: dto.city,
+      state: dto.state,
+      pincode: dto.pincode || undefined,
+      addressLines: dto.addressLines,
+      status: dto.status ?? "active",
+      paymentTerms: dto.paymentTerms,
+      licenseNumber: dto.licenseNumber,
       notes: dto.notes,
-      productSkus: dto.productSkus,
+      productSkus,
+      // Normalized rate rows: stable ids so edits can update a line in place; legacy
+      // docs that predate rates simply get their first rate list here.
+      rates: ratesIn.map((r, idx) => ({
+        id: r.id ?? existing?.rates?.[idx]?.id ?? newId("rt"),
+        label: r.label,
+        productSku: r.productSku,
+        variantSku: r.variantSku,
+        unitCostPaise: r.unitCostPaise,
+        unit: r.unit,
+        moqQty: r.moqQty,
+        notes: r.notes,
+      })),
       createdAt: existing?.createdAt ?? Date.now(),
       updatedAt: Date.now(),
       isDemo: existing?.isDemo ?? false,
     };
     await this.data.set(COLLECTIONS.suppliers, doc.id, doc);
     return doc;
+  }
+
+  /**
+   * Status change (activate / seasonal pause). Touches ONLY the status field —
+   * purchases keep their supplierId linkage and historical records are never touched.
+   */
+  async setStatus(id: string, status: SupplierStatus): Promise<SupplierDoc> {
+    const existing = await this.get(id);
+    if ((existing.status ?? "active") === status) return existing;
+    return this.data.update<SupplierDoc>(COLLECTIONS.suppliers, id, { status, updatedAt: Date.now() });
+  }
+
+  /* --------------------------- suppliers console --------------------------- */
+
+  /**
+   * Paginated supplier ledger joined with REAL purchase history (from the purchases
+   * collection) and catalogue category context. Summary metrics are computed over
+   * the SAME filtered scope as the rows, so cards and table can never disagree.
+   */
+  async ledger(q: SupplierLedgerQueryDto): Promise<SupplierLedgerPage> {
+    const now = Date.now();
+    const monthStart = istMonthStart(now);
+    const [suppliers, purchases, products, categories] = await Promise.all([
+      this.data.list<SupplierDoc>(COLLECTIONS.suppliers, { limit: 2000 }),
+      this.data.list<PurchaseDoc>(COLLECTIONS.purchases, {
+        orderBy: [{ field: "createdAt", direction: "desc" }],
+        limit: 5000,
+      }),
+      this.data.list<ProductDoc>(COLLECTIONS.products, { limit: 5000 }),
+      this.data.list<CategoryDoc>(COLLECTIONS.categories, { limit: 1000 }),
+    ]);
+
+    const productBySku = new Map(products.map((p) => [p.sku, p]));
+    const categoryById = new Map(categories.map((c) => [c.id, c]));
+
+    // Purchase rollup per supplier — newest purchases first, so "last consignment"
+    // is the first hit per supplier; totals accumulate over every record.
+    const stats = new Map<string, { count: number; lastAt: number | null; lastRef: string | null; lastValue: number | null; totalValue: number }>();
+    for (const p of purchases) {
+      const value = p.items.reduce((sum, i) => sum + i.unitCostPaise * i.qtyOrdered, 0);
+      const s = stats.get(p.supplierId) ?? { count: 0, lastAt: null, lastRef: null, lastValue: null, totalValue: 0 };
+      s.count += 1;
+      if (s.lastAt === null) {
+        s.lastAt = p.createdAt;
+        s.lastRef = p.reference;
+        s.lastValue = value;
+      }
+      s.totalValue += value;
+      stats.set(p.supplierId, s);
+    }
+
+    const rows: SupplierLedgerRow[] = suppliers.map((s) => {
+      // Legacy documents predate type/status — render them with the documented fallbacks.
+      const type = s.type ?? "other";
+      const status: SupplierStatus = s.status ?? "active";
+      const rates = s.rates ?? [];
+      const linkedCategories: string[] = [];
+      const seenCategories = new Set<string>();
+      for (const sku of s.productSkus) {
+        const product = productBySku.get(sku);
+        if (!product || seenCategories.has(product.categoryId)) continue;
+        seenCategories.add(product.categoryId);
+        linkedCategories.push(categoryById.get(product.categoryId)?.name ?? "Unfiled");
+      }
+      const st = stats.get(s.id);
+      const displayLocation =
+        [s.city, s.state].filter(Boolean).join(", ") || s.location || undefined;
+      return {
+        id: s.id,
+        name: s.name,
+        type,
+        contactPerson: s.contactPerson,
+        phone: s.phone,
+        email: s.email,
+        city: s.city,
+        state: s.state,
+        location: displayLocation,
+        status,
+        village: s.village,
+        pincode: s.pincode,
+        paymentTerms: s.paymentTerms,
+        licenseNumber: s.licenseNumber,
+        notes: s.notes,
+        productSkus: s.productSkus,
+        rates,
+        categoryNames: linkedCategories,
+        createdAt: s.createdAt,
+        updatedAt: s.updatedAt,
+        purchaseCount: st?.count ?? 0,
+        lastPurchaseAt: st?.lastAt ?? null,
+        lastPurchaseReference: st?.lastRef ?? null,
+        lastPurchaseValuePaise: st?.lastValue ?? null,
+        totalPurchaseValuePaise: st?.totalValue ?? 0,
+      };
+    });
+
+    let filtered = rows;
+    if (q.type) filtered = filtered.filter((r) => r.type === q.type);
+    if (q.status !== "all") filtered = filtered.filter((r) => r.status === q.status);
+    if (q.categoryId) {
+      const catName = categoryById.get(q.categoryId)?.name;
+      filtered = filtered.filter((r) =>
+        r.productSkus.some((sku) => productBySku.get(sku)?.categoryId === q.categoryId) ||
+        (catName ? r.categoryNames.includes(catName) : false),
+      );
+    }
+    if (q.search) {
+      const needle = q.search.toLowerCase();
+      filtered = filtered.filter((r) =>
+        [
+          r.name,
+          r.contactPerson ?? "",
+          r.phone ?? "",
+          r.email ?? "",
+          r.city ?? "",
+          r.state ?? "",
+          r.location ?? "",
+          r.village ?? "",
+          r.productSkus.join(" "),
+          r.rates.map((rate) => rate.label).join(" "),
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(needle),
+      );
+    }
+
+    const summary: SupplierLedgerSummary = {
+      totalSuppliers: filtered.length,
+      activeSuppliers: filtered.filter((r) => r.status === "active").length,
+      inactiveSuppliers: filtered.filter((r) => r.status === "inactive").length,
+      categoryCount: new Set(
+        filtered.flatMap((r) =>
+          r.productSkus.map((sku) => productBySku.get(sku)?.categoryId).filter((id): id is string => Boolean(id)),
+        ),
+      ).size,
+      addedThisMonth: filtered.filter((r) => r.createdAt >= monthStart).length,
+      withPurchases: filtered.filter((r) => r.purchaseCount > 0).length,
+    };
+
+    switch (q.sort) {
+      case "name_asc":
+        filtered.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      case "recent_purchase":
+        filtered.sort(
+          (a, b) => (b.lastPurchaseAt ?? 0) - (a.lastPurchaseAt ?? 0) || b.createdAt - a.createdAt,
+        );
+        break;
+      case "value_desc":
+        filtered.sort((a, b) => b.totalPurchaseValuePaise - a.totalPurchaseValuePaise || b.createdAt - a.createdAt);
+        break;
+      default:
+        filtered.sort((a, b) => b.createdAt - a.createdAt);
+    }
+
+    const total = filtered.length;
+    const start = (q.page - 1) * q.pageSize;
+    return {
+      items: filtered.slice(start, start + q.pageSize),
+      page: q.page,
+      pageSize: q.pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / q.pageSize)),
+      summary,
+    };
   }
 
   async archive(id: string): Promise<void> {

@@ -155,13 +155,119 @@ export function availableQty(v: Pick<ProductVariantDoc, "stockOnHand" | "reserve
 
 /* ---------------------------------- Suppliers --------------------------------- */
 
+/** Producer category of a supplier (drives the Suppliers console type filter/pill). */
+export type SupplierType = "farmer_apiarist" | "estate_producer" | "wholesaler_coop" | "packaging_artisan" | "other";
+
+/** Sourcing relationship state. Inactive ("seasonal pause") never deletes history —
+ *  purchases keep their supplier linkage and stay fully reportable. */
+export type SupplierStatus = "active" | "inactive";
+
+/**
+ * One negotiated procurement rate line. This is a PURCHASE cost the supplier
+ * agreed to — never a customer-facing selling price (those live on variants).
+ */
+export interface SupplierRate {
+  id: string;
+  /** What the supplier calls the item, e.g. "Raw Wild Forest Honey (Grade-A bulk)". */
+  label: string;
+  /** Optional link into the real catalogue (product and/or variant). */
+  productSku?: string;
+  variantSku?: string;
+  /** Negotiated purchase cost per unit, integer paise. */
+  unitCostPaise: number;
+  /** Unit of measurement the rate is quoted in: "kg", "g", "unit", "box"… */
+  unit: string;
+  /** Minimum order quantity in the same unit, when agreed. */
+  moqQty?: number;
+  notes?: string;
+}
+
+/**
+ * Supplier record. All location/contact/type/status/rates fields are ADDITIVE and
+ * optional-or-defaulted so pre-existing documents remain valid without migration:
+ * legacy docs simply render with the fallbacks (type "other", status "active").
+ */
 export interface SupplierDoc extends BaseDoc {
   name: string;
+  type?: SupplierType;
+  contactPerson?: string;
   phone?: string;
   email?: string;
+  /** Legacy free-text location ("Nadia, West Bengal"). Kept for old records. */
   location?: string;
+  village?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  addressLines?: string;
+  status?: SupplierStatus;
+  paymentTerms?: string;
+  /** FSSAI / NABL / GI licence reference, when the business supplies it. */
+  licenseNumber?: string;
   notes?: string;
   productSkus: string[];
+  rates?: SupplierRate[];
+}
+
+/** Sort keys for the Suppliers console. */
+export type SupplierSort = "recently_added" | "name_asc" | "recent_purchase" | "value_desc";
+export type SupplierStatusFilter = "all" | "active" | "inactive";
+
+/**
+ * One Suppliers-console row: the supplier joined with REAL purchase history derived
+ * from the purchases collection (last consignment, lifetime value) and catalogue
+ * category context. Nothing here is invented — missing purchases stay null.
+ */
+export interface SupplierLedgerRow {
+  id: string;
+  name: string;
+  type: SupplierType;
+  contactPerson?: string;
+  phone?: string;
+  email?: string;
+  city?: string;
+  state?: string;
+  location?: string; // effective display location (city/state composed or legacy)
+  status: SupplierStatus;
+  village?: string;
+  pincode?: string;
+  paymentTerms?: string;
+  licenseNumber?: string;
+  notes?: string;
+  productSkus: string[];
+  rates: SupplierRate[];
+  /** Distinct catalogue categories covered by the supplier's product links. */
+  categoryNames: string[];
+  createdAt: number;
+  updatedAt: number;
+  /* --- derived from real purchase records (null when none exist) --- */
+  purchaseCount: number;
+  lastPurchaseAt: number | null;
+  lastPurchaseReference: string | null;
+  lastPurchaseValuePaise: number | null;
+  totalPurchaseValuePaise: number;
+}
+
+/** Summary metrics computed over the SAME filtered scope as the rows. */
+export interface SupplierLedgerSummary {
+  totalSuppliers: number;
+  activeSuppliers: number;
+  inactiveSuppliers: number;
+  /** Distinct catalogue categories linked across the filtered suppliers. */
+  categoryCount: number;
+  /** Suppliers created inside the current calendar month (IST). */
+  addedThisMonth: number;
+  /** Suppliers with at least one real purchase recorded. */
+  withPurchases: number;
+}
+
+export interface SupplierLedgerPage {
+  items: SupplierLedgerRow[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  summary: SupplierLedgerSummary;
 }
 
 export interface PurchaseDoc extends BaseDoc {

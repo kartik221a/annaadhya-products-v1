@@ -188,14 +188,23 @@ export async function applySeed(data: DataClient, seedBatch = DEMO_SEED_BATCH): 
   await data.bulkSet(COLLECTIONS.products, products);
   await data.bulkSet(COLLECTIONS.productVariants, variants);
 
-  // Suppliers
+  // Suppliers (extended fields feed the Suppliers console; rates are fictional demo costs)
   await data.bulkSet(
     COLLECTIONS.suppliers,
     DEMO_SUPPLIERS.map((s) => ({
       id: stableId("sup", s.name),
       name: s.name,
+      type: s.type,
+      contactPerson: s.contactPerson,
+      phone: s.phone,
+      email: s.email,
       location: s.location,
+      city: s.city,
+      state: s.state,
+      status: s.status,
+      paymentTerms: s.paymentTerms,
       notes: s.notes,
+      rates: (s.rates ?? []).map((r, idx) => ({ id: `${stableId("sup", s.name)}-rt${idx + 1}`, ...r })),
       productSkus: [...s.productSkus],
       isDemo: true,
       seedBatch,

@@ -368,30 +368,69 @@ export function variantSkuFor(productSku: string, packLabel: string): string {
   return `${productSku}-${packLabel.replace(/[^a-zA-Z0-9]/g, "").toUpperCase()}`;
 }
 
-/** Fictional demo suppliers (clearly demo; to be replaced by real suppliers when onboarded). */
+/** Fictional demo suppliers (clearly demo; to be replaced by real suppliers when onboarded).
+ *  Extended with the Suppliers-console fields (type/status/contact/location/rates) so the
+ *  demo directory exercises the real console — every rate is a fictional procurement cost. */
 export const DEMO_SUPPLIERS = [
   {
     name: "DEMO — Moradhanga Forest Honey Collective",
+    type: "farmer_apiarist" as const,
+    contactPerson: "Demo contact — Subal M.",
+    phone: "+91 90000 00001",
+    email: "demo.honey@annaadhya.test",
     location: "Nadia, West Bengal (demo record)",
+    city: "Nadia",
+    state: "West Bengal",
+    status: "active" as const,
+    paymentTerms: "50% advance, balance on dispatch (demo terms)",
     notes: "Fictional demo supplier created by the seed tool. Replace with real supplier records.",
+    rates: [
+      { label: "Raw Forest Honey (bulk)", unitCostPaise: 38000, unit: "kg", moqQty: 500 },
+      { label: "Clay Jar 500g (finished)", unitCostPaise: 24500, unit: "unit", moqQty: 250 },
+    ],
     productSkus: DEMO_PRODUCTS.filter((p) => p.categorySlug === "honey").map((p) => p.sku),
   },
   {
     name: "DEMO — Kesharpur Dry Fruit Traders",
+    type: "wholesaler_coop" as const,
+    contactPerson: "Demo contact — Harpreet S.",
+    phone: "+91 90000 00002",
+    email: "demo.dryfruit@annaadhya.test",
     location: "Azadpur Mandi, Delhi (demo record)",
+    city: "Delhi",
+    state: "Delhi",
+    status: "active" as const,
+    paymentTerms: "Net 15 on POD (demo terms)",
     notes: "Fictional demo supplier created by the seed tool. Replace with real supplier records.",
+    rates: [{ label: "Mamra Almonds Grade-1", unitCostPaise: 165000, unit: "kg", moqQty: 100 }],
     productSkus: DEMO_PRODUCTS.filter((p) => p.categorySlug === "dry-fruits").map((p) => p.sku),
   },
   {
     name: "DEMO — Zabarwan Saffron Growers Guild",
+    type: "estate_producer" as const,
+    contactPerson: "Demo contact — Ghulam M.",
+    phone: "+91 90000 00003",
+    email: "demo.kesar@annaadhya.test",
     location: "Pampore, J&K (demo record — origin unverified)",
-    notes: "Fictional demo supplier created by the seed tool. Origin/grade documentation pending.",
+    city: "Pampore",
+    state: "Jammu & Kashmir",
+    status: "inactive" as const,
+    notes: "Fictional demo supplier created by the seed tool. Origin/grade documentation pending. Paused pending the next harvest cycle.",
+    rates: [{ label: "Mongra Kesar (grade unverified)", unitCostPaise: 620000, unit: "g", moqQty: 50 }],
     productSkus: DEMO_PRODUCTS.filter((p) => p.categorySlug === "kesar").map((p) => p.sku),
   },
   {
     name: "DEMO — Gifting Studio (packaging partner)",
+    type: "packaging_artisan" as const,
+    contactPerson: "Demo contact — Raghunath P.",
+    phone: "+91 90000 00004",
+    email: "demo.gifting@annaadhya.test",
     location: "Jaipur, Rajasthan (demo record)",
+    city: "Jaipur",
+    state: "Rajasthan",
+    status: "active" as const,
     notes: "Fictional demo packaging partner for the curated hamper line. Replace when the real gifting supplier is onboarded.",
+    rates: [{ label: "Maroon keepsake hamper box", unitCostPaise: 48000, unit: "box", moqQty: 100 }],
     productSkus: DEMO_PRODUCTS.filter((p) => p.categorySlug === "gift-boxes").map((p) => p.sku),
   },
 ];

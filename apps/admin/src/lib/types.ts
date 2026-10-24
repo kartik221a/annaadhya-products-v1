@@ -361,13 +361,88 @@ export interface StockAdjustmentPayload {
   reference?: string;
 }
 
+export interface SupplierRate {
+  id: string;
+  /** What the supplier calls the item, e.g. "Raw Wild Forest Honey (Grade-A bulk)". */
+  label: string;
+  productSku?: string;
+  variantSku?: string;
+  /** Negotiated purchase cost per unit, integer paise — never a selling price. */
+  unitCostPaise: number;
+  unit: string;
+  moqQty?: number;
+  notes?: string;
+}
+
+export type SupplierType = "farmer_apiarist" | "estate_producer" | "wholesaler_coop" | "packaging_artisan" | "other";
+export type SupplierStatus = "active" | "inactive";
+export type SupplierSort = "recently_added" | "name_asc" | "recent_purchase" | "value_desc";
+export type SupplierStatusFilter = "all" | "active" | "inactive";
+
 export interface SupplierDoc extends BaseDoc {
   name: string;
+  type?: SupplierType;
+  contactPerson?: string;
   phone?: string;
   email?: string;
   location?: string;
+  village?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  addressLines?: string;
+  status?: SupplierStatus;
+  paymentTerms?: string;
+  licenseNumber?: string;
   notes?: string;
   productSkus: string[];
+  rates?: SupplierRate[];
+}
+
+export interface SupplierLedgerRow {
+  id: string;
+  name: string;
+  type: SupplierType;
+  contactPerson?: string;
+  phone?: string;
+  email?: string;
+  city?: string;
+  state?: string;
+  location?: string;
+  status: SupplierStatus;
+  village?: string;
+  pincode?: string;
+  paymentTerms?: string;
+  licenseNumber?: string;
+  notes?: string;
+  productSkus: string[];
+  rates: SupplierRate[];
+  categoryNames: string[];
+  createdAt: number;
+  updatedAt: number;
+  purchaseCount: number;
+  lastPurchaseAt: number | null;
+  lastPurchaseReference: string | null;
+  lastPurchaseValuePaise: number | null;
+  totalPurchaseValuePaise: number;
+}
+
+export interface SupplierLedgerSummary {
+  totalSuppliers: number;
+  activeSuppliers: number;
+  inactiveSuppliers: number;
+  categoryCount: number;
+  addedThisMonth: number;
+  withPurchases: number;
+}
+
+export interface SupplierLedgerPage {
+  items: SupplierLedgerRow[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  summary: SupplierLedgerSummary;
 }
 
 export interface PurchaseItem {
@@ -569,11 +644,31 @@ export interface ProductUpsertPayload {
 
 export interface SupplierUpsertPayload {
   name: string;
+  type: SupplierType;
+  contactPerson?: string;
   phone?: string;
   email?: string;
   location?: string;
+  village?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  addressLines?: string;
+  status: SupplierStatus;
+  paymentTerms?: string;
+  licenseNumber?: string;
   notes?: string;
   productSkus: string[];
+  rates: {
+    id?: string;
+    label: string;
+    productSku?: string;
+    variantSku?: string;
+    unitCostPaise: number;
+    unit: string;
+    moqQty?: number;
+    notes?: string;
+  }[];
 }
 
 export interface PurchaseUpsertPayload {

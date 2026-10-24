@@ -356,15 +356,37 @@ export class ReportsService {
     const ws = wb.addWorksheet("Suppliers");
     ws.columns = [
       { header: "Supplier", key: "name", width: 34 },
+      { header: "Type", key: "type", width: 18 },
+      { header: "Status", key: "status", width: 12 },
+      { header: "Contact person", key: "contact", width: 22 },
       { header: "Location", key: "loc", width: 28 },
       { header: "Phone", key: "phone", width: 16 },
       { header: "Email", key: "email", width: 28 },
       { header: "Products", key: "skus", width: 40 },
+      { header: "Rate lines", key: "rates", width: 10 },
+      { header: "Lowest rate (INR)", key: "lo", width: 16 },
+      { header: "Highest rate (INR)", key: "hi", width: 16 },
+      { header: "Licence #", key: "lic", width: 20 },
       { header: "Notes", key: "notes", width: 50 },
     ];
-    this.styleSheet(ws, "Suppliers", "Supplier directory", rows.some((r) => r.isDemo));
+    this.styleSheet(ws, "Suppliers", "Supplier directory — rates are procurement costs, not selling prices", rows.some((r) => r.isDemo));
     for (const s of rows) {
-      ws.addRow({ name: s.name, loc: s.location ?? "", phone: s.phone ?? "", email: s.email ?? "", skus: s.productSkus.join(", "), notes: s.notes ?? "" });
+      const costs = (s.rates ?? []).map((r) => r.unitCostPaise);
+      ws.addRow({
+        name: s.name,
+        type: s.type ?? "other",
+        status: s.status ?? "active",
+        contact: s.contactPerson ?? "",
+        loc: [s.city, s.state].filter(Boolean).join(", ") || (s.location ?? ""),
+        phone: s.phone ?? "",
+        email: s.email ?? "",
+        skus: s.productSkus.join(", "),
+        rates: (s.rates ?? []).length,
+        lo: costs.length ? Math.min(...costs) / 100 : "",
+        hi: costs.length ? Math.max(...costs) / 100 : "",
+        lic: s.licenseNumber ?? "",
+        notes: s.notes ?? "",
+      });
     }
   }
 

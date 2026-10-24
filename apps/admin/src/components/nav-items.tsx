@@ -74,6 +74,15 @@ export const IconSuppliers = ({ className = "" }: { className?: string }) => (
   </svg>
 );
 
+/** Supplier network — a field shed with a sprout (estate / farm partners). */
+export const IconSupplierNetwork = ({ className = "" }: { className?: string }) => (
+  <svg className={className} {...svgProps} aria-hidden>
+    <path d="M3 20V10l7-5 7 5v10" />
+    <path d="M3 20h18M7 20v-5h6v5" />
+    <path d="M9 10.5c1.8 0 3-1.1 3-3-1.8 0-3 1.1-3 3Zm6 0c-1.3 0-2.2-.8-2.2-2.2 1.3 0 2.2.8 2.2 2.2Z" />
+  </svg>
+);
+
 export const IconCustomers = ({ className = "" }: { className?: string }) => (
   <svg className={className} {...svgProps} aria-hidden>
     <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm13 10v-2a4 4 0 0 0-3-3.87M15 3.13a4 4 0 0 1 0 7.75" />
@@ -145,7 +154,8 @@ export const NAV_GROUPS: NavGroup[] = [
     iconClass: "text-secondary",
     items: [
       { href: "/inventory", label: "Inventory", permission: "inventory:read", icon: IconInventory },
-      { href: "/purchases", label: "Suppliers & Purchases", permission: "suppliers:read", anyOf: ["suppliers:read", "purchases:read"], icon: IconSuppliers },
+      { href: "/suppliers", label: "Suppliers", permission: "suppliers:read", icon: IconSupplierNetwork },
+      { href: "/purchases", label: "Purchases", permission: "purchases:read", anyOf: ["purchases:read"], icon: IconSuppliers },
       { href: "/customers", label: "Customers", permission: "customers:read", icon: IconCustomers },
       { href: "/expenses", label: "Expenses", permission: "expenses:read", icon: IconExpenses },
     ],

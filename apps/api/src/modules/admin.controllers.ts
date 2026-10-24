@@ -14,6 +14,8 @@ import {
   purchaseUpsertSchema,
   stockAdjustmentSchema,
   stockMovementSchema,
+  supplierLedgerQuerySchema,
+  supplierStatusSchema,
   supplierUpsertSchema,
   teamInviteSchema,
   teamRoleUpdateSchema,
@@ -34,6 +36,8 @@ import {
   type SettingsUpdateDto,
   type StockAdjustmentDto,
   type StockMovementDto,
+  type SupplierLedgerQueryDto,
+  type SupplierStatusDto,
   type SupplierUpsertDto,
   type TeamInviteDto,
   type TeamRoleUpdateDto,
@@ -152,7 +156,18 @@ export class InventoryController {
 @ApiTags("suppliers")
 @Controller("admin/suppliers")
 export class SuppliersController {
-  constructor(private readonly suppliers: SuppliersService) {}
+  constructor(
+    private readonly suppliers: SuppliersService,
+    private readonly audit: AuditService,
+  ) {}
+
+  /** Suppliers console listing (declared before :id so "ledger" is not captured as an id). */
+  @Get("ledger")
+  @Protected("suppliers:read")
+  @RequirePermissions("suppliers:read")
+  async ledger(@Query(new ZodValidationPipe(supplierLedgerQuerySchema)) q: SupplierLedgerQueryDto) {
+    return this.suppliers.ledger(q);
+  }
 
   @Get()
   @Protected("suppliers:read")
@@ -171,15 +186,58 @@ export class SuppliersController {
   @Post()
   @Protected("suppliers:write")
   @RequirePermissions("suppliers:write")
-  async create(@Body(new ZodValidationPipe(supplierUpsertSchema)) dto: SupplierUpsertDto) {
-    return this.suppliers.upsert(dto);
+  async create(
+    @Body(new ZodValidationPipe(supplierUpsertSchema)) dto: SupplierUpsertDto,
+    @CurrentUser() actor: AuthPrincipal,
+  ) {
+    const doc = await this.suppliers.upsert(dto);
+    await this.audit.record({
+      actor,
+      action: "supplier.create",
+      targetType: "supplier",
+      targetId: doc.id,
+      summary: `Supplier ${doc.name} created (${doc.rates?.length ?? 0} rate lines)`,
+    });
+    return doc;
   }
 
   @Post(":id")
   @Protected("suppliers:write")
   @RequirePermissions("suppliers:write")
-  async update(@Param("id") id: string, @Body(new ZodValidationPipe(supplierUpsertSchema)) dto: SupplierUpsertDto) {
-    return this.suppliers.upsert(dto, id);
+  async update(
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(supplierUpsertSchema)) dto: SupplierUpsertDto,
+    @CurrentUser() actor: AuthPrincipal,
+  ) {
+    const doc = await this.suppliers.upsert(dto, id);
+    await this.audit.record({
+      actor,
+      action: "supplier.update",
+      targetType: "supplier",
+      targetId: doc.id,
+      summary: `Supplier ${doc.name} updated (${doc.rates?.length ?? 0} rate lines)`,
+    });
+    return doc;
+  }
+
+  /** Activate / seasonal pause. Server-side status change only — purchase history untouched. */
+  @Post(":id/status")
+  @Protected("suppliers:write")
+  @RequirePermissions("suppliers:write")
+  async setStatus(
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(supplierStatusSchema)) dto: SupplierStatusDto,
+    @CurrentUser() actor: AuthPrincipal,
+  ) {
+    const doc = await this.suppliers.setStatus(id, dto.status);
+    await this.audit.record({
+      actor,
+      action: "supplier.status_change",
+      targetType: "supplier",
+      targetId: doc.id,
+      summary: `Supplier ${doc.name} marked ${dto.status === "active" ? "active" : "inactive (seasonal pause)"}`,
+    });
+    return doc;
   }
 }
 

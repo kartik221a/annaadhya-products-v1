@@ -112,7 +112,13 @@ the owner reads in the existing Admin → Audit log. Message bodies are retrieve
 collection by document id.
 
 ### suppliers / purchases
-Suppliers: name, phone?, email?, location?, notes?, productSkus[].
+Suppliers: name, type? (farmer_apiarist|estate_producer|wholesaler_coop|packaging_artisan|other),
+contactPerson?, phone?, email?, location? (legacy free text), village?, city?, state?, pincode?,
+addressLines?, status? (active|inactive — default active), paymentTerms?, licenseNumber?, notes?,
+productSkus[], rates?[] (label, productSku?, variantSku?, unitCostPaise — procurement cost,
+unit, moqQty?, notes?). All extended fields are additive; legacy docs without them render with
+the documented fallbacks (type "other", status "active", no rates). Status changes never touch
+purchase history.
 Purchases: supplierId, reference, status (draft|ordered|partially_received|received|cancelled),
 items[] (variantSku, description, qtyOrdered, qtyReceived, unitCostPaise — actual landed costs),
 createdByUid.
