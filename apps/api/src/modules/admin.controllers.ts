@@ -11,6 +11,10 @@ import {
   lowStockQuerySchema,
   mediaRegisterSchema,
   mediaSignatureSchema,
+  purchaseCancelSchema,
+  purchaseLedgerQuerySchema,
+  purchasePaymentSchema,
+  purchaseReceiveSchema,
   purchaseUpsertSchema,
   stockAdjustmentSchema,
   stockMovementSchema,
@@ -32,6 +36,10 @@ import {
   type OrderStatus,
   type PaymentProviderName,
   type PaymentStatus,
+  type PurchaseCancelDto,
+  type PurchaseLedgerQueryDto,
+  type PurchasePaymentDto,
+  type PurchaseReceiveDto,
   type PurchaseUpsertDto,
   type SettingsUpdateDto,
   type StockAdjustmentDto,
@@ -249,6 +257,15 @@ export class PurchasesController {
     private readonly audit: AuditService,
   ) {}
 
+  /** Purchases console listing (declared before :id so "ledger" is not captured as an id). */
+  @Get("ledger")
+  @Protected("purchases:read")
+  @RequirePermissions("purchases:read")
+  async ledger(@Query(new ZodValidationPipe(purchaseLedgerQuerySchema)) q: PurchaseLedgerQueryDto) {
+    return this.purchases.ledger(q);
+  }
+
+  /** Legacy flat list (supplier drawer + older clients) — supplierId/status filters. */
   @Get()
   @Protected("purchases:read")
   @RequirePermissions("purchases:read")
@@ -270,27 +287,83 @@ export class PurchasesController {
     @Body(new ZodValidationPipe(purchaseUpsertSchema)) dto: PurchaseUpsertDto,
     @CurrentUser() actor: AuthPrincipal,
   ) {
-    const doc = await this.purchases.upsert(dto);
+    const doc = await this.purchases.upsert(dto, actor);
     await this.audit.record({
       actor,
       action: "purchase.create",
       targetType: "purchase",
       targetId: doc.id,
-      summary: `Purchase ${doc.reference} created (${doc.items.length} lines)`,
+      summary: `Purchase ${doc.reference} created (${doc.status === "draft" ? "draft" : "ordered"}, ${doc.items.length} lines, ₹${(doc.totalPaise ?? 0) / 100})`,
     });
     return doc;
   }
 
+  /** Draft-only edit (server rejects anything already confirmed). */
+  @Post(":id")
+  @Protected("purchases:write")
+  @RequirePermissions("purchases:write")
+  async update(
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(purchaseUpsertSchema)) dto: PurchaseUpsertDto,
+    @CurrentUser() actor: AuthPrincipal,
+  ) {
+    const doc = await this.purchases.upsert(dto, actor, id);
+    await this.audit.record({
+      actor,
+      action: "purchase.update",
+      targetType: "purchase",
+      targetId: doc.id,
+      summary: `Draft purchase ${doc.reference} updated (${doc.items.length} lines, ₹${(doc.totalPaise ?? 0) / 100})`,
+    });
+    return doc;
+  }
+
+  /** Draft → Ordered confirmation. Never touches inventory. */
+  @Post(":id/confirm")
+  @Protected("purchases:write")
+  @RequirePermissions("purchases:write")
+  async confirm(@Param("id") id: string, @CurrentUser() actor: AuthPrincipal) {
+    return this.purchases.confirm(id, actor);
+  }
+
+  /** Cancel (history + received stock preserved; outstanding voided). */
+  @Post(":id/cancel")
+  @Protected("purchases:write")
+  @RequirePermissions("purchases:write")
+  async cancel(
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(purchaseCancelSchema)) dto: PurchaseCancelDto,
+    @CurrentUser() actor: AuthPrincipal,
+  ) {
+    return this.purchases.cancel(id, dto.reason, actor);
+  }
+
+  /**
+   * Record goods received. `receiptId` is the client-side idempotency key — replays
+   * return the purchase unchanged instead of applying stock twice. Stock, movements,
+   * receipt history and status commit in one server-side transaction.
+   */
   @Post(":id/receive")
   @Protected("purchases:write")
   @RequirePermissions("purchases:write")
   async receive(
     @Param("id") id: string,
-    @Body(new ZodValidationPipe(z.object({ receipts: z.array(z.object({ variantSku: z.string().min(1), qty: z.number().int().min(0).max(1_000_000) })).min(1) })))
-    body: { receipts: { variantSku: string; qty: number }[] },
+    @Body(new ZodValidationPipe(purchaseReceiveSchema)) dto: PurchaseReceiveDto,
     @CurrentUser() actor: AuthPrincipal,
   ) {
-    return this.purchases.receive(id, body.receipts, actor);
+    return this.purchases.receive(id, dto, actor);
+  }
+
+  /** Record a real supplier payment (settlement state stays derived from these records). */
+  @Post(":id/payments")
+  @Protected("purchases:write")
+  @RequirePermissions("purchases:write")
+  async recordPayment(
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(purchasePaymentSchema)) dto: PurchasePaymentDto,
+    @CurrentUser() actor: AuthPrincipal,
+  ) {
+    return this.purchases.recordPayment(id, dto, actor);
   }
 }
 

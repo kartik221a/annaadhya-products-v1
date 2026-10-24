@@ -12,6 +12,8 @@ import type {
   PaymentProviderName,
   PaymentStatus,
   ProductStatus,
+  PurchasePaymentMethod,
+  PurchasePaymentStatus,
   PurchaseStatus,
   RefundStatus,
 } from "./enums";
@@ -270,6 +272,57 @@ export interface SupplierLedgerPage {
   summary: SupplierLedgerSummary;
 }
 
+/**
+ * One purchase-order line. Snapshot fields (productName, variantPackLabel) preserve
+ * catalogue context so historical purchases stay meaningful when the catalogue later
+ * changes; qtyReceived is maintained server-side through receiving events only.
+ */
+export interface PurchaseItem {
+  variantSku: string;
+  description: string;
+  qtyOrdered: number;
+  qtyReceived: number;
+  unitCostPaise: number; // actual landed unit cost when known
+  /** Measurement label the line is counted in ("unit", "box", "kg"…). Additive. */
+  unit?: string;
+  /** Line-level discount, integer paise (never negative). Additive. */
+  discountPaise?: number;
+  /** Line-level tax percent (GST slab, 0–50). Additive. */
+  taxPercent?: number;
+  /** Authoritative line total (qty × cost − discount + tax), integer paise. Additive. */
+  lineTotalPaise?: number;
+  /* --- catalogue snapshots (additive; absent on legacy docs) --- */
+  productId?: string;
+  productName?: string;
+  variantPackLabel?: string;
+}
+
+/** One persisted goods-receiving event. Immutable — corrections are future receipts, never edits. */
+export interface PurchaseReceiptDoc {
+  id: string; // client-generated idempotency key (persisted → replay-safe)
+  receivedAt: number;
+  receivedByUid: string;
+  receivedByName?: string;
+  lines: { variantSku: string; qty: number; unit?: string }[];
+  /** Free-text consignment condition / storage note recorded by the operator. */
+  note?: string;
+  /** Inventory movement ids created by this receipt (audit linkage). */
+  movementIds: string[];
+}
+
+/** One recorded supplier payment against a purchase (real ledger entry — never inferred). */
+export interface PurchasePaymentDoc {
+  id: string;
+  amountPaise: number;
+  method: PurchasePaymentMethod;
+  /** UTR / cheque no. / transaction proof reference. */
+  reference?: string;
+  paidAt: number;
+  recordedByUid: string;
+  recordedByName?: string;
+  note?: string;
+}
+
 export interface PurchaseDoc extends BaseDoc {
   supplierId: string;
   reference: string;
@@ -277,14 +330,103 @@ export interface PurchaseDoc extends BaseDoc {
   items: PurchaseItem[];
   notes?: string;
   createdByUid: string;
+  /* --- procurement metadata (additive, optional-or-absent on legacy docs) --- */
+  /** Business date of the purchase (defaults to createdAt when absent). */
+  purchaseDate?: number;
+  expectedDeliveryDate?: number | null;
+  supplierInvoiceNumber?: string;
+  supplierInvoiceDate?: number | null;
+  internalNotes?: string;
+  /** Staff display name captured at creation (uid stays in createdByUid). */
+  createdByName?: string;
+  /* --- authoritative money (server-computed; legacy docs fall back to items math) --- */
+  subTotalPaise?: number;
+  discountTotalPaise?: number;
+  taxTotalPaise?: number;
+  totalPaise?: number;
+  /* --- settlement (derived from real payment records only) --- */
+  paidPaise?: number;
+  paymentStatus?: PurchasePaymentStatus;
+  payments?: PurchasePaymentDoc[];
+  /* --- receiving history (append-only; never rewritten) --- */
+  receipts?: PurchaseReceiptDoc[];
+  confirmedAt?: number | null;
+  cancelledAt?: number | null;
+  cancelReason?: string;
 }
 
-export interface PurchaseItem {
-  variantSku: string;
-  description: string;
-  qtyOrdered: number;
-  qtyReceived: number;
-  unitCostPaise: number; // actual landed unit cost when known
+/** Sort keys for the Purchases console. */
+export type PurchaseSort = "recent_first" | "oldest_first" | "value_desc";
+export type PurchaseStatusFilter = "all" | PurchaseStatus;
+export type PurchasePaymentStatusFilter = "all" | PurchasePaymentStatus;
+
+/**
+ * One Purchases-console row: the purchase joined with supplier display data and
+ * server-computed money. Legacy docs without totals fall back to item math.
+ */
+export interface PurchaseLedgerRow {
+  id: string;
+  reference: string;
+  status: PurchaseStatus;
+  paymentStatus: PurchasePaymentStatus;
+  supplierId: string;
+  purchaseDate: number;
+  expectedDeliveryDate: number | null;
+  supplierInvoiceNumber?: string;
+  supplierName: string;
+  supplierLocation?: string;
+  supplierStatus: SupplierStatus;
+  itemCount: number;
+  /** First line description(s) for the table's items cell. */
+  itemsPreview: string;
+  orderedUnits: number;
+  receivedUnits: number;
+  unitLabel: string;
+  subTotalPaise: number;
+  discountTotalPaise: number;
+  taxTotalPaise: number;
+  totalPaise: number;
+  paidPaise: number;
+  outstandingPaise: number;
+  createdByName?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** Summary metrics computed over the SAME filtered scope as the rows. */
+export interface PurchaseLedgerSummary {
+  totalPurchases: number;
+  draftCount: number;
+  orderedCount: number;
+  partiallyReceivedCount: number;
+  /** Pending deliveries = ordered + partially received. */
+  pendingDeliveries: number;
+  goodsReceived: number;
+  cancelledCount: number;
+  /** Σ total of committed (non-draft, non-cancelled) purchases in scope — never double-counts receipts or payments. */
+  spendPaise: number;
+  /** Σ recorded payments against committed purchases in scope. */
+  paidPaise: number;
+  outstandingPaise: number;
+  /** Most urgent pending consignment in scope (partially received first, then earliest due). */
+  priority: {
+    id: string;
+    reference: string;
+    supplierName: string;
+    outstandingUnits: number;
+    unitLabel: string;
+    expectedDeliveryDate: number | null;
+    partiallyReceived: boolean;
+  } | null;
+}
+
+export interface PurchaseLedgerPage {
+  items: PurchaseLedgerRow[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  summary: PurchaseLedgerSummary;
 }
 
 /* ---------------------------------- Customers --------------------------------- */

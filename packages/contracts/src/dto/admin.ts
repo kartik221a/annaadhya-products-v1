@@ -1,7 +1,7 @@
 /** Zod DTO schemas for admin/business endpoints. All enforce server-side validation. */
 import { z } from "zod";
 import { paiseSchema } from "@annaadhya/utils";
-import { ADMIN_ROLES, INVENTORY_MOVEMENT_TYPES, PAYMENT_PROVIDERS } from "../enums";
+import { ADMIN_ROLES, INVENTORY_MOVEMENT_TYPES, PAYMENT_PROVIDERS, PURCHASE_PAYMENT_METHODS, type PurchaseStatus } from "../enums";
 
 const idSchema = z.string().trim().min(1).max(128);
 const skuSchema = z
@@ -261,25 +261,113 @@ export const supplierStatusSchema = z.object({
 });
 export type SupplierStatusDto = z.infer<typeof supplierStatusSchema>;
 
-export const purchaseUpsertSchema = z.object({
-  supplierId: idSchema,
-  reference: z.string().trim().min(2).max(60),
-  status: z.enum(["draft", "ordered", "partially_received", "received", "cancelled"]).default("draft"),
-  notes: z.string().trim().max(2000).optional(),
-  items: z
+/** Purchase line input. Money/quantities are validated; totals are recomputed server-side. */
+export const purchaseItemInputSchema = z.object({
+  variantSku: skuSchema,
+  description: z.string().trim().max(200).default(""),
+  qtyOrdered: z.number().int().min(1).max(1_000_000),
+  unitCostPaise: paiseSchema,
+  unit: z.string().trim().min(1).max(24).default("unit"),
+  discountPaise: paiseSchema.default(0),
+  taxPercent: z.coerce.number().min(0).max(50).default(0),
+});
+export type PurchaseItemInputDto = z.infer<typeof purchaseItemInputSchema>;
+
+const optionalDateMillis = z.coerce.number().int().positive().max(4_102_444_800_000).optional(); // ≤ 2100-01-01
+
+/**
+ * Purchase create / draft-update. The HTTP path only accepts draft|ordered — receiving,
+ * cancellation and payment settlement have their own dedicated endpoints, so a client can
+ * never declare a purchase received/paid by writing its status directly.
+ */
+export const purchaseUpsertSchema = z
+  .object({
+    supplierId: idSchema,
+    reference: z.string().trim().min(2).max(60).optional(),
+    status: z.enum(["draft", "ordered"]).default("draft"),
+    notes: z.string().trim().max(2000).optional(),
+    internalNotes: z.string().trim().max(2000).optional(),
+    purchaseDate: optionalDateMillis,
+    expectedDeliveryDate: optionalDateMillis.nullable(),
+    supplierInvoiceNumber: z.string().trim().max(80).optional(),
+    supplierInvoiceDate: optionalDateMillis.nullable(),
+    items: z.array(purchaseItemInputSchema).min(1).max(200),
+  })
+  .refine((v) => !v.expectedDeliveryDate || !v.purchaseDate || v.expectedDeliveryDate >= v.purchaseDate, {
+    message: "Expected delivery cannot be before the purchase date",
+    path: ["expectedDeliveryDate"],
+  });
+export type PurchaseUpsertDto = z.infer<typeof purchaseUpsertSchema>;
+
+/**
+ * Service-level purchase input. HTTP clients go through purchaseUpsertSchema (which only
+ * accepts draft|ordered and strips received counters); internal callers (seed, fixtures)
+ * may write any valid status and pre-set qtyReceived on each line. `z.input` keeps the
+ * schema-defaulted fields optional here — the service applies the same defaults.
+ */
+export interface PurchaseUpsertInput extends Omit<z.input<typeof purchaseUpsertSchema>, "status" | "items"> {
+  status?: PurchaseStatus;
+  items: (z.input<typeof purchaseItemInputSchema> & { qtyReceived?: number })[];
+}
+
+/** Purchases console listing: search + supplier/status/payment/date filters + sort + pagination. */
+export const PURCHASE_SORTS = ["recent_first", "oldest_first", "value_desc"] as const;
+export const PURCHASE_STATUS_FILTERS = ["all", "draft", "ordered", "partially_received", "received", "cancelled"] as const;
+export const PURCHASE_PAYMENT_STATUS_FILTERS = ["all", "unpaid", "partially_paid", "paid"] as const;
+
+export const purchaseLedgerQuerySchema = z.object({
+  search: z.string().trim().max(120).optional(),
+  supplierId: idSchema.optional(),
+  status: z.enum(PURCHASE_STATUS_FILTERS).default("all"),
+  paymentStatus: z.enum(PURCHASE_PAYMENT_STATUS_FILTERS).default("all"),
+  dateFrom: z.coerce.number().int().positive().optional(),
+  dateTo: z.coerce.number().int().positive().optional(),
+  sort: z.enum(PURCHASE_SORTS).default("recent_first"),
+  page: z.coerce.number().int().min(1).max(10000).default(1),
+  pageSize: z.coerce.number().int().min(1).max(500).default(20),
+});
+export type PurchaseLedgerQueryDto = z.infer<typeof purchaseLedgerQuerySchema>;
+
+/**
+ * Goods receipt. `receiptId` is the idempotency key: the client generates it once per
+ * receiving session and the server persists it with the receipt — a retry, double-click
+ * or replayed request returns the unchanged purchase instead of re-applying stock.
+ */
+export const purchaseReceiveSchema = z.object({
+  receiptId: z.string().trim().min(8).max(64).regex(/^[A-Za-z0-9\-_]+$/, "Receipt id must be alphanumeric"),
+  receipts: z
     .array(
       z.object({
         variantSku: skuSchema,
-        description: z.string().trim().max(200).default(""),
-        qtyOrdered: z.number().int().min(1).max(1_000_000),
-        qtyReceived: z.number().int().min(0).max(1_000_000).default(0),
-        unitCostPaise: paiseSchema,
+        qty: z.number().int().min(1).max(1_000_000),
       }),
     )
     .min(1)
     .max(200),
+  note: z.string().trim().max(500).optional(),
 });
-export type PurchaseUpsertDto = z.infer<typeof purchaseUpsertSchema>;
+export type PurchaseReceiveDto = z.infer<typeof purchaseReceiveSchema>;
+
+/** Recorded supplier payment (real ledger entry; never auto-derived from receiving). */
+export const purchasePaymentSchema = z.object({
+  amountPaise: paiseSchema.refine((v) => v > 0, "Payment amount must be positive"),
+  method: z.enum(PURCHASE_PAYMENT_METHODS),
+  reference: z.string().trim().max(120).optional(),
+  paidAt: optionalDateMillis,
+  note: z.string().trim().max(300).optional(),
+});
+export type PurchasePaymentDto = z.infer<typeof purchasePaymentSchema>;
+
+/** Cancellation reason (optional; when supplied it needs at least 3 characters). */
+export const purchaseCancelSchema = z.object({
+  reason: z
+    .string()
+    .trim()
+    .max(300)
+    .refine((v) => v.length === 0 || v.length >= 3, "A cancellation reason needs at least 3 characters")
+    .optional(),
+});
+export type PurchaseCancelDto = z.infer<typeof purchaseCancelSchema>;
 
 /* ------------------------------------ Orders ---------------------------------- */
 

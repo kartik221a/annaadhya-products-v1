@@ -451,6 +451,39 @@ export interface PurchaseItem {
   qtyOrdered: number;
   qtyReceived: number;
   unitCostPaise: number;
+  unit?: string;
+  discountPaise?: number;
+  taxPercent?: number;
+  lineTotalPaise?: number;
+  productId?: string;
+  productName?: string;
+  variantPackLabel?: string;
+}
+
+export type PurchasePaymentStatus = "unpaid" | "partially_paid" | "paid";
+export type PurchasePaymentMethod = "cash" | "bank_transfer" | "upi" | "cheque" | "other";
+
+/** One persisted goods-receiving event (immutable; corrections are future receipts). */
+export interface PurchaseReceiptDoc {
+  id: string;
+  receivedAt: number;
+  receivedByUid: string;
+  receivedByName?: string;
+  lines: { variantSku: string; qty: number; unit?: string }[];
+  note?: string;
+  movementIds: string[];
+}
+
+/** One recorded supplier payment (real ledger entry — never inferred from receiving). */
+export interface PurchasePaymentDoc {
+  id: string;
+  amountPaise: number;
+  method: PurchasePaymentMethod;
+  reference?: string;
+  paidAt: number;
+  recordedByUid: string;
+  recordedByName?: string;
+  note?: string;
 }
 
 export interface PurchaseDoc extends BaseDoc {
@@ -460,6 +493,124 @@ export interface PurchaseDoc extends BaseDoc {
   items: PurchaseItem[];
   notes?: string;
   createdByUid: string;
+  purchaseDate?: number;
+  expectedDeliveryDate?: number | null;
+  supplierInvoiceNumber?: string;
+  supplierInvoiceDate?: number | null;
+  internalNotes?: string;
+  createdByName?: string;
+  subTotalPaise?: number;
+  discountTotalPaise?: number;
+  taxTotalPaise?: number;
+  totalPaise?: number;
+  paidPaise?: number;
+  paymentStatus?: PurchasePaymentStatus;
+  payments?: PurchasePaymentDoc[];
+  receipts?: PurchaseReceiptDoc[];
+  confirmedAt?: number | null;
+  cancelledAt?: number | null;
+  cancelReason?: string;
+}
+
+export type PurchaseSort = "recent_first" | "oldest_first" | "value_desc";
+export type PurchaseStatusFilter = "all" | PurchaseStatus;
+export type PurchasePaymentStatusFilter = "all" | PurchasePaymentStatus;
+
+export interface PurchaseLedgerRow {
+  id: string;
+  reference: string;
+  status: PurchaseStatus;
+  paymentStatus: PurchasePaymentStatus;
+  supplierId: string;
+  purchaseDate: number;
+  expectedDeliveryDate: number | null;
+  supplierInvoiceNumber?: string;
+  supplierName: string;
+  supplierLocation?: string;
+  supplierStatus: SupplierStatus;
+  itemCount: number;
+  itemsPreview: string;
+  orderedUnits: number;
+  receivedUnits: number;
+  unitLabel: string;
+  subTotalPaise: number;
+  discountTotalPaise: number;
+  taxTotalPaise: number;
+  totalPaise: number;
+  paidPaise: number;
+  outstandingPaise: number;
+  createdByName?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface PurchaseLedgerSummary {
+  totalPurchases: number;
+  draftCount: number;
+  orderedCount: number;
+  partiallyReceivedCount: number;
+  pendingDeliveries: number;
+  goodsReceived: number;
+  cancelledCount: number;
+  spendPaise: number;
+  paidPaise: number;
+  outstandingPaise: number;
+  priority: {
+    id: string;
+    reference: string;
+    supplierName: string;
+    outstandingUnits: number;
+    unitLabel: string;
+    expectedDeliveryDate: number | null;
+    partiallyReceived: boolean;
+  } | null;
+}
+
+export interface PurchaseLedgerPage {
+  items: PurchaseLedgerRow[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  summary: PurchaseLedgerSummary;
+}
+
+/** Payload shapes for the purchases console (mirrors the API zod schemas). */
+export interface PurchaseLineInput {
+  variantSku: string;
+  description: string;
+  qtyOrdered: number;
+  unitCostPaise: number;
+  unit: string;
+  discountPaise: number;
+  taxPercent: number;
+}
+
+export interface PurchaseUpsertPayload {
+  supplierId: string;
+  reference?: string;
+  status: "draft" | "ordered";
+  notes?: string;
+  internalNotes?: string;
+  purchaseDate?: number;
+  expectedDeliveryDate?: number | null;
+  supplierInvoiceNumber?: string;
+  supplierInvoiceDate?: number | null;
+  items: PurchaseLineInput[];
+}
+
+export interface PurchaseReceivePayload {
+  receiptId: string;
+  receipts: { variantSku: string; qty: number }[];
+  note?: string;
+}
+
+export interface PurchasePaymentPayload {
+  amountPaise: number;
+  method: PurchasePaymentMethod;
+  reference?: string;
+  paidAt?: number;
+  note?: string;
 }
 
 export interface ExpenseDoc extends BaseDoc {
@@ -668,20 +819,6 @@ export interface SupplierUpsertPayload {
     unit: string;
     moqQty?: number;
     notes?: string;
-  }[];
-}
-
-export interface PurchaseUpsertPayload {
-  supplierId: string;
-  reference: string;
-  status: PurchaseStatus;
-  notes?: string;
-  items: {
-    variantSku: string;
-    description: string;
-    qtyOrdered: number;
-    qtyReceived: number;
-    unitCostPaise: number;
   }[];
 }
 

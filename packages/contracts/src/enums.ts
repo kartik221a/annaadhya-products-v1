@@ -67,6 +67,18 @@ export type AccountStatus = "active" | "suspended";
 export type ProductStatus = "draft" | "published" | "archived";
 export type SupplierQuoteStatus = "new" | "negotiating" | "accepted" | "rejected";
 export type PurchaseStatus = "draft" | "ordered" | "partially_received" | "received" | "cancelled";
+
+/**
+ * Supplier-payment settlement state, kept deliberately SEPARATE from the purchase /
+ * receiving status (a purchase can be fully received but unpaid, and vice versa).
+ * Derived server-side from persisted payment records — never declared by the client.
+ */
+export const PURCHASE_PAYMENT_STATUSES = ["unpaid", "partially_paid", "paid"] as const;
+export type PurchasePaymentStatus = (typeof PURCHASE_PAYMENT_STATUSES)[number];
+
+/** How a supplier payment was settled (free-form proof lives in `reference`). */
+export const PURCHASE_PAYMENT_METHODS = ["cash", "bank_transfer", "upi", "cheque", "other"] as const;
+export type PurchasePaymentMethod = (typeof PURCHASE_PAYMENT_METHODS)[number];
 export type ExportJobStatus = "queued" | "running" | "completed" | "failed" | "expired";
 export type RefundStatus = "none" | "initiated" | "completed" | "failed";
 

@@ -2,10 +2,22 @@
 import { Inject, Injectable } from "@nestjs/common";
 import {
   COLLECTIONS,
+  type AuthPrincipal,
   type CategoryDoc,
   type ProductDoc,
+  type ProductVariantDoc,
   type PurchaseDoc,
-  type PurchaseUpsertDto,
+  type PurchaseItem,
+  type PurchaseLedgerPage,
+  type PurchaseLedgerQueryDto,
+  type PurchaseLedgerRow,
+  type PurchaseLedgerSummary,
+  type PurchasePaymentDoc,
+  type PurchasePaymentDto,
+  type PurchasePaymentStatus,
+  type PurchaseReceiveDto,
+  type PurchaseStatus,
+  type PurchaseUpsertInput,
   type SupplierDoc,
   type SupplierLedgerPage,
   type SupplierLedgerQueryDto,
@@ -13,7 +25,6 @@ import {
   type SupplierLedgerSummary,
   type SupplierStatus,
   type SupplierUpsertDto,
-  type AuthPrincipal,
 } from "@annaadhya/contracts";
 import { badRequest, conflict, notFound, type DataClient } from "@annaadhya/data-core";
 import { newId } from "@annaadhya/utils";
@@ -130,7 +141,9 @@ export class SuppliersService {
     // is the first hit per supplier; totals accumulate over every record.
     const stats = new Map<string, { count: number; lastAt: number | null; lastRef: string | null; lastValue: number | null; totalValue: number }>();
     for (const p of purchases) {
-      const value = p.items.reduce((sum, i) => sum + i.unitCostPaise * i.qtyOrdered, 0);
+      // New purchases carry an authoritative total (incl. discount/tax); legacy docs
+      // fall back to the items math so the rollup stays meaningful for old records.
+      const value = p.totalPaise ?? p.items.reduce((sum, i) => sum + i.unitCostPaise * i.qtyOrdered, 0);
       const s = stats.get(p.supplierId) ?? { count: 0, lastAt: null, lastRef: null, lastValue: null, totalValue: 0 };
       s.count += 1;
       if (s.lastAt === null) {
@@ -274,7 +287,50 @@ export class PurchasesService {
     private readonly audit: AuditService,
   ) {}
 
-  async list(filters: { supplierId?: string; status?: PurchaseDoc["status"] } = {}): Promise<PurchaseDoc[]> {
+  /* ------------------------------ shared helpers ----------------------------- */
+
+  /** Authoritative server-side money for a set of lines. Integer paise throughout. */
+  private computeTotals(items: PurchaseItem[]): { subTotal: number; discountTotal: number; taxTotal: number; total: number } {
+    let subTotal = 0;
+    let discountTotal = 0;
+    let taxTotal = 0;
+    for (const it of items) {
+      const gross = it.unitCostPaise * it.qtyOrdered;
+      const discount = Math.min(it.discountPaise ?? 0, gross);
+      const tax = Math.round(((gross - discount) * (it.taxPercent ?? 0)) / 100);
+      subTotal += gross;
+      discountTotal += discount;
+      taxTotal += tax;
+      it.lineTotalPaise = gross - discount + tax;
+    }
+    return { subTotal, discountTotal, taxTotal, total: subTotal - discountTotal + taxTotal };
+  }
+
+  /** Total of a purchase, with the legacy fallback (docs written before totals existed). */
+  private totalOf(p: PurchaseDoc): number {
+    if (typeof p.totalPaise === "number") return p.totalPaise;
+    return p.items.reduce((sum, i) => sum + i.unitCostPaise * i.qtyOrdered, 0);
+  }
+
+  /** Paid amount of a purchase, with the legacy fallback (no payments array → 0). */
+  private paidOf(p: PurchaseDoc): number {
+    if (typeof p.paidPaise === "number") return p.paidPaise;
+    return (p.payments ?? []).reduce((sum, x) => sum + x.amountPaise, 0);
+  }
+
+  /** Settlement state derived from persisted payment records only. */
+  private paymentStatusOf(p: PurchaseDoc): PurchasePaymentStatus {
+    if (p.status === "cancelled") return "unpaid";
+    const paid = this.paidOf(p);
+    const total = this.totalOf(p);
+    if (total > 0 && paid >= total) return "paid";
+    if (paid > 0) return "partially_paid";
+    return "unpaid";
+  }
+
+  /* --------------------------------- reads ---------------------------------- */
+
+  async list(filters: { supplierId?: string; status?: PurchaseStatus } = {}): Promise<PurchaseDoc[]> {
     const where: { field: string; op: "=="; value: unknown }[] = [];
     if (filters.supplierId) where.push({ field: "supplierId", op: "==", value: filters.supplierId });
     if (filters.status) where.push({ field: "status", op: "==", value: filters.status });
@@ -291,85 +347,509 @@ export class PurchasesService {
     return doc;
   }
 
-  async upsert(dto: PurchaseUpsertDto, id?: string): Promise<PurchaseDoc> {
-    await this.suppliers.get(dto.supplierId); // must exist
+  /* ------------------------------ create / edit ------------------------------ */
+
+  /**
+   * Create a purchase, or update one while it is still a draft. Money is ALWAYS
+   * recomputed server-side — client-supplied totals are never trusted. Neither
+   * creating, editing nor confirming ever touches inventory: stock exists only
+   * after goods are actually received.
+   */
+  async upsert(dto: PurchaseUpsertInput, actor?: AuthPrincipal, id?: string): Promise<PurchaseDoc> {
+    const supplier = await this.suppliers.get(dto.supplierId); // must exist
     const existing = id ? await this.data.get<PurchaseDoc>(COLLECTIONS.purchases, id) : null;
+    if (id && !existing) throw notFound("Purchase not found");
+    if (existing && existing.status !== "draft") {
+      throw conflict("Only draft purchases can be edited — confirmed orders are immutable.");
+    }
+
+    // Variant references must exist and be receivable (archived variants can never
+    // be received — the inventory layer refuses movements on them).
+    const resolved: PurchaseItem[] = [];
+    for (const it of dto.items) {
+      const variants = await this.data.list<ProductVariantDoc>(COLLECTIONS.productVariants, {
+        where: [{ field: "sku", op: "==", value: it.variantSku }],
+        limit: 1,
+      });
+      const variant = variants[0];
+      if (!variant) throw badRequest(`Unknown catalogue SKU: ${it.variantSku}`);
+      if (variant.status === "archived") throw badRequest(`Variant ${it.variantSku} is archived and cannot be purchased`);
+      const products = await this.data.list<ProductDoc>(COLLECTIONS.products, {
+        where: [{ field: "sku", op: "==", value: variant.sku.replace(/-[^-]+$/, "") }],
+        limit: 1,
+      });
+      // Fall back to productId lookup when the SKU-suffix heuristic misses.
+      const product = products[0] ?? (await this.data.get<ProductDoc>(COLLECTIONS.products, variant.productId));
+      resolved.push({
+        variantSku: it.variantSku,
+        description: it.description ?? "",
+        qtyOrdered: it.qtyOrdered,
+        qtyReceived: it.qtyReceived ?? 0,
+        unitCostPaise: it.unitCostPaise,
+        unit: it.unit ?? "unit",
+        discountPaise: it.discountPaise ?? 0,
+        taxPercent: it.taxPercent ?? 0,
+        productId: variant.productId,
+        productName: product?.name ?? "Unlinked product",
+        variantPackLabel: variant.packLabel,
+      });
+    }
+
+    // Human-supplied references must stay unique — auto-generated ones already are.
+    if (!existing && dto.reference) {
+      const duplicates = await this.data.list<PurchaseDoc>(COLLECTIONS.purchases, {
+        where: [{ field: "reference", op: "==", value: dto.reference.trim() }],
+        limit: 1,
+      });
+      if (duplicates[0]) throw conflict(`A purchase with reference ${dto.reference.trim()} already exists`);
+    }
+
+    const totals = this.computeTotals(resolved);
+    const now = Date.now();
+    // Edits always stay drafts — draft→ordered goes through the dedicated confirm
+    // transition so the state machine (and its audit trail) can never be bypassed.
+    const status: PurchaseStatus = existing ? "draft" : (dto.status ?? "draft");
+    const reference = existing?.reference ?? (await this.generateReference(dto.reference));
+
     const doc: PurchaseDoc = {
       id: id ?? newId("pur"),
       supplierId: dto.supplierId,
-      reference: dto.reference,
-      status: dto.status,
-      // Normalized item snapshots (validated by zod) — keeps PurchaseItem
-      // fields non-optional under non-strict type-checking too.
-      items: dto.items.map((it) => ({
-        variantSku: it.variantSku ?? "",
-        description: it.description ?? "",
-        qtyOrdered: it.qtyOrdered ?? 0,
-        qtyReceived: it.qtyReceived ?? 0,
-        unitCostPaise: it.unitCostPaise ?? 0,
-      })),
+      reference,
+      status,
+      items: resolved,
       notes: dto.notes,
-      createdByUid: existing?.createdByUid ?? "system",
-      createdAt: existing?.createdAt ?? Date.now(),
-      updatedAt: Date.now(),
+      createdByUid: existing?.createdByUid ?? actor?.uid ?? "system",
+      createdByName: existing?.createdByName ?? actor?.displayName,
+      purchaseDate: dto.purchaseDate ?? existing?.purchaseDate ?? now,
+      expectedDeliveryDate: dto.expectedDeliveryDate ?? existing?.expectedDeliveryDate ?? null,
+      supplierInvoiceNumber: dto.supplierInvoiceNumber || existing?.supplierInvoiceNumber || undefined,
+      supplierInvoiceDate: dto.supplierInvoiceDate ?? existing?.supplierInvoiceDate ?? null,
+      internalNotes: dto.internalNotes ?? dto.notes,
+      subTotalPaise: totals.subTotal,
+      discountTotalPaise: totals.discountTotal,
+      taxTotalPaise: totals.taxTotal,
+      totalPaise: totals.total,
+      paidPaise: existing?.paidPaise ?? 0,
+      paymentStatus: this.paymentStatusOf({ ...(existing ?? {}), totalPaise: totals.total, status } as PurchaseDoc),
+      payments: existing?.payments ?? [],
+      receipts: existing?.receipts ?? [],
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
       isDemo: existing?.isDemo ?? false,
     };
+    // keep supplier name resolved for ledger honesty (supplier must exist — validated above)
+    void supplier;
     await this.data.set(COLLECTIONS.purchases, doc.id, doc);
     return doc;
   }
 
   /**
-   * Record received quantities. Receiving stock creates `received` inventory movements —
-   * the only path that turns a purchase into sellable stock.
+   * Human-friendly PO reference: PUR-<year>-<seq>, seq = max existing for the year + 1.
+   * An explicitly supplied reference is honoured (uniqueness enforced by the caller's
+   * duplicate check below).
    */
-  async receive(purchaseId: string, receipts: { variantSku: string; qty: number }[], actor: AuthPrincipal): Promise<PurchaseDoc> {
-    const purchase = await this.get(purchaseId);
-    if (purchase.status === "cancelled") throw badRequest("Cannot receive a cancelled purchase");
-    if (purchase.status === "received") throw badRequest("Purchase is already fully received");
-
-    for (const r of receipts) {
-      const item = purchase.items.find((i) => i.variantSku === r.variantSku);
-      if (!item) throw badRequest(`Purchase does not include ${r.variantSku}`);
-      if (r.qty <= 0) continue;
-      const outstanding = item.qtyOrdered - item.qtyReceived;
-      if (r.qty > outstanding) {
-        throw conflict(`Receiving ${r.qty} of ${r.variantSku} exceeds outstanding ${outstanding}`);
-      }
-      item.qtyReceived += r.qty;
-
-      // Find the variant by SKU to post the movement
-      const variants = await this.data.list<{ id: string }>(COLLECTIONS.productVariants, {
-        where: [{ field: "sku", op: "==", value: r.variantSku }],
-        limit: 1,
-      });
-      if (variants[0]) {
-        await this.inventory.applyMovement(
-          {
-            variantId: variants[0].id,
-            type: "received",
-            qty: r.qty,
-            reason: `Purchase ${purchase.reference} received`,
-            referenceType: "purchase",
-            referenceId: purchase.id,
-          },
-          actor,
-        );
-      }
+  private async generateReference(supplied?: string): Promise<string> {
+    if (supplied && supplied.trim().length >= 2) return supplied.trim();
+    const year = new Date().getFullYear();
+    const all = await this.data.list<PurchaseDoc>(COLLECTIONS.purchases, { limit: 5000 });
+    const prefix = `PUR-${year}-`;
+    let max = 0;
+    for (const p of all) {
+      if (!p.reference.startsWith(prefix)) continue;
+      const n = Number(p.reference.slice(prefix.length));
+      if (Number.isInteger(n) && n > max) max = n;
     }
+    return `${prefix}${String(max + 1).padStart(3, "0")}`;
+  }
 
-    const fullyReceived = purchase.items.every((i) => i.qtyReceived >= i.qtyOrdered);
-    const anyReceived = purchase.items.some((i) => i.qtyReceived > 0);
-    purchase.status = fullyReceived ? "received" : anyReceived ? "partially_received" : purchase.status;
-    purchase.updatedAt = Date.now();
-    await this.data.set(COLLECTIONS.purchases, purchase.id, purchase);
+  /* ------------------------- state: confirm / cancel ------------------------- */
 
+  /** Draft → Ordered. A pure status transition — inventory is untouched. */
+  async confirm(id: string, actor: AuthPrincipal): Promise<PurchaseDoc> {
+    return this.data.runTransaction(async (tx) => {
+      const purchase = await tx.get<PurchaseDoc>(COLLECTIONS.purchases, id);
+      if (!purchase) throw notFound("Purchase not found");
+      if (purchase.status !== "draft") throw conflict("Only draft purchases can be confirmed");
+      const updated: PurchaseDoc = { ...purchase, status: "ordered", confirmedAt: Date.now(), updatedAt: Date.now() };
+      tx.set(COLLECTIONS.purchases, id, updated);
+      return updated;
+    }).then(async (updated) => {
+      await this.audit.record({
+        actor,
+        action: "purchase.confirm",
+        targetType: "purchase",
+        targetId: id,
+        summary: `Purchase ${updated.reference} confirmed as ordered (${updated.items.length} lines, ${this.paidOf(updated) > 0 ? "paid" : "unpaid"} state preserved)`,
+      });
+      return updated;
+    });
+  }
+
+  /**
+   * Cancel a purchase. Preserves every historical record: receipts, payments and any
+   * stock already received are NEVER rolled back — cancellation only voids the
+   * outstanding balance. Fully received purchases are closed, not cancellable.
+   */
+  async cancel(id: string, reason: string | undefined, actor: AuthPrincipal): Promise<PurchaseDoc> {
+    if (reason && reason.trim().length < 3) throw badRequest("A cancellation reason needs at least 3 characters");
+    const updated = await this.data.runTransaction(async (tx) => {
+      const purchase = await tx.get<PurchaseDoc>(COLLECTIONS.purchases, id);
+      if (!purchase) throw notFound("Purchase not found");
+      if (purchase.status === "cancelled") return purchase; // idempotent
+      if (purchase.status === "received") throw conflict("A fully received purchase cannot be cancelled");
+      const next: PurchaseDoc = {
+        ...purchase,
+        status: "cancelled",
+        cancelledAt: Date.now(),
+        cancelReason: reason?.trim(),
+        updatedAt: Date.now(),
+      };
+      tx.set(COLLECTIONS.purchases, id, next);
+      return next;
+    });
     await this.audit.record({
       actor,
-      action: "purchase.receive",
+      action: "purchase.cancel",
       targetType: "purchase",
-      targetId: purchase.id,
-      summary: `Received ${receipts.length} line(s) on purchase ${purchase.reference}`,
+      targetId: id,
+      summary: `Purchase ${updated.reference} cancelled${reason ? ` — ${reason.trim()}` : ""}; received stock and history preserved`,
     });
-    return purchase;
+    return updated;
+  }
+
+  /* --------------------------- receiving (critical) --------------------------- */
+
+  /**
+   * Record goods received against a purchase.
+   *
+   * ATOMICITY + IDEMPOTENCY CONTRACT (the heart of the inventory rule):
+   *  1. `receiptId` is a client-generated idempotency key. If a receipt with the same
+   *     id is already persisted, the call is a replay — return the purchase untouched
+   *     (no stock change, no duplicate event).
+   *  2. Everything else happens inside ONE DataClient transaction: outstanding checks,
+   *     variant stock updates, inventory movements, the receipt event, the received
+     *     counters and the derived status. A failure anywhere rolls the whole thing back,
+   *     so the purchase can never be marked received while inventory stayed unchanged,
+   *     and inventory can never increase without its receipt record.
+   *  3. Inventory increases by exactly the confirmed received quantities — never by
+   *     the ordered quantities, never on create/confirm/open-form.
+   */
+  async receive(purchaseId: string, dto: PurchaseReceiveDto, actor: AuthPrincipal): Promise<PurchaseDoc> {
+    // Resolve variant ids by SKU up-front (single-field equality reads; ids are stable).
+    // Inside the transaction the variants are re-read for their CURRENT stock state.
+    const variantIdBySku = new Map<string, string>();
+    for (const sku of new Set(dto.receipts.map((r) => r.variantSku))) {
+      const found = await this.data.list<ProductVariantDoc>(COLLECTIONS.productVariants, {
+        where: [{ field: "sku", op: "==", value: sku }],
+        limit: 1,
+      });
+      if (found[0]) variantIdBySku.set(sku, found[0].id);
+    }
+
+    const outcome = await this.data.runTransaction(async (tx) => {
+      const purchase = await tx.get<PurchaseDoc>(COLLECTIONS.purchases, purchaseId);
+      if (!purchase) throw notFound("Purchase not found");
+
+      // Idempotent replay: the receipt id is already persisted — return as-is.
+      if (purchase.receipts?.some((r) => r.id === dto.receiptId)) {
+        return { purchase, replay: true as const };
+      }
+
+      if (purchase.status === "draft") throw badRequest("Confirm the purchase order before receiving goods");
+      if (purchase.status === "cancelled") throw badRequest("Cannot receive a cancelled purchase");
+      if (purchase.status === "received") throw badRequest("Purchase is already fully received");
+
+      // Merge duplicate SKUs within the payload, then validate against the latest
+      // persisted outstanding quantities.
+      const qtyBySku = new Map<string, number>();
+      for (const r of dto.receipts) {
+        qtyBySku.set(r.variantSku, (qtyBySku.get(r.variantSku) ?? 0) + r.qty);
+      }
+      const items = purchase.items.map((i) => ({ ...i }));
+      for (const [sku, qty] of qtyBySku) {
+        const item = items.find((i) => i.variantSku === sku);
+        if (!item) throw badRequest(`Purchase does not include ${sku}`);
+        const outstanding = item.qtyOrdered - item.qtyReceived;
+        if (outstanding <= 0) throw conflict(`${sku} has no outstanding quantity on this purchase`);
+        if (qty > outstanding) throw conflict(`Receiving ${qty} of ${sku} exceeds the outstanding ${outstanding}`);
+      }
+
+      // Apply stock + movements (same transaction — atomic with the purchase update).
+      const movementIds: string[] = [];
+      for (const [sku, qty] of qtyBySku) {
+        const variantId = variantIdBySku.get(sku);
+        if (!variantId) throw badRequest(`Unknown catalogue SKU: ${sku}`);
+        const variant = await tx.get<ProductVariantDoc>(COLLECTIONS.productVariants, variantId);
+        if (!variant) throw notFound(`Variant ${sku} not found`);
+        if (variant.status === "archived") throw badRequest(`Variant ${sku} is archived — stock cannot be received onto it`);
+
+        const newStock = variant.stockOnHand + qty;
+        tx.update(COLLECTIONS.productVariants, variantId, { stockOnHand: newStock });
+
+        const movementId = newId("mv");
+        movementIds.push(movementId);
+        const movement = {
+          id: movementId,
+          variantId: variant.id,
+          variantSku: variant.sku,
+          type: "received",
+          qtyDelta: qty,
+          reservedDelta: 0,
+          resultingStockOnHand: newStock,
+          resultingReservedQty: variant.reservedQty,
+          reason: `Purchase ${purchase.reference} — goods received (${dto.receiptId.slice(0, 12)})`,
+          referenceType: "purchase",
+          referenceId: purchase.id,
+          performedByUid: actor.uid,
+          performedByName: actor.displayName,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          isDemo: false,
+        };
+        tx.set(COLLECTIONS.inventoryMovements, movementId, movement);
+      }
+
+      // Persist the receipt event + received counters + derived status.
+      const receipt = {
+        id: dto.receiptId,
+        receivedAt: Date.now(),
+        receivedByUid: actor.uid,
+        receivedByName: actor.displayName,
+        lines: [...qtyBySku.entries()].map(([variantSku, qty]) => ({
+          variantSku,
+          qty,
+          unit: items.find((i) => i.variantSku === variantSku)?.unit,
+        })),
+        note: dto.note,
+        movementIds,
+      };
+      for (const [sku, qty] of qtyBySku) {
+        const item = items.find((i) => i.variantSku === sku)!;
+        item.qtyReceived += qty;
+      }
+      const fullyReceived = items.every((i) => i.qtyReceived >= i.qtyOrdered);
+      const updated: PurchaseDoc = {
+        ...purchase,
+        items,
+        receipts: [...(purchase.receipts ?? []), receipt],
+        status: fullyReceived ? "received" : "partially_received",
+        updatedAt: Date.now(),
+      };
+      tx.set(COLLECTIONS.purchases, purchaseId, updated);
+      return { purchase: updated, replay: false as const };
+    });
+
+    if (!outcome.replay) {
+      await this.audit.record({
+        actor,
+        action: "purchase.receive",
+        targetType: "purchase",
+        targetId: purchaseId,
+        summary: `Goods received on ${outcome.purchase.reference}: ${dto.receipts
+          .map((r) => `${r.qty} × ${r.variantSku}`)
+          .join(", ")} → stock updated`,
+      });
+    }
+    return outcome.purchase;
+  }
+
+  /* ------------------------------- payments --------------------------------- */
+
+  /**
+   * Record a real supplier payment. Settlement is ALWAYS derived from these persisted
+   * records — receiving goods never marks a purchase paid, and no payment is invented.
+   */
+  async recordPayment(purchaseId: string, dto: PurchasePaymentDto, actor: AuthPrincipal): Promise<PurchaseDoc> {
+    const updated = await this.data.runTransaction(async (tx) => {
+      const purchase = await tx.get<PurchaseDoc>(COLLECTIONS.purchases, purchaseId);
+      if (!purchase) throw notFound("Purchase not found");
+      if (purchase.status === "draft") throw badRequest("Payments can only be recorded on a confirmed purchase");
+      if (purchase.status === "cancelled") throw badRequest("Cannot record payments on a cancelled purchase");
+
+      const total = this.totalOf(purchase);
+      const alreadyPaid = this.paidOf(purchase);
+      const newPaid = alreadyPaid + dto.amountPaise;
+      if (newPaid > total) {
+        throw conflict(`Payment exceeds the outstanding balance — ${((total - alreadyPaid) / 100).toFixed(2)} INR due`);
+      }
+
+      const payment: PurchasePaymentDoc = {
+        id: newId("pay"),
+        amountPaise: dto.amountPaise,
+        method: dto.method,
+        reference: dto.reference,
+        paidAt: dto.paidAt ?? Date.now(),
+        recordedByUid: actor.uid,
+        recordedByName: actor.displayName,
+        note: dto.note,
+      };
+      const payments = [...(purchase.payments ?? []), payment];
+      const paymentStatus: PurchasePaymentStatus = newPaid >= total && total > 0 ? "paid" : "partially_paid";
+      const next: PurchaseDoc = {
+        ...purchase,
+        payments,
+        paidPaise: newPaid,
+        paymentStatus,
+        updatedAt: Date.now(),
+      };
+      tx.set(COLLECTIONS.purchases, purchaseId, next);
+      return next;
+    });
+    await this.audit.record({
+      actor,
+      action: "purchase.payment",
+      targetType: "purchase",
+      targetId: purchaseId,
+      summary: `Payment of ₹${(dto.amountPaise / 100).toFixed(2)} (${dto.method}) recorded on ${updated.reference} — ${updated.paymentStatus}`,
+    });
+    return updated;
+  }
+
+  /* --------------------------- purchases console ---------------------------- */
+
+  /**
+   * Paginated purchases ledger joined with supplier display data. Summary metrics are
+   * computed over the SAME filtered scope as the rows, so cards and table never disagree.
+   * Money always comes from the persisted purchase records (legacy docs fall back to
+   * item math); nothing here is hard-coded.
+   */
+  async ledger(q: PurchaseLedgerQueryDto): Promise<PurchaseLedgerPage> {
+    const [purchases, suppliers] = await Promise.all([
+      this.data.list<PurchaseDoc>(COLLECTIONS.purchases, { limit: 5000 }),
+      this.data.list<SupplierDoc>(COLLECTIONS.suppliers, { limit: 2000 }),
+    ]);
+    const supplierById = new Map(suppliers.map((s) => [s.id, s]));
+
+    const rows: PurchaseLedgerRow[] = purchases.map((p) => {
+      const supplier = supplierById.get(p.supplierId);
+      const subTotal =
+        p.subTotalPaise ?? p.items.reduce((sum, i) => sum + i.unitCostPaise * i.qtyOrdered, 0);
+      const discountTotal = p.discountTotalPaise ?? 0;
+      const taxTotal = p.taxTotalPaise ?? 0;
+      const total = this.totalOf(p);
+      const paid = this.paidOf(p);
+      const orderedUnits = p.items.reduce((sum, i) => sum + i.qtyOrdered, 0);
+      const receivedUnits = p.items.reduce((sum, i) => sum + i.qtyReceived, 0);
+      const preview = p.items
+        .slice(0, 2)
+        .map((i) => i.description || i.productName || i.variantSku)
+        .join(", ");
+      return {
+        id: p.id,
+        reference: p.reference,
+        status: p.status,
+        paymentStatus: this.paymentStatusOf(p),
+        supplierId: p.supplierId,
+        purchaseDate: p.purchaseDate ?? p.createdAt,
+        expectedDeliveryDate: p.expectedDeliveryDate ?? null,
+        supplierInvoiceNumber: p.supplierInvoiceNumber,
+        supplierName: supplier?.name ?? "Unknown supplier",
+        supplierLocation:
+          [supplier?.city, supplier?.state].filter(Boolean).join(", ") || supplier?.location || undefined,
+        supplierStatus: supplier?.status ?? "active",
+        itemCount: p.items.length,
+        itemsPreview: p.items.length > 2 ? `${preview} +${p.items.length - 2} more` : preview,
+        orderedUnits,
+        receivedUnits,
+        unitLabel: p.items[0]?.unit ?? "unit",
+        subTotalPaise: subTotal,
+        discountTotalPaise: discountTotal,
+        taxTotalPaise: taxTotal,
+        totalPaise: total,
+        paidPaise: paid,
+        outstandingPaise: Math.max(0, total - paid),
+        createdByName: p.createdByName,
+        createdAt: p.createdAt,
+        updatedAt: p.updatedAt,
+      };
+    });
+
+    let filtered = rows;
+    if (q.supplierId) filtered = filtered.filter((r) => r.supplierId === q.supplierId);
+    if (q.status !== "all") filtered = filtered.filter((r) => r.status === q.status);
+    if (q.paymentStatus !== "all") filtered = filtered.filter((r) => r.paymentStatus === q.paymentStatus);
+    if (q.dateFrom !== undefined) filtered = filtered.filter((r) => r.purchaseDate >= q.dateFrom!);
+    if (q.dateTo !== undefined) filtered = filtered.filter((r) => r.purchaseDate <= q.dateTo!);
+    if (q.search) {
+      const needle = q.search.toLowerCase();
+      filtered = filtered.filter((r) => {
+        const p = purchases.find((x) => x.id === r.id)!;
+        return [
+          r.reference,
+          r.supplierName,
+          r.supplierInvoiceNumber ?? "",
+          r.itemsPreview,
+          p.items.map((i) => `${i.variantSku} ${i.description} ${i.productName ?? ""}`).join(" "),
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(needle);
+      });
+    }
+
+    // Money metrics count COMMITTED procurement only — drafts are unsent quotations and
+    // cancelled orders are void, so neither belongs in spend/outstanding.
+    const committed = filtered.filter((r) => r.status !== "cancelled" && r.status !== "draft");
+    const pending = filtered.filter((r) => r.status === "ordered" || r.status === "partially_received");
+    const docById = new Map(purchases.map((p) => [p.id, p]));
+
+    // Most urgent pending consignment: partially received first, then earliest due date
+    // (missing dates last), then oldest purchase — all real values, null when none pending.
+    let priority: PurchaseLedgerSummary["priority"] = null;
+    const candidates = [...pending].sort((a, b) => {
+      const partialScore = (r: PurchaseLedgerRow) => (r.status === "partially_received" ? 0 : 1);
+      const due = (r: PurchaseLedgerRow) => r.expectedDeliveryDate ?? Number.MAX_SAFE_INTEGER;
+      return partialScore(a) - partialScore(b) || due(a) - due(b) || a.purchaseDate - b.purchaseDate;
+    });
+    const top = candidates[0];
+    if (top) {
+      const doc = docById.get(top.id)!;
+      const outstandingUnits = doc.items.reduce((sum, i) => sum + Math.max(0, i.qtyOrdered - i.qtyReceived), 0);
+      priority = {
+        id: top.id,
+        reference: top.reference,
+        supplierName: top.supplierName,
+        outstandingUnits,
+        unitLabel: top.unitLabel,
+        expectedDeliveryDate: top.expectedDeliveryDate,
+        partiallyReceived: top.status === "partially_received",
+      };
+    }
+
+    const summary: PurchaseLedgerSummary = {
+      totalPurchases: filtered.length,
+      draftCount: filtered.filter((r) => r.status === "draft").length,
+      orderedCount: filtered.filter((r) => r.status === "ordered").length,
+      partiallyReceivedCount: filtered.filter((r) => r.status === "partially_received").length,
+      pendingDeliveries: pending.length,
+      goodsReceived: filtered.filter((r) => r.status === "received").length,
+      cancelledCount: filtered.filter((r) => r.status === "cancelled").length,
+      spendPaise: committed.reduce((sum, r) => sum + r.totalPaise, 0),
+      paidPaise: committed.reduce((sum, r) => sum + r.paidPaise, 0),
+      outstandingPaise: committed.reduce((sum, r) => sum + r.outstandingPaise, 0),
+      priority,
+    };
+
+    switch (q.sort) {
+      case "oldest_first":
+        filtered.sort((a, b) => a.purchaseDate - b.purchaseDate || a.createdAt - b.createdAt);
+        break;
+      case "value_desc":
+        filtered.sort((a, b) => b.totalPaise - a.totalPaise || b.purchaseDate - a.purchaseDate);
+        break;
+      default:
+        filtered.sort((a, b) => b.purchaseDate - a.purchaseDate || b.createdAt - a.createdAt);
+    }
+
+    const total = filtered.length;
+    const start = (q.page - 1) * q.pageSize;
+    return {
+      items: filtered.slice(start, start + q.pageSize),
+      page: q.page,
+      pageSize: q.pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / q.pageSize)),
+      summary,
+    };
   }
 }
