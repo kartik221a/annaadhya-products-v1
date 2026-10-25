@@ -17,6 +17,15 @@ import {
   matchesDirectoryFilters,
   sortDirectoryRows,
 } from "../customers/customers.service";
+import { normalizeExpense } from "../expenses/expenses.service";
+
+/** "partially_paid" → "Partially paid" for spreadsheet cells. */
+function humanizeEnum(value: string): string {
+  return value
+    .split(/[ _-]+/)
+    .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+    .join(" ");
+}
 
 export type ExportType =
   | "products"
@@ -491,9 +500,11 @@ export class ReportsService {
   }
 
   private async exportExpenses(wb: ExcelJS.Workbook, ctx: ExportContext): Promise<void> {
-    const rows = (await this.data.list<ExpenseDoc>(COLLECTIONS.expenses, { orderBy: [{ field: "createdAt", direction: "desc" }], limit: 10000 })).filter(
-      (e) => (ctx.includeDemo ? true : !e.isDemo) && this.inRange(e, ctx),
-    );
+    const rows = (
+      await this.data.list<ExpenseDoc>(COLLECTIONS.expenses, { orderBy: [{ field: "createdAt", direction: "desc" }], limit: 10000 })
+    )
+      .map(normalizeExpense) // legacy rows get the same settlement view as the console
+      .filter((e) => (ctx.includeDemo ? true : !e.isDemo) && this.inRange(e, ctx));
     const ws = wb.addWorksheet("Expenses");
     ws.columns = [
       { header: "Date", key: "date", width: 14 },
@@ -501,11 +512,17 @@ export class ReportsService {
       { header: "Description", key: "desc", width: 40 },
       { header: "Payee", key: "payee", width: 24 },
       { header: "Amount", key: "amt", width: 14 },
+      { header: "Status", key: "status", width: 14 },
+      { header: "Paid", key: "paid", width: 14 },
+      { header: "Balance", key: "balance", width: 14 },
+      { header: "Method", key: "method", width: 16 },
       { header: "Reference", key: "ref", width: 20 },
       { header: "Recorded by", key: "by", width: 18 },
     ];
-    this.styleSheet(ws, "Expenses", "Business expense records", rows.some((r) => r.isDemo));
+    this.styleSheet(ws, "Expenses", "Business expense records (settlement view matches the console)", rows.some((r) => r.isDemo));
     this.currencyCol(ws, "amt" as never);
+    this.currencyCol(ws, "paid" as never);
+    this.currencyCol(ws, "balance" as never);
     for (const e of rows) {
       ws.addRow({
         date: formatDateIN(e.date),
@@ -513,6 +530,10 @@ export class ReportsService {
         desc: e.description,
         payee: e.payee ?? "",
         amt: formatINR(e.amountPaise),
+        status: humanizeEnum(e.status ?? "paid"),
+        paid: formatINR(e.amountPaidPaise ?? 0),
+        balance: formatINR(Math.max(0, e.amountPaise - (e.amountPaidPaise ?? 0))),
+        method: e.paymentMethod ? humanizeEnum(e.paymentMethod) : "",
         ref: e.reference ?? "",
         by: e.createdByName ?? "",
       });

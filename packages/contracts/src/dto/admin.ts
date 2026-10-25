@@ -1,7 +1,7 @@
 /** Zod DTO schemas for admin/business endpoints. All enforce server-side validation. */
 import { z } from "zod";
 import { paiseSchema } from "@annaadhya/utils";
-import { ADMIN_ROLES, INVENTORY_MOVEMENT_TYPES, PAYMENT_PROVIDERS, PURCHASE_PAYMENT_METHODS, type PurchaseStatus } from "../enums";
+import { ADMIN_ROLES, EXPENSE_PAYMENT_METHODS, EXPENSE_STATUSES, INVENTORY_MOVEMENT_TYPES, PAYMENT_PROVIDERS, PURCHASE_PAYMENT_METHODS, type PurchaseStatus } from "../enums";
 
 const idSchema = z.string().trim().min(1).max(128);
 const skuSchema = z
@@ -426,16 +426,69 @@ export type OrderListQueryDto = z.infer<typeof orderListQuerySchema>;
 
 /* ------------------------------------ Expenses ---------------------------------- */
 
-export const expenseUpsertSchema = z.object({
-  date: z.coerce.number().int().positive(),
-  category: z.string().trim().min(2, "Category is required").max(60),
-  amountPaise: paiseSchema.refine((v) => v > 0, "Expense amount must be positive"),
-  description: z.string().trim().min(2).max(500),
-  payee: z.string().trim().max(120).optional(),
-  reference: z.string().trim().max(120).optional(),
-  attachmentUrl: z.string().url().max(600).optional(),
-});
+/**
+ * Expense write DTO. The settlement model is validated as a whole, server-side:
+ *  - paid      → the full amount is settled (amountPaidPaise is normalized to amountPaise);
+ *  - pending   → nothing settled yet (amountPaidPaise is normalized to 0);
+ *  - partially_paid → amountPaidPaise must be strictly between 0 and the total,
+ *    so a "partially paid" record can never hide a fully- or un-paid balance.
+ * amountPaidPaise may never exceed amountPaise for any status.
+ */
+export const expenseUpsertSchema = z
+  .object({
+    date: z.coerce.number().int().positive(),
+    category: z.string().trim().min(2, "Category is required").max(60),
+    amountPaise: paiseSchema.refine((v) => v > 0, "Expense amount must be positive"),
+    description: z.string().trim().min(2).max(500),
+    payee: z.string().trim().max(120).optional(),
+    reference: z.string().trim().max(120).optional(),
+    attachmentUrl: z.string().url().max(600).optional(),
+    notes: z.string().trim().max(1000).optional(),
+    status: z.enum(EXPENSE_STATUSES).default("paid"),
+    amountPaidPaise: paiseSchema.optional(),
+    paymentMethod: z.enum(EXPENSE_PAYMENT_METHODS).optional(),
+  })
+  .superRefine((dto, ctx) => {
+    const paid = dto.amountPaidPaise ?? 0;
+    if (dto.status === "paid" && dto.amountPaidPaise !== undefined && paid !== dto.amountPaise) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["amountPaidPaise"],
+        message: "A paid expense must have the paid amount equal to the total amount",
+      });
+    }
+    if (dto.status === "partially_paid") {
+      if (paid <= 0 || paid >= dto.amountPaise) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["amountPaidPaise"],
+          message: "A partially paid expense needs a paid amount strictly between ₹0 and the total",
+        });
+      }
+    }
+    if (dto.status === "pending" && dto.amountPaidPaise !== undefined && paid !== 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["amountPaidPaise"],
+        message: "A pending expense cannot have a paid amount yet",
+      });
+    }
+  });
 export type ExpenseUpsertDto = z.infer<typeof expenseUpsertSchema>;
+
+/** Ledger query: date range + category/status/method/search filters + pagination.
+ *  Search matches description, vendor/payee and reference number. */
+export const expenseListQuerySchema = z.object({
+  from: z.coerce.number().int().positive().optional(),
+  to: z.coerce.number().int().positive().optional(),
+  search: z.string().trim().max(120).optional(),
+  category: z.string().trim().max(60).optional(),
+  status: z.enum(EXPENSE_STATUSES).optional(),
+  method: z.enum(EXPENSE_PAYMENT_METHODS).optional(),
+  page: z.coerce.number().int().min(1).max(10000).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(10),
+});
+export type ExpenseListQueryDto = z.infer<typeof expenseListQuerySchema>;
 
 /* -------------------------------------- Team ------------------------------------ */
 

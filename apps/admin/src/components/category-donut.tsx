@@ -17,16 +17,25 @@ export function donutSlices(rows: DashboardCategorySale[]): { name: string; reve
   return top;
 }
 
-export function CategoryDonut({ rows }: { rows: DashboardCategorySale[] }) {
+export function CategoryDonut({
+  rows,
+  centerCaption = "paid-order items",
+  emptyTitle = "No category sales yet",
+  emptyDescription = "Shares appear once paid orders land in the selected range — nothing is estimated.",
+}: {
+  rows: DashboardCategorySale[];
+  /** Caption under the centre total (the dashboard says "paid-order items"). */
+  centerCaption?: string;
+  emptyTitle?: string;
+  emptyDescription?: string;
+}) {
   const slices = donutSlices(rows);
   const total = slices.reduce((s, x) => s + x.revenuePaise, 0);
   if (total <= 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
-        <p className="font-display text-base font-semibold text-primary">No category sales yet</p>
-        <p className="max-w-xs text-sm text-ink/60">
-          Shares appear once paid orders land in the selected range — nothing is estimated.
-        </p>
+        <p className="font-display text-base font-semibold text-primary">{emptyTitle}</p>
+        <p className="max-w-xs text-sm text-ink/60">{emptyDescription}</p>
       </div>
     );
   }
@@ -38,7 +47,7 @@ export function CategoryDonut({ rows }: { rows: DashboardCategorySale[] }) {
   return (
     <div>
       <div className="relative mx-auto my-2 flex w-44 items-center justify-center">
-        <svg viewBox="0 0 100 100" className="h-44 w-44 -rotate-90" role="img" aria-label={`Revenue share by category, total ${formatINRRounded(total)}`}>
+        <svg viewBox="0 0 100 100" className="h-44 w-44 -rotate-90" role="img" aria-label={`Share by category, total ${formatINRRounded(total)}`}>
           <circle cx="50" cy="50" r="38" fill="transparent" stroke="#faddcf" strokeWidth="12" />
           {slices.map((s) => {
             const len = (s.revenuePaise / total) * C;
@@ -63,7 +72,7 @@ export function CategoryDonut({ rows }: { rows: DashboardCategorySale[] }) {
         </svg>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
           <span className="font-display text-xl font-semibold text-primary">{formatINRRounded(total)}</span>
-          <span className="text-[10px] font-semibold tracking-wider text-outline uppercase">paid-order items</span>
+          <span className="text-[10px] font-semibold tracking-wider text-outline uppercase">{centerCaption}</span>
         </div>
       </div>
 

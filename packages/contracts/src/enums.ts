@@ -79,6 +79,14 @@ export type PurchasePaymentStatus = (typeof PURCHASE_PAYMENT_STATUSES)[number];
 /** How a supplier payment was settled (free-form proof lives in `reference`). */
 export const PURCHASE_PAYMENT_METHODS = ["cash", "bank_transfer", "upi", "cheque", "other"] as const;
 export type PurchasePaymentMethod = (typeof PURCHASE_PAYMENT_METHODS)[number];
+
+/** Settlement state of an operating expense (Purchases/Inventory never auto-create these). */
+export const EXPENSE_STATUSES = ["paid", "pending", "partially_paid"] as const;
+export type ExpenseStatusEnum = (typeof EXPENSE_STATUSES)[number];
+
+/** How an expense was (or will be) settled. */
+export const EXPENSE_PAYMENT_METHODS = ["cash", "upi", "bank_transfer", "card", "other"] as const;
+export type ExpensePaymentMethodEnum = (typeof EXPENSE_PAYMENT_METHODS)[number];
 export type ExportJobStatus = "queued" | "running" | "completed" | "failed" | "expired";
 export type RefundStatus = "none" | "initiated" | "completed" | "failed";
 

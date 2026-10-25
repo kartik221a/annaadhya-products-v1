@@ -124,7 +124,12 @@ items[] (variantSku, description, qtyOrdered, qtyReceived, unitCostPaise — act
 createdByUid.
 
 ### expenses
-date, category, amountPaise, description, payee?, reference?, attachmentUrl?, createdByUid/Name.
+date, category, amountPaise, description, payee?, reference?, attachmentUrl?, notes?,
+status (`paid`|`pending`|`partially_paid` — rows recorded before settlement tracking may
+omit it and read as `paid`), amountPaidPaise? (normalized: paid → amountPaise, pending → 0),
+paymentMethod? (`cash`|`upi`|`bank_transfer`|`card`|`other`), createdByUid/Name,
+updatedByUid/Name?. Operating overheads only — stock procurement stays under purchases;
+expense writes never touch inventory.
 
 ### adminUsers
 uid (Firebase UID), displayName, email, role (owner|manager|inventory|orders_support|reports),

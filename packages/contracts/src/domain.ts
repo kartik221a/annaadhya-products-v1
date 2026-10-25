@@ -706,6 +706,16 @@ export interface InventoryLedgerPage {
 
 /* ---------------------------------- Expenses ---------------------------------- */
 
+/**
+ * Settlement state of an expense obligation. The expense AMOUNT and its PAYMENT
+ * STATUS are deliberately separate: a pending expense still counts towards total
+ * recorded expenses, while its paid amount and remaining balance are reported
+ * separately. Stock procurement (Purchases/Inventory) never becomes an expense here.
+ */
+export type ExpenseStatus = "paid" | "pending" | "partially_paid";
+
+export type ExpensePaymentMethod = "cash" | "upi" | "bank_transfer" | "card" | "other";
+
 export interface ExpenseDoc extends BaseDoc {
   date: number;
   category: string; // free-form but validated non-empty; e.g. "packaging", "freight"
@@ -714,8 +724,70 @@ export interface ExpenseDoc extends BaseDoc {
   payee?: string;
   reference?: string;
   attachmentUrl?: string;
+  /** Settlement state. Older rows recorded before payment tracking may omit it —
+   *  the API normalizes a missing status to "paid" at read time (the historical
+   *  model recorded money already spent). */
+  status?: ExpenseStatus;
+  /** Amount actually settled against this expense (integer paise). Normalized:
+   *  paid → amountPaise, pending → 0, partially_paid → strictly between. */
+  amountPaidPaise?: number;
+  paymentMethod?: ExpensePaymentMethod;
+  notes?: string;
   createdByUid: string;
   createdByName?: string;
+  updatedByUid?: string;
+  updatedByName?: string;
+}
+
+/** Financial aggregates over ONE filtered expense set — the single source of truth
+ *  for the summary cards. Computed server-side over the whole filtered dataset,
+ *  never over just the visible page. */
+export interface ExpenseSummary {
+  /** Sum of expense amounts (what was recorded, regardless of settlement). */
+  totalPaise: number;
+  /** Sum of settled amounts across the same records. */
+  paidPaise: number;
+  /** totalPaise - paidPaise: outstanding balance incl. partially paid records. */
+  pendingPaise: number;
+  recordCount: number;
+  paidCount: number;
+  pendingCount: number;
+  partiallyPaidCount: number;
+}
+
+/** One time bucket of the expense trend. Buckets are IST-aligned; unit is chosen
+ *  from the span (daily ≤ 31 days, weekly ≤ 120 days, monthly beyond). */
+export interface ExpenseTrendBucket {
+  start: number;
+  end: number;
+  label: string;
+  totalPaise: number;
+  count: number;
+}
+
+export interface ExpenseCategorySlice {
+  category: string;
+  totalPaise: number;
+  count: number;
+  /** Share of the filtered total, 0–100 rounded to one decimal. */
+  pct: number;
+}
+
+/** Paginated expense ledger response. summary/trend/categories always derive from
+ *  the SAME filtered set as items, so cards, charts and table can never disagree. */
+export interface ExpensePage {
+  items: ExpenseDoc[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  summary: ExpenseSummary;
+  trend: ExpenseTrendBucket[];
+  trendUnit: "day" | "week" | "month";
+  categories: ExpenseCategorySlice[];
+  /** Distinct categories present in the selected date range (before status/search
+   *  filters) — keeps the category dropdown stable while other filters change. */
+  categoryOptions: string[];
 }
 
 /* ---------------------------------- Team & audit ------------------------------- */

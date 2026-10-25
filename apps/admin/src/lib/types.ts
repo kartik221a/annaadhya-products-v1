@@ -653,6 +653,18 @@ export interface PurchasePaymentPayload {
   note?: string;
 }
 
+export type ExpenseStatus = "paid" | "pending" | "partially_paid";
+export type ExpensePaymentMethod = "cash" | "upi" | "bank_transfer" | "card" | "other";
+
+export const EXPENSE_STATUSES: ExpenseStatus[] = ["paid", "pending", "partially_paid"];
+export const EXPENSE_PAYMENT_METHODS: ExpensePaymentMethod[] = [
+  "cash",
+  "upi",
+  "bank_transfer",
+  "card",
+  "other",
+];
+
 export interface ExpenseDoc extends BaseDoc {
   date: number;
   category: string;
@@ -661,8 +673,54 @@ export interface ExpenseDoc extends BaseDoc {
   payee?: string;
   reference?: string;
   attachmentUrl?: string;
+  /** Normalized server-side: legacy rows without a status read as "paid". */
+  status: ExpenseStatus;
+  amountPaidPaise: number;
+  paymentMethod?: ExpensePaymentMethod;
+  notes?: string;
   createdByUid: string;
   createdByName?: string;
+  updatedByUid?: string;
+  updatedByName?: string;
+}
+
+/** Authoritative aggregates over the filtered ledger — computed by the API. */
+export interface ExpenseSummary {
+  totalPaise: number;
+  paidPaise: number;
+  pendingPaise: number;
+  recordCount: number;
+  paidCount: number;
+  pendingCount: number;
+  partiallyPaidCount: number;
+}
+
+export interface ExpenseTrendBucket {
+  start: number;
+  end: number;
+  label: string;
+  totalPaise: number;
+  count: number;
+}
+
+export interface ExpenseCategorySlice {
+  category: string;
+  totalPaise: number;
+  count: number;
+  pct: number;
+}
+
+export interface ExpensePage {
+  items: ExpenseDoc[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  summary: ExpenseSummary;
+  trend: ExpenseTrendBucket[];
+  trendUnit: "day" | "week" | "month";
+  categories: ExpenseCategorySlice[];
+  categoryOptions: string[];
 }
 
 export interface AdminUserDoc extends BaseDoc {

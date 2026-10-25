@@ -7,6 +7,7 @@ import {
   PAYMENT_STATUSES,
   customerListQuerySchema,
   customerNoteUpdateSchema,
+  expenseListQuerySchema,
   expenseUpsertSchema,
   inventoryLedgerQuerySchema,
   inventoryThresholdsSchema,
@@ -31,6 +32,7 @@ import {
   type CategoryUpsertDto,
   type CustomerListQueryDto,
   type CustomerNoteUpdateDto,
+  type ExpenseListQueryDto,
   type ExpenseUpsertDto,
   type InventoryLedgerQueryDto,
   type InventoryThresholdsDto,
@@ -381,15 +383,13 @@ export class ExpensesController {
     private readonly audit: AuditService,
   ) {}
 
+  /** Paginated ledger + authoritative summary/trend/category aggregates over the
+   *  SAME filtered set (the page never computes its own metrics). */
   @Get()
   @Protected("expenses:read")
   @RequirePermissions("expenses:read")
-  async list(@Query("from") from?: string, @Query("to") to?: string, @Query("category") category?: string) {
-    return this.expenses.list({
-      from: from ? Number(from) : undefined,
-      to: to ? Number(to) : undefined,
-      category,
-    });
+  async list(@Query(new ZodValidationPipe(expenseListQuerySchema)) q: ExpenseListQueryDto) {
+    return this.expenses.listPage(q);
   }
 
   @Get("total")
@@ -420,8 +420,20 @@ export class ExpensesController {
   @Post(":id")
   @Protected("expenses:write")
   @RequirePermissions("expenses:write")
-  async update(@Param("id") id: string, @Body(new ZodValidationPipe(expenseUpsertSchema)) dto: ExpenseUpsertDto) {
-    return this.expenses.update(id, dto);
+  async update(
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(expenseUpsertSchema)) dto: ExpenseUpsertDto,
+    @CurrentUser() actor: AuthPrincipal,
+  ) {
+    const doc = await this.expenses.update(id, dto, actor);
+    await this.audit.record({
+      actor,
+      action: "expense.update",
+      targetType: "expense",
+      targetId: id,
+      summary: `Expense ${doc.category} ₹${(doc.amountPaise / 100).toFixed(2)} (${doc.status}): ${doc.description.slice(0, 60)}`,
+    });
+    return doc;
   }
 
   @Delete(":id")
