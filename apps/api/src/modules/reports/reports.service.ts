@@ -7,11 +7,16 @@
  */
 import { Inject, Injectable } from "@nestjs/common";
 import type * as ExcelJS from "exceljs";
-import { COLLECTIONS, type CustomerDoc, type ExpenseDoc, type InventoryMovementDoc, type NewsletterSubscriberDoc, type OrderDoc, type ProductVariantDoc, type PurchaseDoc, type SupplierDoc, type ProductDoc, type SettingsDoc } from "@annaadhya/contracts";
+import { COLLECTIONS, type CustomerActivityFilter, type CustomerDirectorySort, type CustomerDoc, type ExpenseDoc, type InventoryMovementDoc, type NewsletterSubscriberDoc, type OrderDoc, type ProductVariantDoc, type PurchaseDoc, type SupplierDoc, type ProductDoc, type SettingsDoc } from "@annaadhya/contracts";
 import { badRequest, type DataClient } from "@annaadhya/data-core";
 import { formatINR, formatDateIN } from "@annaadhya/utils";
 import { DATA_CLIENT } from "../../data/data.module";
 import { SettingsService } from "../settings/settings.service";
+import {
+  aggregateOrdersByCustomer,
+  matchesDirectoryFilters,
+  sortDirectoryRows,
+} from "../customers/customers.service";
 
 export type ExportType =
   | "products"
@@ -51,6 +56,15 @@ interface ExportContext {
     paymentProvider?: OrderDoc["paymentProvider"];
     search?: string;
   };
+  /** Customer-directory filters so the Customers export matches the console's screen. */
+  customerFilters?: {
+    search?: string;
+    activity?: CustomerActivityFilter;
+    status?: "all" | "active" | "suspended";
+    registeredFrom?: number;
+    registeredTo?: number;
+    sort?: CustomerDirectorySort;
+  };
 }
 
 @Injectable()
@@ -73,11 +87,23 @@ export class ReportsService {
 
   async generate(
     type: ExportType,
-    opts: { includeDemo?: boolean; from?: number; to?: number; orderFilters?: ExportContext["orderFilters"] } = {},
+    opts: {
+      includeDemo?: boolean;
+      from?: number;
+      to?: number;
+      orderFilters?: ExportContext["orderFilters"];
+      customerFilters?: ExportContext["customerFilters"];
+    } = {},
   ): Promise<Buffer> {
     const settings: SettingsDoc = await this.settings.get();
     const includeDemo = opts.includeDemo ?? settings.reporting.includeDemoDataByDefault;
-    const ctx: ExportContext = { includeDemo, from: opts.from, to: opts.to, orderFilters: opts.orderFilters };
+    const ctx: ExportContext = {
+      includeDemo,
+      from: opts.from,
+      to: opts.to,
+      orderFilters: opts.orderFilters,
+      customerFilters: opts.customerFilters,
+    };
 
     const wb = await this.newWorkbook();
     wb.creator = "Annaadhya Products Admin";
@@ -263,29 +289,72 @@ export class ReportsService {
   }
 
   private async exportCustomers(wb: ExcelJS.Workbook, ctx: ExportContext): Promise<void> {
-    const rows = (await this.data.list<CustomerDoc>(COLLECTIONS.customers, { orderBy: [{ field: "createdAt", direction: "desc" }], limit: 5000 })).filter(
-      (c) => (ctx.includeDemo ? true : !c.isDemo),
-    );
+    // Same metric pipeline as the admin directory (shared pure helpers) so the export
+    // matches the screen: identical filters, identical spend/order definitions.
+    const [customers, orders] = await Promise.all([
+      this.data.list<CustomerDoc>(COLLECTIONS.customers, {
+        orderBy: [{ field: "createdAt", direction: "desc" }],
+        limit: 5000,
+      }),
+      this.data.list<OrderDoc>(COLLECTIONS.orders, {
+        orderBy: [{ field: "createdAt", direction: "desc" }],
+        limit: 1000,
+      }),
+    ]);
+    const aggregates = aggregateOrdersByCustomer(orders);
+    const f = ctx.customerFilters;
+    let rows = customers
+      .filter((c) => (ctx.includeDemo ? true : !c.isDemo))
+      .map((c) => ({
+        ...c,
+        ...(aggregates.get(c.uid) ?? { orderCount: 0, completedOrderCount: 0, totalSpendPaise: 0 }),
+      }))
+      .filter((row) =>
+        f
+          ? matchesDirectoryFilters(row, row, {
+              search: f.search,
+              activity: f.activity ?? "all",
+              status: f.status ?? "all",
+              registeredFrom: f.registeredFrom,
+              registeredTo: f.registeredTo,
+            })
+          : true,
+      );
+    if (f?.sort) {
+      rows = sortDirectoryRows(rows, f.sort);
+    }
     const ws = wb.addWorksheet("Customers");
     ws.columns = [
       { header: "Customer", key: "name", width: 26 },
+      { header: "Customer ID", key: "cid", width: 24 },
       { header: "Email", key: "email", width: 30 },
       { header: "Phone", key: "phone", width: 16 },
       { header: "Status", key: "status", width: 12 },
       { header: "Sign-in methods", key: "prov", width: 22 },
       { header: "Addresses", key: "addr", width: 12 },
       { header: "Joined", key: "joined", width: 14 },
+      { header: "Orders", key: "orders", width: 10 },
+      { header: "Completed orders", key: "corders", width: 16 },
+      { header: "Total spend", key: "spend", width: 14 },
+      { header: "Last order", key: "lastorder", width: 22 },
+      { header: "Marketing opt-in", key: "mkt", width: 14 },
     ];
     this.styleSheet(ws, "Customers", "Personal data — handle per privacy policy; do not share externally", rows.some((r) => r.isDemo));
     for (const c of rows) {
       ws.addRow({
         name: c.displayName,
+        cid: c.id,
         email: c.email ?? "",
         phone: c.phone ?? "",
         status: c.accountStatus,
         prov: c.providers.join(", "),
         addr: c.addresses.length,
         joined: formatDateIN(c.createdAt),
+        orders: c.orderCount,
+        corders: c.completedOrderCount,
+        spend: c.totalSpendPaise > 0 ? formatINR(c.totalSpendPaise) : "",
+        lastorder: c.lastOrderAt ? `${formatDateIN(c.lastOrderAt)}${c.lastOrderNumber ? ` (${c.lastOrderNumber})` : ""}` : "",
+        mkt: c.marketingOptIn ? "yes" : "no",
       });
     }
   }

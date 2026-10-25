@@ -548,3 +548,25 @@ export const mediaRegisterSchema = z.object({
   bytes: z.number().int().positive().max(20 * 1024 * 1024).optional(),
 });
 export type MediaRegisterDto = z.infer<typeof mediaRegisterSchema>;
+
+/* --------------------------------- Customers directory -------------------------------- */
+
+/** Query surface for GET /admin/customers — the admin customer directory. */
+export const customerListQuerySchema = z.object({
+  search: z.string().trim().max(120).optional(),
+  activity: z.enum(["all", "with_orders", "no_orders", "repeat"]).default("all"),
+  status: z.enum(["all", "active", "suspended"]).default("all"),
+  /** Registration window (epoch millis, inclusive bounds). */
+  registeredFrom: z.coerce.number().int().positive().optional(),
+  registeredTo: z.coerce.number().int().positive().optional(),
+  sort: z.enum(["spend_desc", "orders_desc", "recent_order", "recent_registered", "name_asc"]).default("spend_desc"),
+  page: z.coerce.number().int().min(1).max(1000).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+});
+export type CustomerListQueryDto = z.infer<typeof customerListQuerySchema>;
+
+/** Internal support notes on a customer profile — empty string clears the note. */
+export const customerNoteUpdateSchema = z.object({
+  note: z.string().trim().max(2000),
+});
+export type CustomerNoteUpdateDto = z.infer<typeof customerNoteUpdateSchema>;

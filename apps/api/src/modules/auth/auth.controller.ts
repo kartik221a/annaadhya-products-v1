@@ -49,14 +49,16 @@ export class AuthController {
     // "sign in to save addresses" prompts, and orders that never save their address.
     const customer = await this.customers.me(principal);
     const staff = await this.auth.loadStaff(principal.uid);
-    return { principal, customer, staff, mode: this.modeDescriptor() };
+    // forSelf strips internal staff notes — private support content never reaches
+    // a customer-facing payload (the customer can only ever see their own profile).
+    return { principal, customer: this.customers.forSelf(customer), staff, mode: this.modeDescriptor() };
   }
 
   @Get("me")
   async me(@CurrentUser() principal: AuthPrincipal) {
     // Same contract as /auth/verify — staff always get their storefront profile too.
     const customer = await this.customers.me(principal);
-    return { principal, customer };
+    return { principal, customer: this.customers.forSelf(customer) };
   }
 
   @Post("profile")
@@ -64,7 +66,7 @@ export class AuthController {
     @Body(new ZodValidationPipe(profileUpdateSchema)) dto: z.infer<typeof profileUpdateSchema>,
     @CurrentUser() principal: AuthPrincipal,
   ) {
-    return this.customers.updateMe(principal, dto);
+    return this.customers.updateMe(principal, dto).then((c) => this.customers.forSelf(c));
   }
 
   /** Mock-mode session issuance for development/testing. Refused whenever real auth is configured. */

@@ -444,6 +444,71 @@ export interface CustomerDoc extends BaseDoc {
   marketingOptIn: boolean;
 }
 
+/* --------------------------- Customers directory (admin) -------------------------- */
+
+/** Order-activity filter for the admin customer directory. */
+export type CustomerActivityFilter = "all" | "with_orders" | "no_orders" | "repeat";
+
+/** Sort keys for the admin customer directory. */
+export type CustomerDirectorySort =
+  | "spend_desc" // highest completed spend first (directory default)
+  | "orders_desc" // most real orders first
+  | "recent_order" // most recent real order first
+  | "recent_registered" // newest account first
+  | "name_asc"; // display name A→Z
+
+/**
+ * One admin-directory row: the customer record joined with metrics computed from
+ * real orders. Metric definitions (single source of truth — the directory list,
+ * the summary cards, the detail drawer and the XLSX export all share them):
+ *  - `orderCount`        — "real" orders: any persisted order that entered the
+ *                          fulfilment lifecycle (status ≠ pending_payment, or a
+ *                          pending_payment order whose payment actually succeeded).
+ *                          Ghost orders (created but payment failed/abandoned) never count.
+ *  - `completedOrderCount`— subset of real orders that contribute to spend.
+ *  - `totalSpendPaise`   — NET completed spend = Σ(totalPaise − refundPaise) over
+ *                          completed orders: online orders with paymentStatus
+ *                          "succeeded" that are not cancelled/refunded, plus COD
+ *                          orders that reached "delivered" (money actually collected).
+ *                          Pending, failed, cancelled and refunded orders never count.
+ *  - `lastOrder*`        — most recent real order (by createdAt), any status.
+ */
+export interface CustomerDirectoryRow extends CustomerDoc {
+  orderCount: number;
+  completedOrderCount: number;
+  totalSpendPaise: number;
+  lastOrderAt?: number;
+  lastOrderId?: string;
+  lastOrderNumber?: string;
+}
+
+/** Summary cards for the directory — computed over the SAME filtered cohort the table lists. */
+export interface CustomerDirectorySummary {
+  /** Distinct customer records in the cohort (equals the pagination total). */
+  totalCustomers: number;
+  /** Accounts whose createdAt falls in the "new" window (this IST month by default). */
+  newCustomers: number;
+  /** Honest label for the new-customers window, e.g. "this month" / "in the selected range". */
+  newCustomersWindow: string;
+  /** Cohort members with ≥ 1 real order. */
+  customersWithOrders: number;
+  /** Cohort members with ≥ 2 real orders. */
+  repeatCustomers: number;
+  /** Σ completed spend across the cohort (paise). */
+  lifetimeSpendPaise: number;
+  /** Mean real orders per repeat patron; null when the cohort has no repeat patrons. */
+  avgOrdersPerRepeat: number | null;
+}
+
+export interface CustomerDirectoryPage {
+  items: CustomerDirectoryRow[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  summary: CustomerDirectorySummary;
+}
+
 export interface CustomerAddress {
   id: string;
   label: string;

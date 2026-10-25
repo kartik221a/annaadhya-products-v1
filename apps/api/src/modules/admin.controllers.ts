@@ -1,10 +1,12 @@
 /** Inventory, suppliers, purchases, expenses, dashboard, reports, media, team, settings, audit controllers. */
-import { Body, Controller, Delete, Get, Param, Post, Query } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import {
   ORDER_STATUSES,
   PAYMENT_PROVIDERS,
   PAYMENT_STATUSES,
+  customerListQuerySchema,
+  customerNoteUpdateSchema,
   expenseUpsertSchema,
   inventoryLedgerQuerySchema,
   inventoryThresholdsSchema,
@@ -27,6 +29,8 @@ import {
   settingsUpdateSchema,
   type AuthPrincipal,
   type CategoryUpsertDto,
+  type CustomerListQueryDto,
+  type CustomerNoteUpdateDto,
   type ExpenseUpsertDto,
   type InventoryLedgerQueryDto,
   type InventoryThresholdsDto,
@@ -437,12 +441,48 @@ export class ExpensesController {
 export class AdminCustomersController {
   constructor(private readonly customers: CustomersService) {}
 
+  /**
+   * Customer directory — search / activity / status / registration window / sort /
+   * pagination + summary cards, all computed server-side from real records.
+   * PII minimisation stays server-side: roles without customers:write receive
+   * masked email/phone (list rows never carry addresses or note content at all).
+   */
   @Get()
   @Protected("customers:read")
   @RequirePermissions("customers:read")
-  async list(@Query("search") search?: string, @CurrentUser() actor?: AuthPrincipal) {
-    const rows = await this.customers.listAdmin({ search });
-    return rows.map((c) => this.customers.maskForRole(c, actor?.permissions ?? []));
+  async list(
+    @Query(new ZodValidationPipe(customerListQuerySchema)) q: CustomerListQueryDto,
+    @CurrentUser() actor: AuthPrincipal,
+  ) {
+    const page = await this.customers.directory(q);
+    return {
+      ...page,
+      items: page.items.map((row) => this.customers.maskForRole(row, actor.permissions)),
+    };
+  }
+
+  /** Paginated real order history for the detail drawer (existing order docs, existing routes). */
+  @Get(":id/orders")
+  @Protected("customers:read")
+  @RequirePermissions("customers:read")
+  async orders(
+    @Param("id") id: string,
+    @Query("page") page = "1",
+    @Query("pageSize") pageSize = "10",
+  ) {
+    return this.customers.customerOrders(id, Number(page) || 1, Math.min(50, Number(pageSize) || 10));
+  }
+
+  /** Replace the internal support note — staff-only content, audited, never customer-facing. */
+  @Patch(":id/notes")
+  @Protected("customers:write")
+  @RequirePermissions("customers:write")
+  async updateNotes(
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(customerNoteUpdateSchema)) dto: CustomerNoteUpdateDto,
+    @CurrentUser() actor: AuthPrincipal,
+  ) {
+    return this.customers.updateNotes(id, dto.note, actor);
   }
 
   @Get(":id")
@@ -459,8 +499,9 @@ export class AdminCustomersController {
   async setStatus(
     @Param("id") id: string,
     @Body(new ZodValidationPipe(z.object({ status: z.enum(["active", "suspended"]) }))) body: { status: "active" | "suspended" },
+    @CurrentUser() actor: AuthPrincipal,
   ) {
-    return this.customers.setStatus(id, body.status);
+    return this.customers.setStatus(id, body.status, actor);
   }
 }
 
@@ -530,6 +571,11 @@ export class ReportsController {
     @Query("paymentStatus") paymentStatus?: string,
     @Query("paymentProvider") paymentProvider?: string,
     @Query("search") search?: string,
+    @Query("activity") activity?: string,
+    @Query("custStatus") custStatus?: string,
+    @Query("registeredFrom") registeredFrom?: string,
+    @Query("registeredTo") registeredTo?: string,
+    @Query("sort") sort?: string,
     @Res() res?: Response,
     @CurrentUser() actor?: AuthPrincipal,
   ) {
@@ -551,11 +597,33 @@ export class ReportsController {
             search: search?.trim() ? search.trim().slice(0, 120) : undefined,
           }
         : undefined;
+    // Customer-directory filters (Customers console "Export Directory") — same rule:
+    // invalid enum values are ignored instead of narrowing the export silently.
+    const customerFilters =
+      type === "customers"
+        ? {
+            search: search?.trim() ? search.trim().slice(0, 120) : undefined,
+            activity: (["all", "with_orders", "no_orders", "repeat"] as const).includes(activity as never)
+              ? (activity as "all" | "with_orders" | "no_orders" | "repeat")
+              : undefined,
+            status: (["all", "active", "suspended"] as const).includes(custStatus as never)
+              ? (custStatus as "all" | "active" | "suspended")
+              : undefined,
+            registeredFrom: registeredFrom ? Number(registeredFrom) : undefined,
+            registeredTo: registeredTo ? Number(registeredTo) : undefined,
+            sort: (["spend_desc", "orders_desc", "recent_order", "recent_registered", "name_asc"] as const).includes(
+              sort as never,
+            )
+              ? (sort as "spend_desc" | "orders_desc" | "recent_order" | "recent_registered" | "name_asc")
+              : undefined,
+          }
+        : undefined;
     const buffer = await this.reports.generate(type as ExportType, {
       includeDemo: includeDemo === "true",
       from: from ? Number(from) : undefined,
       to: to ? Number(to) : undefined,
       orderFilters,
+      customerFilters,
     });
     if (actor) {
       await this.audit.record({

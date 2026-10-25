@@ -209,6 +209,46 @@ export interface CustomerDoc extends BaseDoc {
   marketingOptIn: boolean;
 }
 
+/* --------------------------- customers directory (admin) --------------------------- */
+
+export type CustomerActivityFilter = "all" | "with_orders" | "no_orders" | "repeat";
+
+export type CustomerDirectorySort =
+  | "spend_desc"
+  | "orders_desc"
+  | "recent_order"
+  | "recent_registered"
+  | "name_asc";
+
+/** Mirrors contracts CustomerDirectoryRow — customer record joined with real order metrics. */
+export interface CustomerDirectoryRow extends CustomerDoc {
+  orderCount: number;
+  completedOrderCount: number;
+  totalSpendPaise: number;
+  lastOrderAt?: number;
+  lastOrderId?: string;
+  lastOrderNumber?: string;
+}
+
+export interface CustomerDirectorySummary {
+  totalCustomers: number;
+  newCustomers: number;
+  newCustomersWindow: string;
+  customersWithOrders: number;
+  repeatCustomers: number;
+  lifetimeSpendPaise: number;
+  avgOrdersPerRepeat: number | null;
+}
+
+export interface CustomerDirectoryPage {
+  items: CustomerDirectoryRow[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  summary: CustomerDirectorySummary;
+}
+
 export interface OrderItemSnapshot {
   variantId: string;
   productId: string;
