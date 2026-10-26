@@ -152,7 +152,14 @@ function FaqRow({
   );
 }
 
-export function FaqExplorer({ supportEmail }: { supportEmail: string | null }) {
+export function FaqExplorer({
+  supportEmail,
+  entries = FAQ_ENTRIES,
+}: {
+  supportEmail: string | null;
+  /** Admin-managed FAQ entries (CMS) override the built-in set when provided. */
+  entries?: FaqEntry[];
+}) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [openIds, setOpenIds] = useState<ReadonlySet<string>>(new Set());
@@ -162,24 +169,24 @@ export function FaqExplorer({ supportEmail }: { supportEmail: string | null }) {
 
   const categoryCounts = useMemo(() => {
     const counts = new Map<FaqCategoryId, number>();
-    for (const entry of FAQ_ENTRIES) {
+    for (const entry of entries) {
       counts.set(entry.category, (counts.get(entry.category) ?? 0) + 1);
     }
     return counts;
-  }, []);
+  }, [entries]);
 
   const visibleGroups = useMemo(() => {
     return FAQ_CATEGORIES.map((category) => {
-      const entries = FAQ_ENTRIES.filter(
+      const groupEntries = entries.filter(
         (entry) =>
           entry.category === category.id &&
           (filter === "all" || filter === entry.category) &&
           (trimmedQuery === "" ||
             `${entry.question} ${faqAnswerPlainText(entry.answer)}`.toLowerCase().includes(trimmedQuery)),
       );
-      return { category, entries };
+      return { category, entries: groupEntries };
     }).filter((group) => group.entries.length > 0);
-  }, [filter, trimmedQuery]);
+  }, [entries, filter, trimmedQuery]);
 
   const totalMatches = useMemo(
     () => visibleGroups.reduce((sum, group) => sum + group.entries.length, 0),

@@ -8,7 +8,6 @@ import { InMemoryDataClient } from "@annaadhya/data-core";
 import { COLLECTIONS, expenseUpsertSchema, type AuthPrincipal, type ExpenseDoc } from "@annaadhya/contracts";
 import { ZodError } from "zod";
 import { ExpensesService, expenseBalancePaise, normalizeExpense } from "../src/modules/expenses/expenses.service";
-import { AuditService } from "../src/modules/audit/audit.service";
 
 process.env.NODE_ENV = "test";
 process.env.DATA_PROVIDER = "memory";

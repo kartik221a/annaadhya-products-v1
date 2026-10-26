@@ -14,6 +14,7 @@ import { CurrentUser, Protected, Public, RequirePermissions } from "../../common
 import { ZodValidationPipe } from "../../common/validation/zod.pipe";
 import { CatalogueService } from "./catalogue.service";
 import { AuditService } from "../audit/audit.service";
+import { pushRevalidate } from "../content/revalidate";
 
 @ApiTags("catalogue")
 @Controller()
@@ -168,6 +169,7 @@ export class AdminCatalogueController {
       targetId: result.id,
       summary: `Created category ${dto.slug}`,
     });
+    await pushRevalidate({ tags: ["cms", "categories"], paths: ["/", "/shop", `/category/${result.slug}`] });
     return result;
   }
 
@@ -186,7 +188,34 @@ export class AdminCatalogueController {
       targetType: "category",
       targetId: id,
       summary: `Updated category ${dto.slug}`,
+      metadata: { status: result.status, isReady: result.isReady },
     });
+    await pushRevalidate({ tags: ["cms", "categories"], paths: ["/", "/shop", `/category/${result.slug}`] });
+    return result;
+  }
+
+  @Delete("categories/:id")
+  @Protected("categories:write")
+  @RequirePermissions("categories:write")
+  async deleteCategory(
+    @Param("id") id: string,
+    @Query("reassignTo") reassignTo: string | undefined,
+    @CurrentUser() actor: AuthPrincipal,
+  ) {
+    const existing = await this.catalogue.getCategoryById(id);
+    const result = await this.catalogue.deleteCategory(id, reassignTo?.trim() || undefined);
+    await this.audit.record({
+      actor,
+      action: "category.delete",
+      targetType: "category",
+      targetId: id,
+      summary:
+        result.reassignedProducts > 0
+          ? `Deleted category ${existing?.slug ?? id} — ${result.reassignedProducts} product(s) reassigned`
+          : `Deleted category ${existing?.slug ?? id}`,
+      metadata: { reassignedProducts: result.reassignedProducts, reassignTo: reassignTo ?? null },
+    });
+    await pushRevalidate({ tags: ["cms", "categories"], paths: ["/", "/shop"] });
     return result;
   }
 

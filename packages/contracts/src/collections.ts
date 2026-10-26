@@ -25,6 +25,9 @@ export const COLLECTIONS = {
   counters: "counters",
   webhookEvents: "webhookEvents",
   idempotencyKeys: "idempotencyKeys",
+  pages: "pages",
+  navigationItems: "navigationItems",
+  homepage: "homepage",
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];

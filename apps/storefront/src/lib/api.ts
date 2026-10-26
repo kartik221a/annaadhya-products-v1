@@ -4,8 +4,11 @@
 import type {
   CategoryDoc,
   CategoryOverview,
+  HomepageDoc,
   Page,
   ProductWithVariantsShape,
+  PublicNavigationItem,
+  PublicPageDoc,
   PublicStoreSettings,
 } from "./types";
 
@@ -29,10 +32,10 @@ export interface ApiEnvelope<T> {
   error?: { code: string; message: string; details?: unknown };
 }
 
-export async function apiGet<T>(path: string, revalidate = 60): Promise<T | null> {
+export async function apiGet<T>(path: string, revalidate = 60, tags?: string[]): Promise<T | null> {
   try {
     const res = await fetch(`${API_URL}${path}`, {
-      next: { revalidate },
+      next: { revalidate, ...(tags && tags.length > 0 ? { tags } : {}) },
       headers: { "content-type": "application/json" },
     });
     if (!res.ok) return null;
@@ -116,4 +119,26 @@ export async function getPlatformStatus(): Promise<{
  *  contact page. Null when the API is offline; callers render honest fallbacks. */
 export async function getPublicSettings(): Promise<PublicStoreSettings | null> {
   return apiGet<PublicStoreSettings>("/settings/public", 120);
+}
+
+/* -------------------------------- CMS content --------------------------------- */
+
+/** CMS reads are tagged `cms` so the storefront /revalidate webhook (nudged by
+ *  the API on every admin save) can refresh them on demand; the revalidate
+ *  window stays as a safety net for missed pushes. */
+
+export async function getPage(slug: string): Promise<PublicPageDoc | null> {
+  return apiGet<PublicPageDoc>(`/pages/${encodeURIComponent(slug)}`, 60, ["cms", "pages"]);
+}
+
+export async function getPublishedPages(): Promise<PublicPageDoc[]> {
+  return (await apiGet<PublicPageDoc[]>("/pages", 120, ["cms", "pages"])) ?? [];
+}
+
+export async function getNavigation(): Promise<PublicNavigationItem[]> {
+  return (await apiGet<PublicNavigationItem[]>("/navigation", 60, ["cms", "navigation"])) ?? [];
+}
+
+export async function getHomepageConfig(): Promise<HomepageDoc | null> {
+  return apiGet<HomepageDoc>("/homepage", 60, ["cms", "homepage"]);
 }

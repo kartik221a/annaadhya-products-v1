@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import { getPublicSettings } from "@/lib/api";
+import { getPage, getPublicSettings } from "@/lib/api";
 import type { PublicStoreSettings } from "@/lib/types";
 import { ContactForm } from "@/components/contact/contact-form";
+import { CmsBlocks } from "@/components/blocks/document-blocks";
 import {
   IconBadgeCheck,
   IconClock,
@@ -121,8 +122,16 @@ const FAQS = [
 ];
 
 export default async function ContactPage() {
-  const settings = (await getPublicSettings()) ?? FALLBACK_SETTINGS;
-  const { store } = settings;
+  const [settings, cmsPage] = await Promise.all([getPublicSettings(), getPage("contact")]);
+  const store = (settings ?? FALLBACK_SETTINGS).store;
+
+  // Admin → Storefront → Pages can publish an editable intro for this page (slug
+  // "contact"). When published, its title/lede replace the hero copy and its
+  // blocks render as an intro band; the working form + settings-driven contact
+  // facts (email/phone/address) are never replaced by CMS content.
+  const cmsIntro = cmsPage && cmsPage.content.kind === "document" ? cmsPage : null;
+  const cmsBlocks =
+    cmsPage && cmsPage.content.kind === "document" ? cmsPage.content.sections.flatMap((s) => s.blocks) : [];
 
   // Truth discipline: a `.example` address is the seeded placeholder — it is shown
   // as a placeholder, never linked, and no address/phone/social is claimed unless
@@ -147,11 +156,12 @@ export default async function ContactPage() {
               <span className="text-label-sm font-bold uppercase tracking-widest text-on-tertiary-container">We&apos;re here to help</span>
             </div>
             <h1 className="font-display text-headline-lg-mobile font-semibold leading-tight tracking-tight text-primary lg:text-display-lg">
-              Let&apos;s Talk. We&apos;d Love to Hear From You.
+              {cmsIntro?.title?.trim() || "Let’s Talk. We’d Love to Hear From You."}
             </h1>
             <p className="max-w-2xl text-body-lg leading-relaxed text-on-surface-variant">
-              Questions about our honey harvests, Kashmiri saffron, or putting together a thoughtful gift?
-              Send us a message — every enquiry is read by our team and answered by email.
+              {cmsIntro && cmsIntro.content.kind === "document" && cmsIntro.content.lede?.trim()
+                ? cmsIntro.content.lede
+                : "Questions about our honey harvests, Kashmiri saffron, or putting together a thoughtful gift? Send us a message — every enquiry is read by our team and answered by email."}
             </p>
             <div className="flex flex-wrap items-center gap-6 pt-2">
               <span className="flex items-center gap-2 text-on-surface-variant">
@@ -186,6 +196,16 @@ export default async function ContactPage() {
           </div>
         </div>
       </section>
+
+      {/* CMS intro band — editable blocks from Admin → Storefront → Pages (slug
+          "contact"); renders only when that page is published with content. */}
+      {cmsBlocks.length > 0 && (
+        <section className="px-margin-mobile pb-space-lg lg:px-margin">
+          <div className="mx-auto max-w-3xl rounded-xl border border-outline-variant/40 bg-surface-container-lowest p-space-lg">
+            <CmsBlocks blocks={cmsBlocks} />
+          </div>
+        </section>
+      )}
 
       {/* ====================== SECTION B: CONTACT OPTIONS ====================== */}
       <section aria-label="Ways to reach us" className="bg-surface-container-low/40 px-margin-mobile py-space-lg lg:px-margin lg:py-space-xl">

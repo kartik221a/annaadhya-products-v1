@@ -32,6 +32,8 @@ export const PERMISSIONS = [
   "team:write",
   "settings:read",
   "settings:write",
+  "content:read",
+  "content:write",
   "audit:read",
 ] as const;
 
@@ -50,6 +52,7 @@ const READ_ONLY: Permission[] = [
   "reports:read",
   "team:read",
   "settings:read",
+  "content:read",
 ];
 
 /** Role → granted permissions. Server guard denies anything not granted here. */

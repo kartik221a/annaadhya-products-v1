@@ -37,6 +37,8 @@ export interface CategoryDoc extends BaseDoc {
   isReady: boolean; // categories not ready are hidden from the storefront
   heroImage?: string;
   status: ProductStatus;
+  /** Optional storefront SEO overrides (page title / meta description). */
+  seo?: { title?: string; description?: string };
 }
 
 /** Category-specific compliance/spec line (label → value), e.g. "Moisture Level" → "18.2%". */
@@ -910,5 +912,149 @@ export interface PublicStoreSettings {
     mode: "flat_rate" | "free_shipping" | "disabled";
     flatRatePaise: number;
     freeAbovePaise: number | null;
+  };
+}
+
+/* -------------------------------------- CMS ----------------------------------- */
+
+/**
+ * Storefront content managed from the admin panel (Pages, Navigation, Homepage).
+ *
+ * SAFETY MODEL: CMS text is structured data, never HTML. Text fields support a
+ * tiny inline markup (**bold**, *italic*, [label](href)) that the storefront
+ * renders as React elements — there is no dangerouslySetInnerHTML anywhere in
+ * the CMS render path, so stored content cannot inject markup.
+ */
+
+export type CmsDocumentBlock =
+  | { type: "heading"; text: string; level?: 2 | 3 }
+  | { type: "paragraph"; text: string }
+  | { type: "list"; items: { title?: string; text: string }[]; ordered?: boolean; icon?: "check" | "plain" }
+  | { type: "cards"; cols?: 2 | 3; items: { icon?: string; title: string; text: string }[] }
+  | { type: "note"; title?: string; text: string }
+  | { type: "table"; head: string[]; rows: string[][]; footnote?: string }
+  | { type: "steps"; title: string; intro: string; items: { label: string; text: string }[] }
+  | { type: "banner"; title: string; text: string }
+  | { type: "quote"; text: string; attribution?: string }
+  | { type: "image"; src: string; alt: string; caption?: string }
+  | { type: "cta"; label: string; href: string; note?: string }
+  | { type: "divider" }
+  /** Opaque marker — the renderer pulls live shipping figures from public settings. */
+  | { type: "shippingTiers" };
+
+/** A titled group of blocks. Simple pages use one section; policy-style
+ *  documents use several (rendered with a table of contents). */
+export interface CmsSection {
+  /** Stable anchor id for TOC + scroll targets (optional on simple pages). */
+  id?: string;
+  eyebrow?: string;
+  title?: string;
+  /** Short label for the table of contents; falls back to the title. */
+  toc?: string;
+  blocks: CmsDocumentBlock[];
+}
+
+export type PageStatus = "draft" | "published" | "archived";
+
+export interface FaqEntry {
+  /** Category key, e.g. "orders", "shipping", "payments", "products", "returns", "gifts", "account". */
+  category: string;
+  question: string;
+  answer: string; // supports the inline markup rendered by the storefront
+}
+
+export type PageContent =
+  | { kind: "document"; lede?: string; sections: CmsSection[] }
+  | { kind: "faq"; intro?: string; entries: FaqEntry[] };
+
+export interface PageDoc extends BaseDoc {
+  slug: string; // unique, e.g. "our-story", "faq", "shipping", or a custom landing slug
+  title: string;
+  /** Built-in pages render at their established storefront URLs (about, faq,
+   *  policies…). Custom pages render at /p/{slug}. Server-managed — the admin
+   *  editor cannot change it after creation. */
+  builtIn: boolean;
+  pageType: "document" | "faq";
+  status: PageStatus;
+  content: PageContent;
+  seo?: { title?: string; description?: string; socialImage?: string };
+  /** Display name of the last admin who edited (audit trail carries the full record). */
+  updatedByName?: string;
+}
+
+/** Whitelisted projection of a published page for public storefront consumption. */
+export interface PublicPageDoc {
+  slug: string;
+  title: string;
+  builtIn: boolean;
+  pageType: "document" | "faq";
+  status: PageStatus;
+  updatedAt: number;
+  content: PageContent;
+  seo?: { title?: string; description?: string; socialImage?: string };
+}
+
+export type NavLocation = "header" | "footer-care" | "footer-legal";
+
+export interface NavigationItemDoc extends BaseDoc {
+  location: NavLocation;
+  label: string;
+  /** Destination kind — resolved server-side into a validated href. */
+  kind: "home" | "shop" | "category" | "page" | "href";
+  categorySlug?: string; // when kind=category
+  pageSlug?: string; // when kind=page
+  /** When kind=href — a site-rooted path (/…) or an absolute http(s) URL. */
+  href?: string;
+  sortOrder: number;
+  enabled: boolean;
+}
+
+/** Resolved public navigation entry — only valid, published destinations survive. */
+export interface PublicNavigationItem {
+  label: string;
+  href: string;
+  location: NavLocation;
+  sortOrder: number;
+}
+
+/** Homepage section content (collection `homepage`, singleton doc id "global").
+ *  Hero copy intentionally stays in SettingsDoc.storefront — the Homepage
+ *  console edits it through the same settings API. Empty strings / missing
+ *  fields mean "use the approved design default" (same contract as the hero). */
+export interface HomepageDoc extends BaseDoc {
+  collections: {
+    enabled: boolean;
+    heading?: string;
+    items: {
+      categorySlug: string;
+      eyebrow?: string;
+      title?: string;
+      description?: string;
+      image?: string;
+    }[];
+  };
+  trust: {
+    enabled: boolean;
+    items: { title: string; description: string }[];
+  };
+  story: {
+    enabled: boolean;
+    eyebrow?: string;
+    title?: string;
+    quote?: string;
+    text?: string;
+    image?: string;
+    ctaHref?: string;
+    ctaLabel?: string;
+  };
+  gifting: {
+    enabled: boolean;
+    eyebrow?: string;
+    title?: string;
+    copy?: string;
+    image?: string;
+    ctaHref?: string;
+    ctaLabel?: string;
+    productSlug?: string;
   };
 }

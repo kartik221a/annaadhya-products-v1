@@ -4,9 +4,38 @@ import { IconLeaf } from "./icons";
 import { NewsletterForm } from "./newsletter-form";
 
 /** Approved editorial footer — warm ivory canvas, gold hairline, four columns.
- *  Rendered once from the root layout; pages must not add their own footer. */
-export function Footer({ categories }: { categories: { slug: string; name: string }[] }) {
+ *  Rendered once from the root layout; pages must not add their own footer.
+ *  Customer-care and legal links come from the admin Navigation manager when it
+ *  has saved items for those locations; the curated defaults below are the
+ *  fallback (API offline / empty CMS configuration). */
+export function Footer({
+  categories,
+  careLinks,
+  legalLinks,
+}: {
+  categories: { slug: string; name: string }[];
+  careLinks?: { href: string; label: string }[];
+  legalLinks?: { href: string; label: string }[];
+}) {
   const year = new Date().getFullYear();
+  const CARE =
+    careLinks && careLinks.length > 0
+      ? careLinks
+      : [
+          { href: "/faq", label: "Frequently Asked Questions" },
+          { href: "/policies/shipping", label: "Shipping & Delivery" },
+          { href: "/policies/returns", label: "Returns & Replacements" },
+          { href: "/account", label: "Track Your Order" },
+          { href: "/contact", label: "Contact Us" },
+        ];
+  const LEGAL =
+    legalLinks && legalLinks.length > 0
+      ? legalLinks
+      : [
+          { href: "/policies/privacy", label: "Privacy Policy" },
+          { href: "/policies/terms", label: "Terms & Conditions" },
+          { href: "/policies/shipping", label: "Shipping & Returns" },
+        ];
   return (
     <footer className="w-full border-t border-gold-deep/30 bg-ivory text-umber">
       <div className="mx-auto max-w-7xl px-margin-mobile pb-space-lg pt-space-xl lg:px-margin">
@@ -47,11 +76,13 @@ export function Footer({ categories }: { categories: { slug: string; name: strin
           <nav aria-label="Customer care">
             <h4 className="font-display mb-space-md text-[1.25rem] font-semibold text-umber">Customer Care</h4>
             <ul className="space-y-space-sm text-body-sm text-umber-soft">
-              <li><Link className="transition-colors hover:text-primary" href="/faq">Frequently Asked Questions</Link></li>
-              <li><Link className="transition-colors hover:text-primary" href="/policies/shipping">Shipping &amp; Delivery</Link></li>
-              <li><Link className="transition-colors hover:text-primary" href="/policies/returns">Returns &amp; Replacements</Link></li>
-              <li><Link className="transition-colors hover:text-primary" href="/account">Track Your Order</Link></li>
-              <li><Link className="transition-colors hover:text-primary" href="/contact">Contact Us</Link></li>
+              {CARE.map((l) => (
+                <li key={l.href}>
+                  <Link className="transition-colors hover:text-primary" href={l.href}>
+                    {l.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </nav>
 
@@ -89,17 +120,14 @@ export function Footer({ categories }: { categories: { slug: string; name: strin
         <div className="flex flex-col items-center justify-between gap-space-sm border-t border-gold-deep/20 pt-space-md text-label-sm text-umber-soft sm:flex-row">
           <p>© {year} Annaadhya Products. All rights reserved.</p>
           <div className="flex items-center gap-space-md">
-            <Link className="transition-colors hover:text-primary" href="/policies/privacy">
-              Privacy Policy
-            </Link>
-            <span aria-hidden>•</span>
-            <Link className="transition-colors hover:text-primary" href="/policies/terms">
-              Terms &amp; Conditions
-            </Link>
-            <span aria-hidden>•</span>
-            <Link className="transition-colors hover:text-primary" href="/policies/shipping">
-              Shipping &amp; Returns
-            </Link>
+            {LEGAL.map((l, i) => (
+              <span key={l.href} className="flex items-center gap-space-md">
+                {i > 0 ? <span aria-hidden>•</span> : null}
+                <Link className="transition-colors hover:text-primary" href={l.href}>
+                  {l.label}
+                </Link>
+              </span>
+            ))}
           </div>
         </div>
       </div>

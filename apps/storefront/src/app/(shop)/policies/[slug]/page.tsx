@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getPublicSettings } from "@/lib/api";
+import { getPage, getPublicSettings } from "@/lib/api";
 import { POLICIES, POLICY_ORDER, type PolicyDoc } from "@/lib/policies";
 import { PolicyBlockRenderer } from "@/components/policy/policy-blocks";
 import { PolicyToc } from "@/components/policy/policy-toc";
+import { CmsDocument } from "@/components/blocks/document-blocks";
 import {
   IconBadgeCheck,
   IconChevronRight,
@@ -51,8 +52,19 @@ export function generateStaticParams() {
   return POLICY_ORDER.map((slug) => ({ slug }));
 }
 
+/** ISR keeps the built-in policy rendering fresh; the CMS branch (Admin → Pages)
+ *  refreshes via the same window plus the API's on-demand revalidation push. */
+export const revalidate = 60;
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
+  const cmsPage = await getPage(slug);
+  if (cmsPage) {
+    return {
+      title: cmsPage.seo?.title || cmsPage.title,
+      description: cmsPage.seo?.description || undefined,
+    };
+  }
   const policy = POLICIES[slug];
   if (!policy) return { title: "Policy" };
   return {
@@ -69,6 +81,28 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function PolicyPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+
+  // Admin-published CMS version wins (Admin → Storefront → Pages, slug = policy
+  // slug). Unpublished/absent docs fall back to the approved built-in rendering.
+  const cmsPage = await getPage(slug);
+  if (cmsPage) {
+    return (
+      <CmsDocument page={cmsPage}>
+        <nav aria-label="Related policies" className="flex flex-wrap gap-space-md border-t border-gold-deep/25 pt-space-lg">
+          {POLICY_ORDER.filter((s) => s !== slug).map((s) => (
+            <Link
+              key={s}
+              href={`/policies/${s}`}
+              className="rounded-full border border-outline-variant/60 px-space-md py-space-xs text-label-md text-primary transition-colors hover:bg-surface-container-low"
+            >
+              {POLICIES[s]?.shortLabel ?? s}
+            </Link>
+          ))}
+        </nav>
+      </CmsDocument>
+    );
+  }
+
   const policy: PolicyDoc | undefined = POLICIES[slug];
   if (!policy) notFound();
 

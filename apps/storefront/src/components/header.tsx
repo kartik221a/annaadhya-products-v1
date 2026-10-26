@@ -23,8 +23,10 @@ import {
 } from "./icons";
 
 /** Primary navigation — real routes and catalogue slugs. "Gift Hampers" points at the
- *  gift-boxes category, whose page shows an honest "coming soon" state (isReady: false). */
-const NAV = [
+ *  gift-boxes category, whose page shows an honest "coming soon" state (isReady: false).
+ *  This is the FALLBACK: when the admin Navigation manager has saved items, the
+ *  header renders the stored navigation instead (see navItems prop). */
+export const DEFAULT_NAV = [
   { href: "/", label: "Home" },
   { href: "/shop", label: "Shop All" },
   { href: "/category/honey", label: "Honey" },
@@ -39,7 +41,7 @@ function isActivePath(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function Header() {
+export function Header({ navItems }: { navItems?: { href: string; label: string }[] }) {
   const { count, subtotalPaise, ready } = useCart();
   const wishlist = useWishlist();
   const { principal, signOut } = useAuth();
@@ -49,6 +51,9 @@ export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  // Admin-managed navigation wins; the curated default keeps the header complete
+  // when the CMS has no header items (or the API is offline).
+  const NAV = navItems && navItems.length > 0 ? navItems : DEFAULT_NAV;
 
   useEffect(() => {
     setMenuOpen(false);

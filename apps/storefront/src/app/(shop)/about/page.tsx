@@ -14,8 +14,10 @@ import {
   IconSparkles,
   IconSunrise,
 } from "@/components/icons";
+import { getPage } from "@/lib/api";
+import { CmsDocument } from "@/components/blocks/document-blocks";
 
-export const metadata: Metadata = {
+const ABOUT_METADATA: Metadata = {
   title: "Our Story",
   description:
     "The story behind Annaadhya Products — a thoughtful Indian pantry of honey, Kashmiri kesar, dry fruits and festive hampers, curated for everyday rituals and meaningful gifting.",
@@ -125,7 +127,28 @@ const PILLARS = [
  *  no client JS, no data fetching beyond the shared (shop) shell. Copy follows the
  *  approved design with claims kept to the established editorial voice (see
  *  category-editorial.tsx): qualitative storytelling only, honesty stance preserved. */
-export default function AboutPage() {
+/** Our Story page. Admin → Storefront → Pages can publish an editable version of
+ *  this page (slug "our-story"); once published it renders through the reusable
+ *  CMS document template. Until then (or when the CMS doc is unpublished) the
+ *  approved built-in design below renders unchanged — the live page never goes blank. */
+export async function generateMetadata(): Promise<Metadata> {
+  const page = await getPage("our-story");
+  if (page?.seo?.title || page?.seo?.description) {
+    return {
+      title: page.seo?.title || "Our Story",
+      description: page.seo?.description,
+    };
+  }
+  return ABOUT_METADATA;
+}
+
+export default async function AboutPage() {
+  const page = await getPage("our-story");
+  if (page) return <CmsDocument page={page} />;
+  return <BuiltInOurStory />;
+}
+
+function BuiltInOurStory() {
   return (
     <div className="flex w-full flex-col">
       {/* ---------------- Section 1 · Hero ---------------- */}

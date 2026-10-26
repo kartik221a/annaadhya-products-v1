@@ -35,6 +35,11 @@ const envSchema = z.object({
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional(),
 
+  // Storefront cache revalidation (CMS freshness). Optional: when unset, the
+  // storefront still picks up content changes via its time-based revalidation.
+  STOREFRONT_REVALIDATE_URL: z.string().url().optional(),
+  STOREFRONT_REVALIDATE_SECRET: z.string().min(16).optional(),
+
   // Behaviour
   CHECKOUT_QUOTE_TTL_MINUTES: z.coerce.number().int().min(5).max(120).default(15),
   STOCK_RESERVATION_TTL_MINUTES: z.coerce.number().int().min(5).max(240).default(30),

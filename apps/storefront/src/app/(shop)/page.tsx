@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { getBestsellers, getCategories, getFeatured, getProduct, getPublicSettings } from "@/lib/api";
+import { getBestsellers, getCategories, getFeatured, getHomepageConfig, getProduct, getPublicSettings } from "@/lib/api";
 import { formatINR, minVariantPricePaise } from "@/lib/format";
 import { ProductGrid, ProductCardSkeleton } from "@/components/product-card";
 import { NewsletterForm } from "@/components/newsletter-form";
@@ -78,11 +78,12 @@ const TRUST = [
 ] as const;
 
 export default async function HomePage() {
-  const [categories, featured, bestsellers, settings] = await Promise.all([
+  const [categories, featured, bestsellers, settings, cms] = await Promise.all([
     getCategories(),
     getFeatured(),
     getBestsellers(),
     getPublicSettings(),
+    getHomepageConfig(),
   ]);
 
   // Owner-controlled hero copy + feature flags (Admin → Settings). Blank strings
@@ -101,8 +102,38 @@ export default async function HomePage() {
   const apiOffline = categories.length === 0 && featured.length === 0 && bestsellers.length === 0;
 
   const bySlug = new Map(categories.map((c) => [c.slug, c]));
+
+  // ------------------------- CMS homepage overrides -------------------------
+  // Admin → Storefront → Homepage. Missing fields fall back to the approved
+  // design defaults below, so a fresh CMS doc changes nothing visually.
+  const collectionsEnabled = cms?.collections.enabled ?? true;
+  const collectionsHeading = cms?.collections.heading?.trim() || "Explore Our Treasures";
+  const cmsCollections = new Map(
+    (cms?.collections.items ?? []).filter((i) => i.categorySlug).map((i) => [i.categorySlug, i]),
+  );
+  const trustEnabled = cms?.trust.enabled ?? true;
+  const cmsTrust = cms?.trust.items ?? [];
+  const storyEnabled = cms?.story.enabled ?? true;
+  const cs = cms?.story;
+  const storyEyebrow = cs?.eyebrow?.trim() || "Our Culinary Heritage";
+  const storyTitle = cs?.title?.trim() || "A Part of Our Traditions.";
+  const storyTitleAccent = cs?.title?.trim() ? "" : "A Place in Every Home.";
+  const storyText = cs?.text?.trim() || "From everyday kitchen rituals to auspicious celebrations, the ingredients we choose bring flavour, warmth, and meaning to the moments we share.";
+  const storyQuote = cs?.quote?.trim() || "Purity isn’t an added feature, it is the only true starting point.";
+  const storyQuoteAttribution = cs?.quote?.trim() ? "" : "— Agrarian Almanac";
+  const storyImage = cs?.image?.trim() || "/images/story-heritage-kitchen.webp";
+  const storyCtaHref = cs?.ctaHref?.trim() || "/about";
+  const storyCtaLabel = cs?.ctaLabel?.trim() || "Discover Annaadhya";
+  const giftingEnabled = cms?.gifting.enabled ?? true;
+  const g = cms?.gifting;
+  const giftingTitle = g?.title?.trim() || "Make Every Celebration";
+  const giftingTitleAccent = g?.title?.trim() ? "" : "More Thoughtful.";
+  const giftingCopy = g?.copy?.trim() || "Curated gourmet gifts designed to bring traditional warmth and everyday indulgence to festivals, family gatherings, and meaningful milestones.";
+  const giftingCtaHref = g?.ctaHref?.trim() || "/category/gift-boxes";
+  const giftingCtaLabel = g?.ctaLabel?.trim() || "Explore Gift Hampers";
+
   // Real gifting product from the catalogue (giftItem in seed). Renders only if it exists.
-  const giftProduct = await getProduct("annaadhya-kesar-rajat");
+  const giftProduct = await getProduct(g?.productSlug?.trim() || "annaadhya-kesar-rajat");
   const giftPrice = giftProduct
     ? minVariantPricePaise(giftProduct.variants.filter((v) => v.status === "published"))
     : null;
@@ -221,10 +252,20 @@ export default async function HomePage() {
       </section>
 
       {/* ---------------- Trust indicators ---------------- */}
+      {trustEnabled && (
       <section className="w-full bg-surface-container-low py-space-xl">
         <div className="mx-auto max-w-[1320px] px-margin-mobile lg:px-margin">
           <div className="grid grid-cols-1 gap-space-md sm:grid-cols-2 lg:grid-cols-4">
-            {TRUST.map((t) => (
+            {(cmsTrust.length > 0
+              ? cmsTrust.map((t, i) => ({
+                  title: t.title,
+                  copy: t.description,
+                  // Admin-managed trust cards cycle the approved icon/tonal set.
+                  icon: TRUST[i % TRUST.length].icon,
+                  tone: TRUST[i % TRUST.length].tone,
+                }))
+              : TRUST.map((t) => ({ title: t.title, copy: t.copy, icon: t.icon, tone: t.tone }))
+            ).map((t) => (
               <div
                 key={t.title}
                 className="group flex flex-col rounded-lg bg-surface-container-lowest p-space-lg shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md"
@@ -239,13 +280,15 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+      )}
 
       {/* ---------------- Signature collections ---------------- */}
+      {collectionsEnabled && (
       <section className="w-full bg-background py-space-xl lg:py-24">
         <div className="mx-auto max-w-[1320px] px-margin-mobile lg:px-margin">
           <div className="mx-auto mb-space-xl flex max-w-2xl flex-col items-center text-center">
             <span className="mb-space-xs text-label-md uppercase tracking-[0.2em] text-primary">The Everyday Pantry</span>
-            <h2 className="font-display mb-space-sm text-headline-lg-mobile lg:text-headline-lg text-on-surface">Explore Our Treasures</h2>
+            <h2 className="font-display mb-space-sm text-headline-lg-mobile lg:text-headline-lg text-on-surface">{collectionsHeading}</h2>
             <p className="text-body-md text-on-surface-variant">
               Discover pantry essentials selected for everyday rituals, thoughtful indulgence, and meaningful gifting.
             </p>
@@ -255,6 +298,11 @@ export default async function HomePage() {
             {COLLECTIONS.map((col) => {
               const category = bySlug.get(col.slug);
               if (!category) return null; // catalogue truth wins — no invented categories
+              const over = cmsCollections.get(col.slug);
+              const image = over?.image?.trim() || col.image;
+              const badge = over?.eyebrow?.trim() || col.badge;
+              const copy = over?.description?.trim() || col.copy;
+              const cta = over?.title?.trim() || col.cta;
               return (
                 <Link
                   key={col.slug}
@@ -263,24 +311,24 @@ export default async function HomePage() {
                 >
                   <div className="relative h-64 w-full overflow-hidden bg-surface-container sm:h-80">
                     <Image
-                      src={col.image}
-                      alt={col.alt}
+                      src={image}
+                      alt={over?.image?.trim() ? `${category.name} collection` : col.alt}
                       fill
                       sizes="(max-width: 768px) 100vw, 33vw"
                       className="object-cover object-center transition-transform duration-700 group-hover:scale-105"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-inverse-surface/50 via-transparent to-transparent opacity-80 transition-opacity group-hover:opacity-60" aria-hidden />
                     <span className="absolute left-4 top-4 rounded-full bg-surface-container-lowest/90 px-3.5 py-1 text-label-sm font-bold uppercase tracking-wider text-primary backdrop-blur-md">
-                      {col.badge}
+                      {badge}
                     </span>
                   </div>
                   <div className="flex flex-grow flex-col p-space-lg">
                     <h3 className="mb-space-xs text-headline-md text-on-surface transition-colors group-hover:text-primary">
                       {category.name}
                     </h3>
-                    <p className="mb-space-md flex-grow text-body-md text-on-surface-variant">{col.copy}</p>
+                    <p className="mb-space-md flex-grow text-body-md text-on-surface-variant">{copy}</p>
                     <span className="inline-flex items-center gap-space-xs text-label-lg text-primary transition-colors group-hover:text-primary-container">
-                      {col.cta}
+                      {cta}
                       <IconArrowRight size={18} className="transition-transform duration-300 group-hover:translate-x-1" />
                     </span>
                   </div>
@@ -290,6 +338,7 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+      )}
 
       {/* ---------------- Featured products ---------------- */}
       <section className="w-full bg-surface-container-low py-space-xl lg:py-24">
@@ -331,6 +380,7 @@ export default async function HomePage() {
       </section>
 
       {/* ---------------- Heritage story ---------------- */}
+      {storyEnabled && (
       <section className="w-full overflow-hidden bg-background py-space-xl lg:py-28">
         <div className="mx-auto max-w-[1320px] px-margin-mobile lg:px-margin">
           <div className="grid grid-cols-1 items-center gap-space-xl lg:grid-cols-12">
@@ -339,38 +389,48 @@ export default async function HomePage() {
               <div className="relative mx-auto max-w-md lg:max-w-none">
                 <div className="absolute -inset-3 -rotate-1 rounded-t-[160px] rounded-b-2xl bg-surface-container-high" aria-hidden />
                 <div className="relative overflow-hidden rounded-t-[150px] rounded-b-xl shadow-xl">
-                  <Image
-                    src="/images/story-heritage-kitchen.webp"
-                    alt="Sunlit traditional Indian kitchen with a brass thali, honey jar and jali window light"
-                    width={1200}
-                    height={896}
-                    sizes="(max-width: 1024px) 90vw, 42vw"
-                    className="h-[380px] w-full object-cover object-center transition-transform duration-700 hover:scale-105 sm:h-[520px]"
-                  />
+                  {storyImage.startsWith("http") ? (
+                    // Owner-configured external story image renders as-is (unoptimized).
+                     
+                    <img
+                      src={storyImage}
+                      alt="Annaadhya heritage story"
+                      className="h-[380px] w-full object-cover object-center transition-transform duration-700 hover:scale-105 sm:h-[520px]"
+                    />
+                  ) : (
+                    <Image
+                      src={storyImage}
+                      alt="Sunlit traditional Indian kitchen with a brass thali, honey jar and jali window light"
+                      width={1200}
+                      height={896}
+                      sizes="(max-width: 1024px) 90vw, 42vw"
+                      className="h-[380px] w-full object-cover object-center transition-transform duration-700 hover:scale-105 sm:h-[520px]"
+                    />
+                  )}
                   <div className="absolute inset-0 bg-gradient-to-t from-inverse-surface/30 via-transparent to-transparent" aria-hidden />
                 </div>
                 {/* Floating quote card */}
                 <div className="absolute -bottom-6 -right-4 hidden max-w-[240px] rounded-xl bg-surface-container-lowest p-space-md shadow-xl sm:block">
                   <p className="font-display text-[1rem] italic leading-snug text-primary-container">
-                    &ldquo;Purity isn&rsquo;t an added feature, it is the only true starting point.&rdquo;
+                    &ldquo;{storyQuote}&rdquo;
                   </p>
-                  <span className="mt-2 block text-[0.625rem] font-bold uppercase tracking-wider text-on-surface-variant">
-                    — Agrarian Almanac
-                  </span>
+                  {storyQuoteAttribution ? (
+                    <span className="mt-2 block text-[0.625rem] font-bold uppercase tracking-wider text-on-surface-variant">
+                      {storyQuoteAttribution}
+                    </span>
+                  ) : null}
                 </div>
               </div>
             </div>
 
             {/* Right magazine narrative */}
             <div className="space-y-space-md lg:col-span-7 lg:pl-space-xl">
-              <span className="text-label-md uppercase tracking-[0.2em] text-primary">Our Culinary Heritage</span>
+              <span className="text-label-md uppercase tracking-[0.2em] text-primary">{storyEyebrow}</span>
               <h2 className="font-display text-headline-lg-mobile lg:text-headline-lg text-on-surface">
-                A Part of Our Traditions. <br />
-                <span className="font-normal italic text-primary">A Place in Every Home.</span>
+                {storyTitle}{storyTitleAccent ? <> <br /><span className="font-normal italic text-primary">{storyTitleAccent}</span></> : null}
               </h2>
               <p className="text-body-lg leading-relaxed text-on-surface-variant">
-                From everyday kitchen rituals to auspicious celebrations, the ingredients we choose bring
-                flavour, warmth, and meaning to the moments we share.
+                {storyText}
               </p>
 
               <div className="grid grid-cols-1 gap-space-md pt-space-xs sm:grid-cols-2">
@@ -395,17 +455,18 @@ export default async function HomePage() {
               </div>
 
               <div className="pt-space-md">
-                <Link href="/about" className="btn-primary inline-flex items-center justify-center px-8 py-3.5 text-label-lg">
-                  Discover Annaadhya
+                <Link href={storyCtaHref} className="btn-primary inline-flex items-center justify-center px-8 py-3.5 text-label-lg">
+                  {storyCtaLabel}
                 </Link>
               </div>
             </div>
           </div>
         </div>
       </section>
+      )}
 
-      {/* ---------------- Premium gifting banner (feature-flagged in settings) ---------------- */}
-      {giftCollectionEnabled && (
+      {/* ---------------- Premium gifting banner (feature-flagged in settings + CMS) ---------------- */}
+      {giftCollectionEnabled && giftingEnabled && (
       <section className="relative w-full overflow-hidden bg-primary-container py-space-xl text-on-primary lg:py-24">
         <div className="pointer-events-none absolute -bottom-32 -left-32 h-96 w-96 rounded-full bg-on-tertiary-container/10 blur-3xl" aria-hidden />
         <div className="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full bg-surface-container-lowest/5 blur-3xl" aria-hidden />
@@ -417,19 +478,17 @@ export default async function HomePage() {
                 <span className="text-label-sm font-bold uppercase tracking-[0.2em] text-tertiary-fixed">Thoughtful Celebrations</span>
               </div>
               <h2 className="font-display text-display-lg-mobile lg:text-display-lg leading-tight tracking-tight text-surface">
-                Make Every Celebration <br />
-                <span className="font-normal italic text-tertiary-fixed">More Thoughtful.</span>
+                {giftingTitle}{giftingTitleAccent ? <> <br /><span className="font-normal italic text-tertiary-fixed">{giftingTitleAccent}</span></> : null}
               </h2>
               <p className="max-w-lg text-body-lg leading-relaxed text-surface-variant">
-                Curated gourmet gifts designed to bring traditional warmth and everyday indulgence to
-                festivals, family gatherings, and meaningful milestones.
+                {giftingCopy}
               </p>
               <div className="flex flex-wrap items-center gap-space-md pt-space-xs">
                 <Link
-                  href="/category/gift-boxes"
+                  href={giftingCtaHref}
                   className="inline-flex items-center justify-center rounded-sm bg-on-tertiary-container px-8 py-3.5 text-label-lg text-tertiary shadow-md transition-all duration-300 hover:bg-tertiary-fixed hover:shadow-lg"
                 >
-                  Explore Gift Hampers
+                  {giftingCtaLabel}
                 </Link>
                 <Link
                   href="/contact"

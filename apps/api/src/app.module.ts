@@ -13,6 +13,10 @@ import type { PaymentProvider } from "./modules/payments/provider.interface";
 import { AuditService } from "./modules/audit/audit.service";
 import { SettingsService } from "./modules/settings/settings.service";
 import { CatalogueService } from "./modules/catalogue/catalogue.service";
+import { PagesService } from "./modules/content/pages.service";
+import { NavigationService } from "./modules/content/navigation.service";
+import { HomepageService } from "./modules/content/homepage.service";
+import { AdminContentController, PublicContentController } from "./modules/content/content.controllers";
 import { CheckoutService } from "./modules/checkout/checkout.service";
 import { MockPaymentProvider } from "./modules/payments/mock.provider";
 import { RazorpayProvider } from "./modules/payments/razorpay.provider";
@@ -89,6 +93,8 @@ const paymentProviderFactories: Provider[] = [
     TeamController,
     SettingsController,
     PublicSettingsController,
+    PublicContentController,
+    AdminContentController,
     AuditController,
     HealthController,
     NewsletterController,
@@ -100,6 +106,9 @@ const paymentProviderFactories: Provider[] = [
     AuditService,
     SettingsService,
     CatalogueService,
+    PagesService,
+    NavigationService,
+    HomepageService,
     {
       provide: CheckoutService,
       useFactory: (data: DataClient, settings: SettingsService, audit: AuditService, env: ApiEnv, providers: PaymentProvider[]) =>

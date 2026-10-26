@@ -80,6 +80,19 @@ async function boot(): Promise<void> {
     SwaggerModule.setup("api/docs", app, document);
   });
 
+  // CMS: ensure the built-in storefront pages exist (idempotent — never overwrites
+  // existing docs). Runs for every provider so a fresh deployment serves the
+  // shipped page content through the CMS without a manual seeding step.
+  try {
+    const { PagesService } = await step("import PagesService (CMS)", () =>
+      import("./modules/content/pages.service"),
+    );
+    const pages = app.get(PagesService);
+    await pages.ensureDefaults();
+  } catch (err) {
+    console.warn("[cms] Built-in page seeding failed:", err instanceof Error ? err.message : err);
+  }
+
   // Mock-mode convenience: auto-seed the in-memory provider so the demo store is usable instantly.
   if (env.DATA_PROVIDER === "memory") {
     try {

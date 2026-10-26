@@ -157,3 +157,83 @@ export interface PublicStoreSettings {
     freeAbovePaise: number | null;
   };
 }
+
+/* --------------------------------------- CMS ------------------------------------ */
+
+/** Mirrors CmsDocumentBlock from @annaadhya/contracts. CMS text is structured
+ *  data — the storefront renders it as React elements (never raw HTML). */
+export type CmsDocumentBlock =
+  | { type: "heading"; text: string; level?: 2 | 3 }
+  | { type: "paragraph"; text: string }
+  | { type: "list"; items: { title?: string; text: string }[]; ordered?: boolean; icon?: "check" | "plain" }
+  | { type: "cards"; cols?: 2 | 3; items: { icon?: string; title: string; text: string }[] }
+  | { type: "note"; title?: string; text: string }
+  | { type: "table"; head: string[]; rows: string[][]; footnote?: string }
+  | { type: "steps"; title: string; intro: string; items: { label: string; text: string }[] }
+  | { type: "banner"; title: string; text: string }
+  | { type: "quote"; text: string; attribution?: string }
+  | { type: "image"; src: string; alt: string; caption?: string }
+  | { type: "cta"; label: string; href: string; note?: string }
+  | { type: "divider" }
+  | { type: "shippingTiers" };
+
+export interface CmsSection {
+  id?: string;
+  eyebrow?: string;
+  title?: string;
+  toc?: string;
+  blocks: CmsDocumentBlock[];
+}
+
+export type PageContent =
+  | { kind: "document"; lede?: string; sections: CmsSection[] }
+  | { kind: "faq"; intro?: string; entries: { category: string; question: string; answer: string }[] };
+
+/** Response of GET /pages/:slug — published pages only. */
+export interface PublicPageDoc {
+  slug: string;
+  title: string;
+  builtIn: boolean;
+  pageType: "document" | "faq";
+  status: "draft" | "published" | "archived";
+  updatedAt: number;
+  content: PageContent;
+  seo?: { title?: string; description?: string; socialImage?: string };
+}
+
+export interface PublicNavigationItem {
+  label: string;
+  href: string;
+  location: "header" | "footer-care" | "footer-legal";
+  sortOrder: number;
+}
+
+/** Response of GET /homepage — section overrides; empty = approved default. */
+export interface HomepageDoc {
+  collections: {
+    enabled: boolean;
+    heading?: string;
+    items: { categorySlug: string; eyebrow?: string; title?: string; description?: string; image?: string }[];
+  };
+  trust: { enabled: boolean; items: { title: string; description: string }[] };
+  story: {
+    enabled: boolean;
+    eyebrow?: string;
+    title?: string;
+    quote?: string;
+    text?: string;
+    image?: string;
+    ctaHref?: string;
+    ctaLabel?: string;
+  };
+  gifting: {
+    enabled: boolean;
+    eyebrow?: string;
+    title?: string;
+    copy?: string;
+    image?: string;
+    ctaHref?: string;
+    ctaLabel?: string;
+    productSlug?: string;
+  };
+}

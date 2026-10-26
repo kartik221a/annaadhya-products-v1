@@ -128,10 +128,47 @@ export const IconAudit = ({ className = "" }: { className?: string }) => (
   </svg>
 );
 
+/* --------------------------- Storefront (CMS) icons --------------------------- */
+
+/** Pages — a document sheet with folded corner + text lines. */
+export const IconPages = ({ className = "" }: { className?: string }) => (
+  <svg className={className} {...svgProps} aria-hidden>
+    <path d="M14 3H7a1.8 1.8 0 0 0-1.8 1.8v14.4A1.8 1.8 0 0 0 7 21h10a1.8 1.8 0 0 0 1.8-1.8V7.8L14 3Z" />
+    <path d="M14 3v4.8h4.8" />
+    <path d="M9 12h6M9 15.5h6M9 8.5h2" />
+  </svg>
+);
+
+/** Navigation — compass rose (navbar + footer link management). */
+export const IconNavigation = ({ className = "" }: { className?: string }) => (
+  <svg className={className} {...svgProps} aria-hidden>
+    <circle cx="12" cy="12" r="9" />
+    <path d="m15.5 8.5-2 5-5 2 2-5 5-2Z" />
+  </svg>
+);
+
+/** Homepage — a storefront awning over a shopfront. */
+export const IconHomepage = ({ className = "" }: { className?: string }) => (
+  <svg className={className} {...svgProps} aria-hidden>
+    <path d="M4 10 5.3 4.5h13.4L20 10" />
+    <path d="M4 10a2.4 2.4 0 0 0 4.8 0 2.4 2.4 0 0 0 4.8 0 2.4 2.4 0 0 0 4.8 0 2.4 2.4 0 0 0 1.6 2.26V20H4v-7.74A2.4 2.4 0 0 0 4 10Z" />
+    <path d="M9.5 20v-5h5v5" />
+  </svg>
+);
+
+/** Categories — drawer with labelled shelves (category management). */
+export const IconCategories = ({ className = "" }: { className?: string }) => (
+  <svg className={className} {...svgProps} aria-hidden>
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <path d="M3 9.5h18M3 14.5h18" />
+    <path d="M7 6.75h.01M7 12h.01M7 17.25h.01" />
+  </svg>
+);
+
 /**
- * Sidebar sections in the approved design order: OVERVIEW → COMMERCE →
- * OPERATIONS → INSIGHTS → ADMINISTRATION. Items link to the routes that
- * actually exist in this app; permission gating stays per-item.
+ * Sidebar sections in the approved design order: OVERVIEW → STOREFRONT →
+ * COMMERCE → OPERATIONS → INSIGHTS → ADMINISTRATION. Items link to the routes
+ * that actually exist in this app; permission gating stays per-item.
  */
 export const NAV_GROUPS: NavGroup[] = [
   {
@@ -139,6 +176,16 @@ export const NAV_GROUPS: NavGroup[] = [
     iconClass: "text-primary",
     items: [
       { href: "/dashboard", label: "Dashboard", permission: "dashboard:read", icon: IconDashboard },
+    ],
+  },
+  {
+    title: "Storefront",
+    iconClass: "text-primary",
+    items: [
+      { href: "/pages", label: "Pages", permission: "content:read", icon: IconPages },
+      { href: "/categories", label: "Categories", permission: "categories:read", icon: IconCategories },
+      { href: "/navigation", label: "Navigation", permission: "content:read", icon: IconNavigation },
+      { href: "/homepage", label: "Homepage", permission: "content:read", icon: IconHomepage },
     ],
   },
   {

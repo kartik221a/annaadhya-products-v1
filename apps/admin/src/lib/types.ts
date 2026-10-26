@@ -120,6 +120,7 @@ export interface CategoryDoc extends BaseDoc {
   isReady: boolean;
   heroImage?: string;
   status: ProductStatus;
+  seo?: { title?: string; description?: string };
 }
 
 export interface ProductImage {
@@ -945,3 +946,95 @@ export const EXPORT_TYPES = [
   "newsletter_subscribers",
 ] as const;
 export type ExportType = (typeof EXPORT_TYPES)[number];
+
+/* ---------------------------------- CMS ------------------------------------- */
+
+/** Mirrors the CMS types in @annaadhya/contracts (client-safe subset). */
+
+export type CmsDocumentBlock =
+  | { type: "heading"; text: string; level?: 2 | 3 }
+  | { type: "paragraph"; text: string }
+  | { type: "list"; items: { title?: string; text: string }[]; ordered?: boolean; icon?: "check" | "plain" }
+  | { type: "cards"; cols?: 2 | 3; items: { icon?: string; title: string; text: string }[] }
+  | { type: "note"; title?: string; text: string }
+  | { type: "table"; head: string[]; rows: string[][]; footnote?: string }
+  | { type: "steps"; title: string; intro: string; items: { label: string; text: string }[] }
+  | { type: "banner"; title: string; text: string }
+  | { type: "quote"; text: string; attribution?: string }
+  | { type: "image"; src: string; alt: string; caption?: string }
+  | { type: "cta"; label: string; href: string; note?: string }
+  | { type: "divider" }
+  | { type: "shippingTiers" };
+
+export interface CmsSection {
+  id?: string;
+  eyebrow?: string;
+  title?: string;
+  toc?: string;
+  blocks: CmsDocumentBlock[];
+}
+
+export interface FaqEntry {
+  category: string;
+  question: string;
+  answer: string;
+}
+
+export type CmsPageContent =
+  | { kind: "document"; lede?: string; sections: CmsSection[] }
+  | { kind: "faq"; intro?: string; entries: FaqEntry[] };
+
+export type PageStatus = "draft" | "published" | "archived";
+
+export interface PageDoc extends BaseDoc {
+  slug: string;
+  title: string;
+  builtIn: boolean;
+  pageType: "document" | "faq";
+  status: PageStatus;
+  content: CmsPageContent;
+  seo?: { title?: string; description?: string; socialImage?: string };
+  updatedByName?: string;
+}
+
+export type NavLocation = "header" | "footer-care" | "footer-legal";
+
+export interface NavigationItemDoc extends BaseDoc {
+  location: NavLocation;
+  label: string;
+  kind: "home" | "shop" | "category" | "page" | "href";
+  categorySlug?: string;
+  pageSlug?: string;
+  href?: string;
+  sortOrder: number;
+  enabled: boolean;
+}
+
+export interface HomepageDoc extends BaseDoc {
+  collections: {
+    enabled: boolean;
+    heading?: string;
+    items: { categorySlug: string; eyebrow?: string; title?: string; description?: string; image?: string }[];
+  };
+  trust: { enabled: boolean; items: { title: string; description: string }[] };
+  story: {
+    enabled: boolean;
+    eyebrow?: string;
+    title?: string;
+    quote?: string;
+    text?: string;
+    image?: string;
+    ctaHref?: string;
+    ctaLabel?: string;
+  };
+  gifting: {
+    enabled: boolean;
+    eyebrow?: string;
+    title?: string;
+    copy?: string;
+    image?: string;
+    ctaHref?: string;
+    ctaLabel?: string;
+    productSlug?: string;
+  };
+}

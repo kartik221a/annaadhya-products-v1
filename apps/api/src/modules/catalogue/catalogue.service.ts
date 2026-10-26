@@ -14,7 +14,7 @@ import {
   type CategoryUpsertDto,
   type ProductVariantDoc,
 } from "@annaadhya/contracts";
-import { conflict, notFound, type DataClient } from "@annaadhya/data-core";
+import { conflict, notFound, validationFailed, type DataClient } from "@annaadhya/data-core";
 import { DATA_CLIENT } from "../../data/data.module";
 import { sanitizeRichText, slugify, stripHtml } from "@annaadhya/utils";
 
@@ -81,6 +81,10 @@ export class CatalogueService {
       limit: 1,
     });
     return rows[0] ?? null;
+  }
+
+  async getCategoryById(id: string): Promise<CategoryDoc | null> {
+    return this.data.get<CategoryDoc>(COLLECTIONS.categories, id);
   }
 
   async listProducts(q: ListQueryDto): Promise<Page<ProductWithVariants>> {
@@ -403,12 +407,47 @@ export class CatalogueService {
       isReady: dto.isReady,
       heroImage: dto.heroImage,
       status: dto.status,
+      seo: dto.seo,
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
       isDemo: existing?.isDemo ?? false,
     };
     await this.data.set(COLLECTIONS.categories, id, doc);
     return doc;
+  }
+
+  /**
+   * Safe delete: a category with assigned products is refused unless the caller
+   * explicitly reassigns them to another existing category. Products (including
+   * archived ones and their order-history snapshots) are never silently lost.
+   */
+  async deleteCategory(
+    categoryId: string,
+    reassignTo?: string,
+  ): Promise<{ deleted: true; reassignedProducts: number }> {
+    const category = await this.data.get<CategoryDoc>(COLLECTIONS.categories, categoryId);
+    if (!category) throw notFound("Category not found");
+    const assigned = await this.data.list<ProductDoc>(COLLECTIONS.products, {
+      where: [{ field: "categoryId", op: "==", value: categoryId }],
+    });
+    if (assigned.length > 0 && !reassignTo) {
+      throw conflict(
+        `${assigned.length} product(s) are still assigned to "${category.name}". ` +
+          "Reassign them to another category or archive them first.",
+      );
+    }
+    if (reassignTo) {
+      if (reassignTo === categoryId) {
+        throw validationFailed("Cannot reassign products to the category being deleted");
+      }
+      const target = await this.data.get<CategoryDoc>(COLLECTIONS.categories, reassignTo);
+      if (!target) throw notFound("Reassignment target category not found");
+      for (const p of assigned) {
+        await this.data.update(COLLECTIONS.products, p.id, { categoryId: reassignTo });
+      }
+    }
+    await this.data.delete(COLLECTIONS.categories, categoryId);
+    return { deleted: true, reassignedProducts: assigned.length };
   }
 
   async archiveProduct(productId: string): Promise<void> {

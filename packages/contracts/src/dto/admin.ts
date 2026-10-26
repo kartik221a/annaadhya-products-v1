@@ -111,6 +111,12 @@ export const categoryUpsertSchema = z.object({
   isReady: z.boolean().default(false),
   heroImage: z.string().url().max(600).optional(),
   status: z.enum(["draft", "published", "archived"]).default("published"),
+  seo: z
+    .object({
+      title: z.string().trim().max(180).optional(),
+      description: z.string().trim().max(300).optional(),
+    })
+    .optional(),
 });
 export type CategoryUpsertDto = z.infer<typeof categoryUpsertSchema>;
 
@@ -623,3 +629,274 @@ export const customerNoteUpdateSchema = z.object({
   note: z.string().trim().max(2000),
 });
 export type CustomerNoteUpdateDto = z.infer<typeof customerNoteUpdateSchema>;
+
+/* --------------------------------------- CMS ------------------------------------ */
+
+/** CMS inline markup text: **bold**, *italic*, [label](href) — rendered as React
+ *  elements by the storefront. Raw HTML is never accepted or stored. */
+const cmsText = (max: number) => z.string().trim().max(max);
+
+const cmsHrefSchema = z
+  .string()
+  .trim()
+  .max(600)
+  .refine(
+    (v) => v.startsWith("/") || /^https?:\/\/.+/i.test(v),
+    "Destination must be a site path (/…) or an absolute http(s) URL",
+  );
+
+const cmsImageUrlSchema = z
+  .string()
+  .trim()
+  .max(600)
+  .refine(
+    (v) => /^https?:\/\/.+/i.test(v) || v.startsWith("/"),
+    "Image URL must be absolute (https://…) or a site-rooted path (/…)",
+  );
+
+export const cmsBlockSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("heading"),
+    text: cmsText(300),
+    level: z.union([z.literal(2), z.literal(3)]).optional(),
+  }),
+  z.object({ type: z.literal("paragraph"), text: cmsText(8000) }),
+  z.object({
+    type: z.literal("list"),
+    items: z
+      .array(
+        z.object({
+          title: cmsText(200).optional(),
+          text: cmsText(2000),
+        }),
+      )
+      .min(1)
+      .max(40),
+    ordered: z.boolean().optional(),
+    icon: z.enum(["check", "plain"]).optional(),
+  }),
+  z.object({
+    type: z.literal("cards"),
+    cols: z.union([z.literal(2), z.literal(3)]).optional(),
+    items: z
+      .array(
+        z.object({
+          icon: cmsText(40).optional(),
+          title: cmsText(200),
+          text: cmsText(1200),
+        }),
+      )
+      .min(1)
+      .max(12),
+  }),
+  z.object({
+    type: z.literal("note"),
+    title: cmsText(200).optional(),
+    text: cmsText(2000),
+  }),
+  z.object({
+    type: z.literal("table"),
+    head: z.array(cmsText(120)).min(1).max(8),
+    rows: z.array(z.array(cmsText(400)).max(8)).max(60),
+    footnote: cmsText(400).optional(),
+  }),
+  z.object({
+    type: z.literal("steps"),
+    title: cmsText(200),
+    intro: cmsText(1000),
+    items: z
+      .array(z.object({ label: cmsText(160), text: cmsText(1200) }))
+      .min(1)
+      .max(12),
+  }),
+  z.object({
+    type: z.literal("banner"),
+    title: cmsText(200),
+    text: cmsText(1200),
+  }),
+  z.object({
+    type: z.literal("quote"),
+    text: cmsText(1200),
+    attribution: cmsText(160).optional(),
+  }),
+  z.object({
+    type: z.literal("image"),
+    src: cmsImageUrlSchema,
+    alt: cmsText(300),
+    caption: cmsText(300).optional(),
+  }),
+  z.object({
+    type: z.literal("cta"),
+    label: cmsText(80),
+    href: cmsHrefSchema,
+    note: cmsText(200).optional(),
+  }),
+  z.object({ type: z.literal("divider") }),
+  z.object({ type: z.literal("shippingTiers") }),
+]);
+export type CmsBlockDto = z.infer<typeof cmsBlockSchema>;
+
+export const cmsSectionSchema = z.object({
+  id: z
+    .string()
+    .trim()
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Section id must be lowercase-with-dashes")
+    .max(96)
+    .optional(),
+  eyebrow: cmsText(120).optional(),
+  title: cmsText(200).optional(),
+  toc: cmsText(80).optional(),
+  blocks: z.array(cmsBlockSchema).max(120).default([]),
+});
+export type CmsSectionDto = z.infer<typeof cmsSectionSchema>;
+
+export const cmsFaqEntrySchema = z.object({
+  category: cmsText(60),
+  question: cmsText(300),
+  answer: cmsText(4000),
+});
+export type CmsFaqEntryDto = z.infer<typeof cmsFaqEntrySchema>;
+
+export const pageContentSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("document"),
+    lede: cmsText(600).optional(),
+    sections: z.array(cmsSectionSchema).max(30).default([]),
+  }),
+  z.object({
+    kind: z.literal("faq"),
+    intro: cmsText(600).optional(),
+    entries: z.array(cmsFaqEntrySchema).max(120).default([]),
+  }),
+]);
+export type PageContentDto = z.infer<typeof pageContentSchema>;
+
+/** Create/update a CMS page. Drafts may be saved empty; publishing is validated
+ *  server-side. `builtIn` is never accepted from the client. */
+export const pageUpsertSchema = z.object({
+  slug: z
+    .string()
+    .trim()
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug must be lowercase-with-dashes")
+    .max(96),
+  title: z.string().trim().min(2).max(160),
+  pageType: z.enum(["document", "faq"]).default("document"),
+  status: z.enum(["draft", "published", "archived"]).default("draft"),
+  content: pageContentSchema,
+  seo: z
+    .object({
+      title: cmsText(180).optional(),
+      description: cmsText(300).optional(),
+      socialImage: cmsImageUrlSchema.optional(),
+    })
+    .optional(),
+});
+export type PageUpsertDto = z.infer<typeof pageUpsertSchema>;
+
+export const pageStatusUpdateSchema = z.object({
+  status: z.enum(["draft", "published", "archived"]),
+});
+export type PageStatusUpdateDto = z.infer<typeof pageStatusUpdateSchema>;
+
+export const navigationItemUpsertSchema = z
+  .object({
+    location: z.enum(["header", "footer-care", "footer-legal"]),
+    label: z.string().trim().min(1).max(60),
+    kind: z.enum(["home", "shop", "category", "page", "href"]),
+    categorySlug: z
+      .string()
+      .trim()
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug must be lowercase-with-dashes")
+      .max(96)
+      .optional(),
+    pageSlug: z
+      .string()
+      .trim()
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug must be lowercase-with-dashes")
+      .max(96)
+      .optional(),
+    href: cmsHrefSchema.optional(),
+    sortOrder: z.number().int().min(0).max(999).default(0),
+    enabled: z.boolean().default(true),
+  })
+  .superRefine((v, ctx) => {
+    if (v.kind === "category" && !v.categorySlug) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["categorySlug"], message: "Choose a category" });
+    }
+    if (v.kind === "page" && !v.pageSlug) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["pageSlug"], message: "Choose a page" });
+    }
+    if (v.kind === "href" && !v.href) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["href"], message: "Enter a destination path or URL" });
+    }
+  });
+export type NavigationItemUpsertDto = z.infer<typeof navigationItemUpsertSchema>;
+
+export const homepageUpdateSchema = z.object({
+  collections: z
+    .object({
+      enabled: z.boolean().optional(),
+      heading: cmsText(120).optional(),
+      items: z
+        .array(
+          z.object({
+            categorySlug: z
+              .string()
+              .trim()
+              .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug must be lowercase-with-dashes")
+              .max(96),
+            eyebrow: cmsText(120).optional(),
+            title: cmsText(120).optional(),
+            description: cmsText(400).optional(),
+            image: cmsImageUrlSchema.optional(),
+          }),
+        )
+        .max(12)
+        .optional(),
+    })
+    .optional(),
+  trust: z
+    .object({
+      enabled: z.boolean().optional(),
+      items: z
+        .array(
+          z.object({
+            title: cmsText(120),
+            description: cmsText(400),
+          }),
+        )
+        .max(8)
+        .optional(),
+    })
+    .optional(),
+  story: z
+    .object({
+      enabled: z.boolean().optional(),
+      eyebrow: cmsText(120).optional(),
+      title: cmsText(200).optional(),
+      quote: cmsText(600).optional(),
+      text: cmsText(1200).optional(),
+      image: cmsImageUrlSchema.optional(),
+      ctaHref: cmsHrefSchema.optional(),
+      ctaLabel: cmsText(80).optional(),
+    })
+    .optional(),
+  gifting: z
+    .object({
+      enabled: z.boolean().optional(),
+      eyebrow: cmsText(120).optional(),
+      title: cmsText(200).optional(),
+      copy: cmsText(800).optional(),
+      image: cmsImageUrlSchema.optional(),
+      ctaHref: cmsHrefSchema.optional(),
+      ctaLabel: cmsText(80).optional(),
+      productSlug: z
+        .string()
+        .trim()
+        .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug must be lowercase-with-dashes")
+        .max(96)
+        .optional(),
+    })
+    .optional(),
+});
+export type HomepageUpdateDto = z.infer<typeof homepageUpdateSchema>;

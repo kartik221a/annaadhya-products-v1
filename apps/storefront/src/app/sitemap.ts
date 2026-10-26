@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { getCategories, getProducts } from "@/lib/api";
+import { getPublishedPages } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
@@ -33,5 +34,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.9,
   }));
 
-  return [...statics, ...categoryUrls, ...productUrls];
+  // CMS custom pages (Admin → Storefront → Pages) — published docs only; drafts
+  // and archived pages never appear in the public sitemap.
+  const pages = await getPublishedPages();
+  const customPageUrls: MetadataRoute.Sitemap = pages
+    .filter((p) => !p.builtIn)
+    .map((p) => ({
+      url: `${base}/p/${p.slug}`,
+      lastModified: new Date(p.updatedAt || Date.now()),
+      changeFrequency: "monthly" as const,
+      priority: 0.5,
+    }));
+
+  return [...statics, ...categoryUrls, ...productUrls, ...customPageUrls];
 }
