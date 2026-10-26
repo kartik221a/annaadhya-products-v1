@@ -83,15 +83,18 @@ async function boot(): Promise<void> {
   // CMS: ensure the built-in storefront pages exist (idempotent — never overwrites
   // existing docs). Runs for every provider so a fresh deployment serves the
   // shipped page content through the CMS without a manual seeding step.
-  try {
-    const { PagesService } = await step("import PagesService (CMS)", () =>
-      import("./modules/content/pages.service"),
-    );
-    const pages = app.get(PagesService);
-    await pages.ensureDefaults();
-  } catch (err) {
-    console.warn("[cms] Built-in page seeding failed:", err instanceof Error ? err.message : err);
-  }
+  // Fire-and-forget on purpose: serverless cold starts must not wait on Firestore
+  // round-trips (a blocked init shows up as FUNCTION_INVOCATION_FAILED). The admin
+  // pages list re-runs ensureDefaults lazily, so a skipped boot pass self-heals.
+  void (async () => {
+    try {
+      const { PagesService } = await import("./modules/content/pages.service");
+      const pages = app.get(PagesService);
+      await pages.ensureDefaults();
+    } catch (err) {
+      console.warn("[cms] Built-in page seeding failed:", err instanceof Error ? err.message : err);
+    }
+  })();
 
   // Mock-mode convenience: auto-seed the in-memory provider so the demo store is usable instantly.
   if (env.DATA_PROVIDER === "memory") {
