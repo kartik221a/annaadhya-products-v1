@@ -75,13 +75,17 @@ export async function apiGetAuth<T>(path: string, token: string): Promise<T> {
 /* --------------------------- server-side catalogue --------------------------- */
 
 export async function getCategories(): Promise<CategoryDoc[]> {
-  return (await apiGet<CategoryDoc[]>("/categories", 120)) ?? [];
+  // Tagged "cms"+"categories" so the API's category-mutation webhook (fires on
+  // create/update/delete — including archiving) refreshes these reads within
+  // seconds; the 120s window is only the safety net for a missed push.
+  return (await apiGet<CategoryDoc[]>("/categories", 120, ["categories", "cms"])) ?? [];
 }
 
 /** One roundtrip for the shop page: every category + its sellable product count + the total.
- *  Replaces the old pattern of one products request per category pill (N+1 fan-out). */
+ *  Replaces the old pattern of one products request per category pill (N+1 fan-out).
+ *  Tagged like getCategories so archived categories leave every cached render fast. */
 export async function getCategoryOverview(): Promise<CategoryOverview | null> {
-  return apiGet<CategoryOverview>("/categories/overview", 120);
+  return apiGet<CategoryOverview>("/categories/overview", 120, ["categories", "cms"]);
 }
 
 export async function getProducts(params: URLSearchParams): Promise<Page<ProductWithVariantsShape> | null> {

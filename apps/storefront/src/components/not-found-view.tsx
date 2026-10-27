@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
-import { getPublicSettings } from "@/lib/api";
+import { getCategoryOverview, getPublicSettings } from "@/lib/api";
+import { pruneDeadCategoryLinks } from "@/lib/navigation-guard";
 import {
   IconArrowRight,
   IconBadgeCheck,
@@ -70,8 +71,13 @@ const TREASURY = [
 ] as const;
 
 export async function NotFoundView() {
-  const settings = await getPublicSettings();
+  const [settings, overview] = await Promise.all([getPublicSettings(), getCategoryOverview()]);
   const supportEmail = settings?.store.supportEmail?.trim() ?? "";
+  // The treasury cards follow the live catalogue like every other storefront
+  // surface: an archived category's card is dropped (no 404-into-404 loops),
+  // and an unreachable API skips the prune (fail-open).
+  const publishedSlugs = overview ? new Set(overview.categories.map((c) => c.slug)) : null;
+  const treasury = pruneDeadCategoryLinks(TREASURY, publishedSlugs);
 
   return (
     <div className="bg-surface">
@@ -247,7 +253,7 @@ export async function NotFoundView() {
             </div>
 
             <div className="grid grid-cols-1 gap-space-md sm:grid-cols-2 lg:grid-cols-3">
-              {TREASURY.map((card) => (
+              {treasury.map((card) => (
                 <Link
                   key={card.href}
                   href={card.href}

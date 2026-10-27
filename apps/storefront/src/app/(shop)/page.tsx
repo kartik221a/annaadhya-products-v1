@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { getBestsellers, getCategories, getFeatured, getHomepageConfig, getProduct, getPublicSettings } from "@/lib/api";
+import { safeCategoryHref } from "@/lib/navigation-guard";
 import { formatINR, minVariantPricePaise } from "@/lib/format";
 import { ProductGrid, ProductCardSkeleton } from "@/components/product-card";
 import { NewsletterForm } from "@/components/newsletter-form";
@@ -90,10 +91,16 @@ export default async function HomePage() {
   // mean "use the approved design default"; null settings (API offline during
   // build/preview) keep the fully-designed hero and both sections visible.
   const sf = settings?.storefront;
+  // CMS-configurable CTAs must never land on a 404: when the saved (or design
+  // default) destination is a category that is not live right now — archived,
+  // draft or missing — the button falls back to a page that always exists.
+  // Non-category hrefs pass through untouched; API-offline renders skip the
+  // guard (fail-open, nothing to compare against).
+  const liveCategorySlugs = new Set(categories.map((c) => c.slug));
   const heroHeadline = sf?.heroHeadline?.trim() ?? "";
   const heroSubcopy = sf?.heroSubcopy?.trim() ?? "";
   const heroImage = sf?.heroImage?.trim() ?? "";
-  const heroCtaHref = sf?.heroCtaHref?.trim() || "/shop";
+  const heroCtaHref = safeCategoryHref(sf?.heroCtaHref?.trim() || "/shop", liveCategorySlugs, "/shop");
   const heroCtaLabel = sf?.heroCtaLabel?.trim() || "Shop All Products";
   const newsletterEnabled = sf?.newsletterEnabled ?? true;
   const giftCollectionEnabled = sf?.giftCollectionEnabled ?? true;
@@ -122,14 +129,15 @@ export default async function HomePage() {
   const storyQuote = cs?.quote?.trim() || "Purity isn’t an added feature, it is the only true starting point.";
   const storyQuoteAttribution = cs?.quote?.trim() ? "" : "— Agrarian Almanac";
   const storyImage = cs?.image?.trim() || "/images/story-heritage-kitchen.webp";
-  const storyCtaHref = cs?.ctaHref?.trim() || "/about";
+  const storyCtaHref = safeCategoryHref(cs?.ctaHref?.trim() || "/about", liveCategorySlugs, "/about");
   const storyCtaLabel = cs?.ctaLabel?.trim() || "Discover Annaadhya";
   const giftingEnabled = cms?.gifting.enabled ?? true;
   const g = cms?.gifting;
   const giftingTitle = g?.title?.trim() || "Make Every Celebration";
   const giftingTitleAccent = g?.title?.trim() ? "" : "More Thoughtful.";
   const giftingCopy = g?.copy?.trim() || "Curated gourmet gifts designed to bring traditional warmth and everyday indulgence to festivals, family gatherings, and meaningful milestones.";
-  const giftingCtaHref = g?.ctaHref?.trim() || "/category/gift-boxes";
+  const rawGiftingCta = g?.ctaHref?.trim() || "/category/gift-boxes";
+  const giftingCtaHref = safeCategoryHref(rawGiftingCta, liveCategorySlugs, "/shop");
   const giftingCtaLabel = g?.ctaLabel?.trim() || "Explore Gift Hampers";
 
   // Real gifting product from the catalogue (giftItem in seed). Renders only if it exists.

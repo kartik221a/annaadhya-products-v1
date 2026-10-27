@@ -7,15 +7,23 @@ import { NewsletterForm } from "./newsletter-form";
  *  Rendered once from the root layout; pages must not add their own footer.
  *  Customer-care and legal links come from the admin Navigation manager when it
  *  has saved items for those locations; the curated defaults below are the
- *  fallback (API offline / empty CMS configuration). */
+ *  fallback (API offline / empty CMS configuration).
+ *  Category links always follow the live catalogue: the static Gift Hampers
+ *  entry renders ONLY when the catalogue itself is unreachable (`catalogueUnavailable`)
+ *  — when the API answered, its list is the truth and an archived category is
+ *  never resurrected here. */
 export function Footer({
   categories,
   careLinks,
   legalLinks,
+  catalogueUnavailable = false,
 }: {
   categories: { slug: string; name: string }[];
   careLinks?: { href: string; label: string }[];
   legalLinks?: { href: string; label: string }[];
+  /** True only when the catalogue API could not be read — the one case where
+   *  the static curated category entries are safer than an empty column. */
+  catalogueUnavailable?: boolean;
 }) {
   const year = new Date().getFullYear();
   const CARE =
@@ -64,11 +72,11 @@ export function Footer({
                   </Link>
                 </li>
               ))}
-              {/* Fallback only: the catalogue already lists Gift Hampers via the API —
-                  render this static link solely when it is absent (API offline / empty). */}
-              {categories.some((c) => c.slug === "gift-boxes") ? null : (
+              {/* Offline-only fallback: when the catalogue answered, its list is the
+                  truth — an archived category must never be resurrected here. */}
+              {catalogueUnavailable && !categories.some((c) => c.slug === "gift-boxes") ? (
                 <li><Link className="transition-colors hover:text-primary" href="/category/gift-boxes">Gift Hampers</Link></li>
-              )}
+              ) : null}
             </ul>
           </nav>
 

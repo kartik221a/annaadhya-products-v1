@@ -25,16 +25,11 @@ import {
 /** Primary navigation — real routes and catalogue slugs. "Gift Hampers" points at the
  *  gift-boxes category, whose page shows an honest "coming soon" state (isReady: false).
  *  This is the FALLBACK: when the admin Navigation manager has saved items, the
- *  header renders the stored navigation instead (see navItems prop). */
-export const DEFAULT_NAV = [
-  { href: "/", label: "Home" },
-  { href: "/shop", label: "Shop All" },
-  { href: "/category/honey", label: "Honey" },
-  { href: "/category/kesar", label: "Kesar" },
-  { href: "/category/dry-fruits", label: "Dry Fruits" },
-  { href: "/category/gift-boxes", label: "Gift Hampers" },
-  { href: "/about", label: "Our Story" },
-];
+ *  header renders the stored navigation instead (see navItems prop). The (shop)
+ *  layout pre-prunes BOTH lists against the live catalogue, so an archived
+ *  category disappears from the navbar automatically. The list itself lives in
+ *  lib/default-nav.ts (server-safe import for the layout's prune pass). */
+import { DEFAULT_NAV } from "@/lib/default-nav";
 
 function isActivePath(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/";

@@ -129,8 +129,17 @@ export class NavigationService {
         if (!page) return null;
         return storefrontUrlForPage(page);
       }
-      case "href":
-        return item.href ?? null;
+      case "href": {
+        const raw = item.href ?? null;
+        if (!raw) return null;
+        // A custom URL that lands on a category page must obey the same
+        // catalogue rules as a category link: archived / draft / deleted
+        // destinations are dropped, never rendered as public dead links.
+        // (Keep the URL rule in sync with apps/storefront navigation-guard.)
+        const slug = /^\/category\/([^/?#]+?)\/?$/.exec(raw)?.[1];
+        if (slug && !categoryBySlug.has(decodeURIComponent(slug))) return null;
+        return raw;
+      }
       default:
         return null;
     }
