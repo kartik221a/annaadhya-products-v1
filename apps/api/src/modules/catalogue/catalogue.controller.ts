@@ -10,6 +10,7 @@ import {
   type ListQueryDto,
   type ProductUpsertDto,
 } from "@annaadhya/contracts";
+import { notFound } from "@annaadhya/data-core";
 import { CurrentUser, Protected, Public, RequirePermissions } from "../../common/auth/guards";
 import { ZodValidationPipe } from "../../common/validation/zod.pipe";
 import { CatalogueService } from "./catalogue.service";
@@ -37,7 +38,12 @@ export class CatalogueController {
   @Public()
   @Get("categories/:slug")
   async category(@Param("slug") slug: string) {
-    return this.catalogue.getCategoryBySlug(slug);
+    // Public surface: published categories only — drafts and archived categories are
+    // administrative states and must never leak through this endpoint (the storefront's
+    // own category page reads the published-only overview, so archived slugs 404 there).
+    const doc = await this.catalogue.getCategoryBySlug(slug);
+    if (!doc || doc.status !== "published") throw notFound("Category not found");
+    return doc;
   }
 
   @Public()
@@ -223,6 +229,9 @@ export class AdminCatalogueController {
   @Protected("categories:read")
   @RequirePermissions("categories:read")
   async allCategories() {
-    return this.catalogue.listCategories(true);
+    // Admin console: EVERY lifecycle status — drafts and archived included. The
+    // console's Archived/Drafts filters are unusable if the API pre-filters to
+    // published (archiving used to make a category vanish from the console entirely).
+    return this.catalogue.listAllCategories();
   }
 }

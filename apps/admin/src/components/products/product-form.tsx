@@ -790,6 +790,7 @@ export function ProductForm({
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
+                    {c.status !== "published" ? ` (${c.status === "archived" ? "archived" : "draft"})` : ""}
                   </option>
                 ))}
               </HeritageSelect>

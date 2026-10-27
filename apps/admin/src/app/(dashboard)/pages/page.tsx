@@ -33,6 +33,7 @@ import { EmptyState, ErrorState } from "@/components/ui/states";
 import { NewPageDialog } from "@/components/pages/new-page-dialog";
 import { pageUrlFor } from "@/components/pages/page-shared";
 import {
+  IconArchive,
   IconDoc,
   IconEdit,
   IconEyeOff,
@@ -105,7 +106,11 @@ export default function PagesPage() {
     try {
       await apiPost(`/admin/content/pages/${row.id}/status`, { status: next });
       toast.success(
-        next === "published" ? "Page published" : next === "draft" ? "Page unpublished" : "Page archived",
+        next === "published"
+          ? "Page published"
+          : next === "draft"
+            ? "Page unpublished"
+            : "Page archived",
         `${row.title} is now ${next}.`,
       );
       reload();
@@ -114,6 +119,31 @@ export default function PagesPage() {
       toast.error("Could not update the page", err instanceof ApiError ? err.message : "Unexpected error");
     } finally {
       setBusyId(null);
+    }
+  }
+
+  /* --------------------------------- archive --------------------------------- */
+  // Archiving is a lifecycle state (kept in storage, gone from the storefront, restorable)
+  // — never a delete. The status endpoint persists it server-side.
+  const [archiveTarget, setArchiveTarget] = useState<PageDoc | null>(null);
+  const [archiving, setArchiving] = useState(false);
+
+  async function confirmArchive() {
+    if (!archiveTarget) return;
+    setArchiving(true);
+    try {
+      await apiPost(`/admin/content/pages/${archiveTarget.id}/status`, { status: "archived" });
+      toast.success(
+        "Page archived",
+        `${archiveTarget.title} is retired but kept — restore it from the Archived filter anytime.`,
+      );
+      setArchiveTarget(null);
+      setStatus("archived");
+      reload();
+    } catch (err) {
+      toast.error("Could not archive the page", err instanceof ApiError ? err.message : "Unexpected error");
+    } finally {
+      setArchiving(false);
     }
   }
 
@@ -358,11 +388,34 @@ export default function PagesPage() {
                                 type="button"
                                 disabled={busy}
                                 onClick={() => void quickSetStatus(row, "published")}
-                                title="Publish"
+                                title={row.status === "archived" ? "Publish — restore to the live storefront" : "Publish"}
                                 aria-label={`Publish ${row.title}`}
                                 className="rounded-lg bg-surface-container-low p-1.5 text-on-surface-variant shadow-sm transition-colors hover:bg-surface-container hover:text-secondary disabled:cursor-not-allowed disabled:opacity-40"
                               >
                                 <IconPublish className="h-4 w-4" />
+                              </button>
+                            )}
+                            {row.status === "archived" ? (
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() => void quickSetStatus(row, "draft")}
+                                title="Restore from archive — back to draft (content is kept)"
+                                aria-label={`Restore ${row.title} from archive`}
+                                className="rounded-lg bg-surface-container-low p-1.5 text-on-surface-variant shadow-sm transition-colors hover:bg-surface-container hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                <IconRestore className="h-4 w-4" />
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() => setArchiveTarget(row)}
+                                title="Archive — retire the page, keep it restorable"
+                                aria-label={`Archive ${row.title}`}
+                                className="rounded-lg bg-surface-container-low p-1.5 text-on-surface-variant shadow-sm transition-colors hover:bg-surface-container hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                <IconArchive className="h-4 w-4" />
                               </button>
                             )}
                             {row.builtIn ? (
@@ -378,7 +431,7 @@ export default function PagesPage() {
                             ) : null}
                             {row.builtIn ? (
                               <span
-                                title="Built-in pages can't be deleted — archive them instead. Their storefront URLs are frozen."
+                                title="Built-in pages can't be deleted — their storefront URLs are frozen. Archive them instead."
                                 className="inline-flex cursor-not-allowed rounded-lg bg-surface-container-low p-1.5 text-outline opacity-60"
                               >
                                 <IconLock className="h-4 w-4" />
@@ -416,6 +469,36 @@ export default function PagesPage() {
 
       {/* Overlays */}
       <NewPageDialog open={newOpen} onClose={() => setNewOpen(false)} />
+
+      {/* Archive confirmation */}
+      <Dialog
+        open={archiveTarget !== null}
+        onClose={archiving ? () => undefined : () => setArchiveTarget(null)}
+        title="Archive this page?"
+        description="Archived pages are retired — kept in storage, gone from the storefront, restorable anytime."
+      >
+        {archiveTarget ? (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-outline-variant/40 bg-surface-container-low/60 px-3 py-2.5 text-sm">
+              <p className="font-semibold text-on-surface">{archiveTarget.title}</p>
+              <p className="mt-0.5 font-mono text-xs text-on-surface-variant">{pageUrlFor(archiveTarget)}</p>
+            </div>
+            <p className="text-sm text-on-surface-variant">
+              The URL will stop resolving on the storefront and the page drops out of the active list. Nothing is
+              deleted — the title, slug, content and SEO stay intact, and you can restore or republish it from the
+              Archived filter.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" disabled={archiving} onClick={() => setArchiveTarget(null)}>
+                Cancel
+              </Button>
+              <Button loading={archiving} onClick={() => void confirmArchive()}>
+                Archive page
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </Dialog>
 
       <Dialog
         open={restoreTarget !== null}

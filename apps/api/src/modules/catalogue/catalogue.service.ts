@@ -37,6 +37,19 @@ export class CatalogueService {
   }
 
   /**
+   * Admin read: every category across its whole lifecycle — drafts and archived
+   * included, published first-class. The admin console's status filters (Drafts /
+   * Archived / restore flows) are driven by this; the public list above stays
+   * published-only. No status where-clause: a plain ordered read serves from the
+   * automatic single-field index, so no composite index is needed.
+   */
+  async listAllCategories(): Promise<CategoryDoc[]> {
+    return this.data.list<CategoryDoc>(COLLECTIONS.categories, {
+      orderBy: [{ field: "sortOrder", direction: "asc" }],
+    });
+  }
+
+  /**
    * Shop-page overview: every published category with its sellable product count, plus the
    * total — computed in a SINGLE pass (3 collection reads) instead of one products query per
    * category. This is what lets the storefront render category pills without an N+1 fan-out.
