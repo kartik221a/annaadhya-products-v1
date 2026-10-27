@@ -11,7 +11,7 @@ import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-const ALLOWED_TAGS = new Set(["cms", "pages", "navigation", "homepage", "categories"]);
+const ALLOWED_TAGS = new Set(["cms", "pages", "navigation", "homepage", "categories", "settings"]);
 
 export async function POST(req: Request) {
   const secret = process.env.REVALIDATE_SECRET;

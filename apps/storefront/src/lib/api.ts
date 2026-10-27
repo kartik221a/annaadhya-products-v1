@@ -116,9 +116,11 @@ export async function getPlatformStatus(): Promise<{
 }
 
 /** Whitelisted store settings (support email/phone, address, socials) — powers the
- *  contact page. Null when the API is offline; callers render honest fallbacks. */
+ *  contact page. Null when the API is offline; callers render honest fallbacks.
+ *  Tagged "settings" so the /revalidate webhook (nudged by the API on every
+ *  settings save) refreshes the hero/announcement within seconds. */
 export async function getPublicSettings(): Promise<PublicStoreSettings | null> {
-  return apiGet<PublicStoreSettings>("/settings/public", 120);
+  return apiGet<PublicStoreSettings>("/settings/public", 120, ["settings"]);
 }
 
 /* -------------------------------- CMS content --------------------------------- */

@@ -4,6 +4,7 @@ import { COLLECTIONS, type PublicStoreSettings, type SettingsDoc } from "@annaad
 import { DATA_CLIENT } from "../../data/data.module";
 import type { DataClient } from "@annaadhya/data-core";
 import { defaultSettings } from "@annaadhya/data-core";
+import { pushRevalidate } from "../content/revalidate";
 
 const SETTINGS_ID = "global";
 
@@ -24,12 +25,18 @@ export class SettingsService {
     const current = await this.get();
     const merged = deepMerge(current, patch) as SettingsDoc;
     merged.updatedAt = Date.now();
-    return (await this.data.set(
+    const saved = (await this.data.set(
       COLLECTIONS.settings,
       SETTINGS_ID,
       merged as object,
       { isDemo: false },
     )) as unknown as SettingsDoc;
+    // Settings feed the storefront hero, announcement strip and contact page — nudge
+    // the storefront's on-demand revalidation (tagged "settings") so changes show up
+    // in seconds instead of waiting out the ISR TTL. Fire-and-forget by contract:
+    // pushRevalidate never throws and returns false when unconfigured.
+    await pushRevalidate({ tags: ["settings"], paths: ["/"] });
+    return saved;
   }
 
   /** Whitelisted projection for the public storefront (GET /settings/public). */

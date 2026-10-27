@@ -201,7 +201,10 @@ export default function SettingsPage() {
       const saved = await apiPost<SettingsDoc>("/admin/settings", patch);
       setForm(docToForm(saved));
       setUpdatedAt(saved.updatedAt);
-      toast.success("Settings saved", "The storefront picks these up on its next read.");
+      toast.success(
+        "Settings saved",
+        "The storefront now picks these up within seconds (instant revalidation); without revalidation configured it takes up to ~2 minutes.",
+      );
     } catch (err) {
       setFormError(err instanceof ApiError ? err.message : "Unexpected error");
     } finally {
