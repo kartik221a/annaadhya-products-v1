@@ -202,6 +202,7 @@ export default function OrdersPage() {
   const [status, setStatus] = useState<OrderStatus | "">("");
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | "">("");
   const [provider, setProvider] = useState<PaymentProviderName | "">("");
+  const [gift, setGift] = useState<"" | "true" | "false">("");
   const [preset, setPreset] = useState<RangePreset>("30d");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
@@ -256,12 +257,13 @@ export default function OrdersPage() {
         status: status || undefined,
         paymentStatus: paymentStatus || undefined,
         paymentProvider: provider || undefined,
+        gift: gift === "" ? undefined : gift,
         from: dateWindow.from,
         to: dateWindow.to,
         page,
         pageSize,
       }),
-    [search, status, paymentStatus, provider, dateWindow.from, dateWindow.to, page, pageSize],
+    [search, status, paymentStatus, provider, gift, dateWindow.from, dateWindow.to, page, pageSize],
   );
 
   // Summary cards share the table's exact date scope AND demo inclusion via the metrics
@@ -279,7 +281,7 @@ export default function OrdersPage() {
   // Any change of scope invalidates the selection (it is page-scoped by design).
   useEffect(() => {
     setSelected(new Set());
-  }, [search, status, paymentStatus, provider, preset, customFrom, customTo, page, pageSize]);
+  }, [search, status, paymentStatus, provider, gift, preset, customFrom, customTo, page, pageSize]);
 
   const orders = data?.items ?? [];
   const allOnPageSelected = orders.length > 0 && orders.every((o) => selected.has(o.id));
@@ -325,6 +327,7 @@ export default function OrdersPage() {
     setStatus("");
     setPaymentStatus("");
     setProvider("");
+    setGift("");
     setPreset("30d");
     setCustomFrom("");
     setCustomTo("");
@@ -623,6 +626,21 @@ export default function OrdersPage() {
                 ))}
               </Select>
             </div>
+            <div className="w-36">
+              <Select
+                aria-label="Filter by gift orders"
+                className="cursor-pointer bg-surface-container-low py-2 text-xs font-semibold"
+                value={gift}
+                onChange={(e) => {
+                  setGift(e.target.value as "" | "true" | "false");
+                  setPage(1);
+                }}
+              >
+                <option value="">All Order Types</option>
+                <option value="true">Gift orders</option>
+                <option value="false">Standard orders</option>
+              </Select>
+            </div>
             <button
               type="button"
               title="Reset filters"
@@ -772,6 +790,14 @@ export default function OrdersPage() {
                         >
                           {o.orderNumber}
                         </Link>
+                        {o.isGiftOrder ? (
+                          <span
+                            className="ml-2 rounded bg-primary-fixed px-1 py-0.5 text-[10px] font-bold uppercase tracking-wider text-on-primary-fixed-variant"
+                            title={`Gift order — ships to ${o.gift?.recipientName ?? o.shippingAddress.fullName}`}
+                          >
+                            Gift
+                          </span>
+                        ) : null}
                         {o.isDemo ? (
                           <span className="ml-2 rounded bg-tertiary-fixed px-1 py-0.5 text-[10px] font-bold uppercase tracking-wider text-on-tertiary-fixed-variant">
                             Demo

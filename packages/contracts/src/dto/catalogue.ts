@@ -54,22 +54,73 @@ export const addressSchema = z.object({
 export type AddressDto = z.infer<typeof addressSchema>;
 
 export const PAYMENT_METHODS = ["gateway", "cod"] as const;
-export const createOrderSchema = z.object({
-  quoteId: z.string().min(6).max(128),
-  paymentMethod: z.enum(PAYMENT_METHODS).default("gateway"),
-  customer: z.object({
-    displayName: z.string().trim().min(1).max(120),
-    email: z.string().trim().email().max(160).or(z.literal("")),
-    phone: z
+
+/** Recipient identity for "Deliver to someone else" orders. The recipient never needs an account. */
+export const giftRecipientSchema = z.object({
+  fullName: z.string().trim().min(1, "Recipient name is required").max(120),
+  phone: z
+    .string()
+    .trim()
+    .regex(/^(\+91[\s-]?)?[6-9]\d{9}$/, "Enter a valid Indian mobile number for the recipient"),
+});
+export type GiftRecipientDto = z.infer<typeof giftRecipientSchema>;
+
+export const GIFT_MESSAGE_MAX = 250;
+
+export const createOrderSchema = z
+  .object({
+    quoteId: z.string().min(6).max(128),
+    paymentMethod: z.enum(PAYMENT_METHODS).default("gateway"),
+    customer: z.object({
+      displayName: z.string().trim().min(1).max(120),
+      email: z.string().trim().email().max(160).or(z.literal("")),
+      phone: z
+        .string()
+        .trim()
+        .regex(/^(\+91[\s-]?)?[6-9]\d{9}$/, "Enter a valid Indian mobile number"),
+    }),
+    // Purchaser's own delivery address — required for normal checkout, unused in gift mode
+    // (the recipient's address becomes the shipping snapshot instead).
+    address: addressSchema.optional(),
+    acceptTerms: z.literal(true, {
+      errorMap: () => ({ message: "You must accept the terms to continue" }),
+    }),
+    // Gift delivery: when true, `recipient` + `recipientAddress` are required and the
+    // order ships to the recipient while the purchaser keeps ownership and payment.
+    deliverToSomeoneElse: z.boolean().default(false),
+    recipient: giftRecipientSchema.optional(),
+    recipientAddress: addressSchema.optional(),
+    giftMessage: z
       .string()
       .trim()
-      .regex(/^(\+91[\s-]?)?[6-9]\d{9}$/, "Enter a valid Indian mobile number"),
-  }),
-  address: addressSchema,
-  acceptTerms: z.literal(true, {
-    errorMap: () => ({ message: "You must accept the terms to continue" }),
-  }),
-});
+      .max(GIFT_MESSAGE_MAX, `Gift message must be ${GIFT_MESSAGE_MAX} characters or fewer`)
+      .optional()
+      .or(z.literal("")),
+  })
+  .superRefine((val, ctx) => {
+    if (val.deliverToSomeoneElse) {
+      if (!val.recipient) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["recipient"],
+          message: "Recipient name and phone are required when delivering to someone else",
+        });
+      }
+      if (!val.recipientAddress) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["recipientAddress"],
+          message: "The recipient's delivery address is required",
+        });
+      }
+    } else if (!val.address) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["address"],
+        message: "Delivery address is required",
+      });
+    }
+  });
 export type CreateOrderDto = z.infer<typeof createOrderSchema>;
 
 /** Saved delivery address for an authenticated customer's own profile (customers/me/addresses). */

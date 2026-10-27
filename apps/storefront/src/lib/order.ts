@@ -50,6 +50,9 @@ export interface OrderDetail {
   refundPaise: number;
   tracking?: { carrier: string; trackingNumber: string; updatedAt: number };
   cancelledReason?: string;
+  isGiftOrder?: boolean;
+  /** Present only on gift orders; shippingAddress holds the recipient's delivery snapshot. */
+  gift?: { recipientName: string; recipientPhone: string; message?: string };
   createdAt: number;
   updatedAt: number;
 }

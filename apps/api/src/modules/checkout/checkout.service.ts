@@ -133,6 +133,18 @@ export class CheckoutService {
     // No guest checkout: every order belongs to a signed-in account. The route guard
     // already enforces the bearer token; this re-check is defence in depth.
     if (!principal) throw unauthenticated("Sign in to place an order");
+
+    // Gift-mode shape check before ANY side effect (quote consumption, stock reservation):
+    // zod superRefine already enforces this for HTTP traffic; the service re-checks so direct
+    // callers can never create a half-specified gift or address-less order.
+    const isGift = dto.deliverToSomeoneElse === true;
+    if (isGift && (!dto.recipient || !dto.recipientAddress)) {
+      throw badRequest("Recipient name, phone and address are required when delivering to someone else");
+    }
+    if (!isGift && !dto.address) {
+      throw badRequest("Delivery address is required");
+    }
+
     const settings = await this.settings.get();
     const quote = await this.data.get<CheckoutQuoteDoc>(COLLECTIONS.checkoutQuotes, dto.quoteId);
     if (!quote) throw notFound("Checkout quote not found — refresh your cart and try again");
@@ -205,6 +217,34 @@ export class CheckoutService {
     const orderId = newId("ord");
     const now = Date.now();
 
+    // Gift delivery: when the purchaser chose "Deliver to someone else", the recipient's
+    // address becomes the shipping snapshot and the recipient's identity is recorded in
+    // `gift`. The purchaser keeps order ownership + payment contact; the recipient never
+    // needs an account. Validated above before any side effect — and the purchaser's
+    // saved address book is never touched by a gift order.
+    const shippingAddress: CustomerAddress = isGift
+      ? {
+          id: newId("addr"),
+          label: dto.recipientAddress!.label?.trim() || "Gift delivery",
+          fullName: dto.recipient!.fullName,
+          phone: dto.recipient!.phone,
+          line1: dto.recipientAddress!.line1,
+          line2: dto.recipientAddress!.line2 || "",
+          landmark: dto.recipientAddress!.landmark || "",
+          city: dto.recipientAddress!.city,
+          state: dto.recipientAddress!.state,
+          pincode: dto.recipientAddress!.pincode,
+          isDefault: false,
+        }
+      : ({ id: newId("addr"), ...dto.address! } as CustomerAddress);
+    const gift = isGift
+      ? {
+          recipientName: dto.recipient!.fullName,
+          recipientPhone: dto.recipient!.phone,
+          ...(dto.giftMessage && dto.giftMessage.trim().length > 0 ? { message: dto.giftMessage.trim() } : {}),
+        }
+      : undefined;
+
     const order: OrderDoc = {
       id: orderId,
       orderNumber,
@@ -216,7 +256,7 @@ export class CheckoutService {
         email: dto.customer.email ?? "",
         phone: dto.customer.phone ?? "",
       },
-      shippingAddress: { id: newId("addr"), ...dto.address } as CustomerAddress,
+      shippingAddress,
       items: [],
       subtotalPaise: quote.subtotalPaise,
       discountTotalPaise: quote.discountTotalPaise,
@@ -229,7 +269,8 @@ export class CheckoutService {
       paymentProvider: providerName,
       refundStatus: "none",
       refundPaise: 0,
-      isGiftOrder: false,
+      isGiftOrder: isGift,
+      ...(gift ? { gift } : {}),
       createdAt: now,
       updatedAt: now,
       isDemo: false,
@@ -303,7 +344,7 @@ export class CheckoutService {
         action: "order.create_cod",
         targetType: "order",
         targetId: order.id,
-        summary: `COD order ${orderNumber} created`,
+        summary: `COD order ${orderNumber} created${isGift ? ` — gift for ${gift?.recipientName}` : ""}`,
       });
       const updated = await this.data.get<OrderDoc>(COLLECTIONS.orders, order.id);
       return updated ?? order;

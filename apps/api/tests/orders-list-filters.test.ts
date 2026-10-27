@@ -111,6 +111,7 @@ async function paidOrder(index: number, customer: AuthPrincipal, name: string): 
       customer: { displayName: name, email: customer.email!, phone: "9820144520" },
       address: address(),
       acceptTerms: true,
+      deliverToSomeoneElse: false,
     },
     customer,
   );
@@ -143,6 +144,7 @@ async function unpaidOrder(index: number, customer: AuthPrincipal, name: string)
       customer: { displayName: name, email: customer.email!, phone: "9820144520" },
       address: address(),
       acceptTerms: true,
+      deliverToSomeoneElse: false,
     },
     customer,
   );
@@ -162,6 +164,7 @@ async function codOrder(index: number, customer: AuthPrincipal, name: string): P
       customer: { displayName: name, email: customer.email!, phone: "9820144520" },
       address: address(),
       acceptTerms: true,
+      deliverToSomeoneElse: false,
     },
     customer,
   );

@@ -1198,7 +1198,10 @@ export default function OrderDetailPage() {
         {/* ------------------------- context column ------------------------- */}
         <div className="space-y-6">
           <Card>
-            <CardHeader title="Customer" />
+            <CardHeader
+              title="Customer"
+              subtitle={order.isGiftOrder ? "Purchaser — placed and paid for the order" : undefined}
+            />
             <CardBody className="space-y-3">
               <div className="flex items-center gap-3">
                 <span
@@ -1231,8 +1234,48 @@ export default function OrderDetailPage() {
             </CardBody>
           </Card>
 
+          {order.isGiftOrder ? (
+            <Card>
+              <CardHeader
+                title="Gift & Delivery Details"
+                subtitle="Ship the parcel to the recipient below — not to the purchaser"
+              />
+              <CardBody className="space-y-4 text-sm">
+                <div className="rounded-lg bg-primary-fixed/40 p-3">
+                  <p className="text-xs font-bold uppercase tracking-wider text-on-primary-fixed-variant">
+                    Delivering to (recipient)
+                  </p>
+                  <p className="mt-1 font-display text-base font-semibold text-on-surface">
+                    {order.gift?.recipientName ?? order.shippingAddress.fullName}
+                  </p>
+                  <p className="text-on-surface-variant">{order.gift?.recipientPhone ?? order.shippingAddress.phone}</p>
+                </div>
+                {order.gift?.message ? (
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Gift message</p>
+                    <blockquote className="mt-1 rounded-lg bg-surface-container p-3 italic text-on-surface">
+                      &ldquo;{order.gift.message}&rdquo;
+                    </blockquote>
+                  </div>
+                ) : null}
+                <p className="text-xs text-on-surface-variant">
+                  The full shipping destination is in the Shipping address card — it is the recipient&apos;s
+                  address snapshot recorded at purchase time. Use it (and its phone) for the Shiprocket
+                  booking.
+                </p>
+              </CardBody>
+            </Card>
+          ) : null}
+
           <Card>
-            <CardHeader title="Shipping address" subtitle="Order-time snapshot — never replaced by newer defaults" />
+            <CardHeader
+              title="Shipping address"
+              subtitle={
+                order.isGiftOrder
+                  ? "Recipient's address — the order-time snapshot the parcel ships to"
+                  : "Order-time snapshot — never replaced by newer defaults"
+              }
+            />
             <CardBody className="space-y-0.5 text-sm text-on-surface-variant">
               <p className="flex items-center gap-2">
                 <span className="font-semibold text-on-surface">{order.shippingAddress.fullName}</span>

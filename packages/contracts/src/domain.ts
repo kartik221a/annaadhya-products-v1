@@ -552,6 +552,18 @@ export interface ContactMessageDoc extends BaseDoc {
 
 /* ------------------------------------ Orders ---------------------------------- */
 
+/**
+ * Gift delivery details — present on an order only when the purchaser chose
+ * "Deliver to someone else" at checkout. The purchaser remains the order owner
+ * (customerUid + customerContact); the person named here simply receives the
+ * package. `shippingAddress` on gift orders IS the recipient's delivery snapshot.
+ */
+export interface OrderGiftDetails {
+  recipientName: string;
+  recipientPhone: string;
+  message?: string; // optional free-text note, max 250 chars, sanitised at render time
+}
+
 export interface OrderDoc extends BaseDoc {
   orderNumber: string; // human-friendly, e.g. AN-2026-000123
   customerUid?: string; // null for guest checkout
@@ -572,6 +584,8 @@ export interface OrderDoc extends BaseDoc {
   tracking?: { carrier: string; trackingNumber: string; updatedAt: number };
   cancelledReason?: string;
   isGiftOrder: boolean;
+  /** Present only when isGiftOrder is true; absent on every normal order (backward compatible). */
+  gift?: OrderGiftDetails;
 }
 
 /** Historical snapshot — orders keep the exact name/price/sku at purchase time. */

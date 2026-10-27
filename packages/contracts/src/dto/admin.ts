@@ -423,6 +423,11 @@ export const orderListQuerySchema = z.object({
   status: z.enum(ORDER_STATUS_VALUES).optional(),
   paymentStatus: z.enum(["created", "pending", "succeeded", "failed", "cancelled", "refunded"]).optional(),
   paymentProvider: z.enum(PAYMENT_PROVIDERS).optional(),
+  // "true" → only gift orders, "false" → only non-gift orders; absent → no gift filtering.
+  gift: z
+    .union([z.literal("true"), z.literal("false")])
+    .transform((v) => v === "true")
+    .optional(),
   from: z.coerce.number().int().positive().optional(),
   to: z.coerce.number().int().positive().optional(),
   page: z.coerce.number().int().min(1).max(1000).default(1),

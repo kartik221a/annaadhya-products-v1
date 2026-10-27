@@ -99,6 +99,7 @@ async function paidOrder(index: number, buyer: AuthPrincipal = customerA): Promi
       customer: { displayName: "Aarav Sharma", email: buyer.email!, phone: "9820144520" },
       address: address(),
       acceptTerms: true,
+      deliverToSomeoneElse: false,
     },
     buyer,
   );

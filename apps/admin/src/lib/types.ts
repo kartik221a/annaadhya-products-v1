@@ -283,6 +283,8 @@ export interface OrderDoc extends BaseDoc {
   tracking?: { carrier: string; trackingNumber: string; updatedAt: number };
   cancelledReason?: string;
   isGiftOrder: boolean;
+  /** Present only on gift orders; shippingAddress holds the recipient's delivery snapshot. */
+  gift?: { recipientName: string; recipientPhone: string; message?: string };
 }
 
 /** Internal staff note (mirrors contracts OrderNoteDoc) — admin-visible only, never customer-facing. */

@@ -85,6 +85,7 @@ async function paidOrder(index: number, buyer: AuthPrincipal): Promise<OrderDoc>
       customer: { displayName: `Buyer ${buyer.uid}`, email: buyer.email!, phone: "9820144520" },
       address: address(buyer.email!),
       acceptTerms: true,
+      deliverToSomeoneElse: false,
     },
     buyer,
   );

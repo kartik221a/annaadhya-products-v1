@@ -34,6 +34,7 @@ import {
   IconArrowRight,
   IconBadgeCheck,
   IconCheck,
+  IconGift,
   IconMapPin,
   IconShieldCheck,
   IconShoppingBag,
@@ -147,6 +148,48 @@ function toAddressPayload(form: FormState) {
   };
 }
 
+/* ------------------------- gift delivery ("someone else") ------------------------- */
+
+const EMPTY_GIFT = {
+  fullName: "",
+  phone: "",
+  line1: "",
+  line2: "",
+  landmark: "",
+  city: "",
+  state: "Uttar Pradesh",
+  pincode: "",
+};
+type GiftFormState = typeof EMPTY_GIFT;
+
+const GIFT_MESSAGE_MAX = 250;
+
+/** Field-level validation for the gift recipient form — mirrors the API's zod rules. */
+function validateGift(gift: GiftFormState): Record<string, string> {
+  const errors: Record<string, string> = {};
+  if (gift.fullName.trim().length < 1) errors.fullName = "Recipient's name is required";
+  if (!/^(\+91[\s-]?)?[6-9]\d{9}$/.test(gift.phone.trim())) errors.phone = "Enter a valid 10-digit Indian mobile number";
+  if (gift.line1.trim().length < 3) errors.line1 = "Flat / house no. / building is required";
+  if (gift.city.trim().length < 2) errors.city = "City is required";
+  if (gift.state.trim().length < 2) errors.state = "State is required";
+  if (!/^\d{6}$/.test(gift.pincode.trim())) errors.pincode = "PIN code must be exactly 6 digits";
+  return errors;
+}
+
+function toGiftAddressPayload(gift: GiftFormState) {
+  return {
+    label: "Gift delivery",
+    fullName: gift.fullName.trim(),
+    phone: gift.phone.trim(),
+    line1: gift.line1.trim(),
+    line2: gift.line2.trim() || undefined,
+    landmark: gift.landmark.trim() || undefined,
+    city: gift.city.trim(),
+    state: gift.state.trim(),
+    pincode: gift.pincode.trim(),
+  };
+}
+
 /* ------------------------------- the view ---------------------------------- */
 
 export function CheckoutView() {
@@ -169,6 +212,15 @@ export function CheckoutView() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [savingAddress, setSavingAddress] = useState(false);
   const formRef = useRef<HTMLDivElement>(null);
+
+  // Gift delivery — "Deliver to someone else": the purchaser pays from their own account
+  // while the parcel ships to the recipient's address. The recipient never needs an
+  // account and no OTP is involved (sign-in is Google/email only).
+  const [giftMode, setGiftMode] = useState(false);
+  const [gift, setGift] = useState<GiftFormState>(EMPTY_GIFT);
+  const [giftErrors, setGiftErrors] = useState<Record<string, string>>({});
+  const [giftMessage, setGiftMessage] = useState("");
+  const [purchaserPhone, setPurchaserPhone] = useState("");
 
   const addresses = auth.customer?.addresses ?? [];
   const paymentsMode: "razorpay" | "mock" = platform?.mode.payments === "razorpay" ? "razorpay" : "mock";
@@ -197,6 +249,9 @@ export function CheckoutView() {
       phone: f.phone || auth.customer?.phone || "",
       email: f.email || auth.customer?.email || "",
     }));
+    // The gift flow needs the PURCHASER's own contact number even when the address
+    // form is never opened (profile phone may be empty — the field stays editable).
+    setPurchaserPhone((p) => p || auth.customer?.phone || "");
   }, [auth.customer?.id, auth.loading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Default-address auto-prefill: the designated default, else the profile's
@@ -226,13 +281,13 @@ export function CheckoutView() {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         items: cart.items.map((i) => ({ variantId: i.variantId, qty: i.qty })),
-        pincode: form.pincode || undefined,
+        pincode: (giftMode ? gift.pincode : form.pincode) || undefined,
       }),
     });
     const body = (await res.json()) as { ok: boolean; data?: Quote; error?: { message: string } };
     if (!body.ok || !body.data) throw new Error(body.error?.message ?? "Could not price your basket");
     return body.data;
-  }, [cart.items, form.pincode]);
+  }, [cart.items, form.pincode, giftMode, gift.pincode]);
 
   useEffect(() => {
     if (cart.ready && cart.items.length > 0 && !quote) {
@@ -308,30 +363,45 @@ export function CheckoutView() {
     e.preventDefault();
     if (paying || !quote) return;
 
-    // Resolve the delivery address: a saved selection or the open form.
-    const selected = addresses.find((a) => a.id === selectedAddressId);
-    let addressPayload: ReturnType<typeof toAddressPayload>;
-    if (selected && !formOpen) {
-      addressPayload = {
-        label: selected.label,
-        fullName: selected.fullName,
-        phone: selected.phone,
-        line1: selected.line1,
-        line2: selected.line2,
-        landmark: selected.landmark,
-        city: selected.city,
-        state: selected.state,
-        pincode: selected.pincode,
-      };
-    } else {
-      const errors = validateAddress(form);
-      setFieldErrors(errors);
-      if (Object.keys(errors).length > 0) {
-        setError("Please correct the highlighted delivery details before paying.");
-        if (!formOpen) openNewAddressForm();
+    // Resolve the delivery destination: the gift recipient, a saved selection, or the open form.
+    let addressPayload: ReturnType<typeof toAddressPayload> | null = null;
+    if (giftMode) {
+      const errors = validateGift(gift);
+      setGiftErrors(errors);
+      const purchaserPhoneOk = /^(\+91[\s-]?)?[6-9]\d{9}$/.test(purchaserPhone.trim());
+      if (Object.keys(errors).length > 0 || !purchaserPhoneOk) {
+        setError(
+          purchaserPhoneOk
+            ? "Please complete your gift recipient's name, phone and delivery address before paying."
+            : "Add your own mobile number in the gift section — order and payment updates go to you, not the recipient.",
+        );
+        document.getElementById("gift-delivery-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
         return;
       }
-      addressPayload = toAddressPayload(form);
+    } else {
+      const selected = addresses.find((a) => a.id === selectedAddressId);
+      if (selected && !formOpen) {
+        addressPayload = {
+          label: selected.label,
+          fullName: selected.fullName,
+          phone: selected.phone,
+          line1: selected.line1,
+          line2: selected.line2,
+          landmark: selected.landmark,
+          city: selected.city,
+          state: selected.state,
+          pincode: selected.pincode,
+        };
+      } else {
+        const errors = validateAddress(form);
+        setFieldErrors(errors);
+        if (Object.keys(errors).length > 0) {
+          setError("Please correct the highlighted delivery details before paying.");
+          if (!formOpen) openNewAddressForm();
+          return;
+        }
+        addressPayload = toAddressPayload(form);
+      }
     }
 
     setPaying(true);
@@ -340,7 +410,8 @@ export function CheckoutView() {
       // Signed-in + "save to profile" checked: persist the address first so the
       // order's address and the profile's address are the same data. A failure here
       // stops checkout — we never silently drop the customer's own request.
-      if (auth.customer && auth.token && formOpen && form.saveToProfile) {
+      // Gift mode never saves anything to the purchaser's address book.
+      if (!giftMode && auth.customer && auth.token && formOpen && form.saveToProfile) {
         setPayLabel("Saving your address…");
         const saved = await saveAddressToProfile();
         if (saved) setSelectedAddressId(saved.id);
@@ -360,6 +431,32 @@ export function CheckoutView() {
         return;
       }
 
+      // The purchaser's own identity stays the order contact in gift mode — the
+      // recipient's details are delivery data only and never substitute the
+      // account/payment identity (no OTP, no sign-in for the recipient).
+      const purchaserName = (auth.customer?.displayName ?? auth.principal?.displayName ?? "").trim() || "Annaadhya customer";
+      const purchaserEmail = (auth.customer?.email ?? "").trim();
+      const purchaserPhoneTrimmed = purchaserPhone.trim();
+
+      const orderPayload = giftMode
+        ? {
+            quoteId: fresh.quoteId,
+            paymentMethod: payMethod,
+            customer: { displayName: purchaserName, email: purchaserEmail, phone: purchaserPhoneTrimmed },
+            acceptTerms: true,
+            deliverToSomeoneElse: true,
+            recipient: { fullName: gift.fullName.trim(), phone: gift.phone.trim() },
+            recipientAddress: toGiftAddressPayload(gift),
+            giftMessage: giftMessage.trim() || undefined,
+          }
+        : {
+            quoteId: fresh.quoteId,
+            paymentMethod: payMethod,
+            customer: { displayName: addressPayload!.fullName, email: form.email.trim(), phone: addressPayload!.phone },
+            address: addressPayload!,
+            acceptTerms: true,
+          };
+
       setPayLabel(payMethod === "cod" ? "Placing your COD order…" : paymentsMode === "razorpay" ? "Creating your secure order…" : "Placing your order…");
       const res = await fetch(`${PUBLIC_API_URL}/checkout/orders`, {
         method: "POST",
@@ -367,13 +464,7 @@ export function CheckoutView() {
           "content-type": "application/json",
           ...(auth.token ? { authorization: `Bearer ${auth.token}` } : {}),
         },
-        body: JSON.stringify({
-          quoteId: fresh.quoteId,
-          paymentMethod: payMethod,
-          customer: { displayName: addressPayload.fullName, email: form.email.trim(), phone: addressPayload.phone },
-          address: addressPayload,
-          acceptTerms: true,
-        }),
+        body: JSON.stringify(orderPayload),
       });
       const body = (await res.json()) as {
         ok: boolean;
@@ -429,7 +520,11 @@ export function CheckoutView() {
           currency: p.currency,
           name: "Annaadhya Products",
           description: "Pantry order payment",
-          prefill: { name: addressPayload.fullName, contact: addressPayload.phone, email: form.email.trim() || undefined },
+          prefill: {
+            name: purchaserName,
+            contact: giftMode ? purchaserPhoneTrimmed : addressPayload!.phone,
+            email: purchaserEmail || form.email.trim() || undefined,
+          },
           theme: { color: "#541620" },
           handler: async (response: Record<string, string>) => {
             try {
@@ -474,6 +569,7 @@ export function CheckoutView() {
   // Derived render data — computed unconditionally (rules of hooks): the early
   // returns below must never sit between this component's hooks.
   const showSavedAddresses = Boolean(auth.customer) && addresses.length > 0;
+  const purchaserPhoneOk = /^(\+91[\s-]?)?[6-9]\d{9}$/.test(purchaserPhone.trim());
   const unavailableNames = useMemo(() => {
     if (!quote || quote.unavailable.length === 0) return [] as string[];
     return quote.unavailable.map((u) => {
@@ -610,6 +706,13 @@ export function CheckoutView() {
             </div>
 
             {/* Saved addresses (signed-in only) */}
+            {giftMode && (
+              <div className="mb-4 rounded-xl bg-tertiary-fixed/30 p-3.5 text-body-sm text-on-surface-variant">
+                <strong className="text-on-surface">Gift mode is on.</strong> This order ships straight to your
+                recipient — collect their address in the gift section below. Your own saved addresses stay saved
+                and untouched, and nothing new is added to them.
+              </div>
+            )}
             {showSavedAddresses && (
               <div className="space-y-4" role="radiogroup" aria-label="Saved delivery addresses">
                 {addresses.map((a) => {
@@ -929,6 +1032,243 @@ export function CheckoutView() {
             ) : null}
           </div>
 
+          {/* ---- Gift delivery — optional "Deliver to someone else" ---- */}
+          <div id="gift-delivery-card" className="rounded-2xl bg-surface-container-lowest p-space-md shadow-sm sm:p-space-lg">
+            <div className="mb-space-md flex flex-wrap items-start justify-between gap-space-sm border-b border-surface-container-low pb-space-md">
+              <div className="flex items-center gap-3">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-tertiary-fixed text-on-tertiary-fixed-variant">
+                  <IconGift size={17} />
+                </span>
+                <div>
+                  <h2 className="font-display text-headline-sm text-on-surface">Deliver to someone else?</h2>
+                  <p className="text-body-sm text-on-surface-variant">
+                    Sending something special? Enter the recipient&apos;s details and we&apos;ll deliver the order to them.
+                  </p>
+                </div>
+              </div>
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  className="h-5 w-5 accent-primary"
+                  checked={giftMode}
+                  onChange={(e) => {
+                    setGiftMode(e.target.checked);
+                    setGiftErrors({});
+                  }}
+                />
+                <span className="text-label-md font-semibold text-primary">{giftMode ? "Gift mode is on" : "Turn on gift mode"}</span>
+              </label>
+            </div>
+
+            {!giftMode ? (
+              <p className="text-body-sm text-on-surface-variant">
+                Tick gift mode to ship this order straight to someone special — they&apos;ll never need an account
+                and there&apos;s no OTP or sign-in for them. You still pay from your own account as usual.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {/* Recipient identity */}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="gift-fullname" className="mb-1 block text-label-sm font-medium text-on-surface">
+                      Recipient&apos;s Full Name *
+                    </label>
+                    <input
+                      id="gift-fullname"
+                      className="input-base"
+                      placeholder="e.g. Meera Singh"
+                      value={gift.fullName}
+                      onChange={(e) => setGift({ ...gift, fullName: e.target.value })}
+                      aria-invalid={Boolean(giftErrors.fullName)}
+                      aria-describedby={giftErrors.fullName ? "gift-fullname-err" : undefined}
+                    />
+                    {giftErrors.fullName && (
+                      <p id="gift-fullname-err" className="mt-1 text-label-sm text-error">{giftErrors.fullName}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label htmlFor="gift-phone" className="mb-1 block text-label-sm font-medium text-on-surface">
+                      Recipient&apos;s Mobile Number *
+                    </label>
+                    <div className="relative flex">
+                      <span className="inline-flex items-center rounded-l-lg border border-r-0 border-outline-variant bg-surface-container-high px-3 text-label-md text-on-surface">
+                        +91
+                      </span>
+                      <input
+                        id="gift-phone"
+                        className="input-base rounded-l-none"
+                        type="tel"
+                        inputMode="numeric"
+                        placeholder="10-digit mobile number"
+                        value={gift.phone}
+                        onChange={(e) => setGift({ ...gift, phone: e.target.value.replace(/[^\d+\s-]/g, "").trimStart() })}
+                        aria-invalid={Boolean(giftErrors.phone)}
+                        aria-describedby={giftErrors.phone ? "gift-phone-err" : undefined}
+                      />
+                    </div>
+                    {giftErrors.phone && (
+                      <p id="gift-phone-err" className="mt-1 text-label-sm text-error">{giftErrors.phone}</p>
+                    )}
+                  </div>
+                </div>
+                <p className="-mt-1 text-body-sm text-on-surface-variant">
+                  The recipient doesn&apos;t need an Annaadhya account — we only share these details with the
+                  courier delivering the parcel.
+                </p>
+
+                {/* Recipient address */}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="gift-pincode" className="mb-1 block text-label-sm font-medium text-on-surface">
+                      Recipient&apos;s PIN Code (6 digits) *
+                    </label>
+                    <input
+                      id="gift-pincode"
+                      className="input-base text-tabular"
+                      inputMode="numeric"
+                      maxLength={6}
+                      placeholder="250002"
+                      value={gift.pincode}
+                      onChange={(e) => setGift({ ...gift, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) })}
+                      aria-invalid={Boolean(giftErrors.pincode)}
+                      aria-describedby={giftErrors.pincode ? "gift-pincode-err" : undefined}
+                    />
+                    {giftErrors.pincode && (
+                      <p id="gift-pincode-err" className="mt-1 text-label-sm text-error">{giftErrors.pincode}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label htmlFor="gift-locality" className="mb-1 block text-label-sm font-medium text-on-surface">
+                      Locality / Sector / Area
+                    </label>
+                    <input
+                      id="gift-locality"
+                      className="input-base"
+                      placeholder="e.g. Shastri Nagar"
+                      value={gift.line2}
+                      onChange={(e) => setGift({ ...gift, line2: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="gift-street" className="mb-1 block text-label-sm font-medium text-on-surface">
+                    Flat, House No., Building, Apartment *
+                  </label>
+                  <input
+                    id="gift-street"
+                    className="input-base"
+                    placeholder="e.g. House 22, Holi Adda Road"
+                    value={gift.line1}
+                    onChange={(e) => setGift({ ...gift, line1: e.target.value })}
+                    aria-invalid={Boolean(giftErrors.line1)}
+                    aria-describedby={giftErrors.line1 ? "gift-street-err" : undefined}
+                  />
+                  {giftErrors.line1 && (
+                    <p id="gift-street-err" className="mt-1 text-label-sm text-error">{giftErrors.line1}</p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="gift-landmark" className="mb-1 block text-label-sm font-medium text-on-surface">
+                      Landmark (Optional)
+                    </label>
+                    <input
+                      id="gift-landmark"
+                      className="input-base"
+                      placeholder="e.g. Near Ghanta Ghar"
+                      value={gift.landmark}
+                      onChange={(e) => setGift({ ...gift, landmark: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                      <label htmlFor="gift-city" className="mb-1 block text-label-sm font-medium text-on-surface">
+                        City *
+                      </label>
+                      <input
+                        id="gift-city"
+                        className="input-base"
+                        placeholder="e.g. Meerut"
+                        value={gift.city}
+                        onChange={(e) => setGift({ ...gift, city: e.target.value })}
+                        aria-invalid={Boolean(giftErrors.city)}
+                        aria-describedby={giftErrors.city ? "gift-city-err" : undefined}
+                      />
+                      {giftErrors.city && (
+                        <p id="gift-city-err" className="mt-1 text-label-sm text-error">{giftErrors.city}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label htmlFor="gift-state" className="mb-1 block text-label-sm font-medium text-on-surface">
+                        State *
+                      </label>
+                      <select
+                        id="gift-state"
+                        className="input-base"
+                        value={gift.state}
+                        onChange={(e) => setGift({ ...gift, state: e.target.value })}
+                      >
+                        {STATES.map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Gift message */}
+                <div>
+                  <label htmlFor="gift-message" className="mb-1 block text-label-sm font-medium text-on-surface">
+                    Add a gift message (optional)
+                  </label>
+                  <textarea
+                    id="gift-message"
+                    className="input-base min-h-20"
+                    rows={3}
+                    maxLength={GIFT_MESSAGE_MAX}
+                    placeholder="Write a short message for the recipient…"
+                    value={giftMessage}
+                    onChange={(e) => setGiftMessage(e.target.value.slice(0, GIFT_MESSAGE_MAX))}
+                  />
+                  <p className="mt-1 text-right text-label-sm text-on-surface-variant">
+                    {giftMessage.length}/{GIFT_MESSAGE_MAX}
+                  </p>
+                </div>
+
+                {/* Purchaser contact — order/payment updates go to the buyer, never the recipient */}
+                <div className="rounded-xl bg-surface-container p-4">
+                  <label htmlFor="gift-purchaser-phone" className="mb-1 block text-label-sm font-semibold text-on-surface">
+                    Your mobile number (for order &amp; payment updates) *
+                  </label>
+                  <p className="mb-2.5 text-body-sm text-on-surface-variant">
+                    Confirmation, payment receipts and tracking go to you — the recipient only meets the courier.
+                  </p>
+                  <div className="relative flex max-w-xs">
+                    <span className="inline-flex items-center rounded-l-lg border border-r-0 border-outline-variant bg-surface-container-high px-3 text-label-md text-on-surface">
+                      +91
+                    </span>
+                    <input
+                      id="gift-purchaser-phone"
+                      className="input-base rounded-l-none"
+                      type="tel"
+                      inputMode="numeric"
+                      autoComplete="tel-national"
+                      placeholder="10-digit mobile number"
+                      value={purchaserPhone}
+                      onChange={(e) => setPurchaserPhone(e.target.value.replace(/[^\d+\s-]/g, "").trimStart())}
+                      aria-invalid={!purchaserPhoneOk && purchaserPhone.trim().length > 0}
+                    />
+                  </div>
+                  {!purchaserPhoneOk && purchaserPhone.trim().length > 0 && (
+                    <p className="mt-1 text-label-sm text-error">Enter a valid 10-digit Indian mobile number</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* ---- Payment method ---- */}
           <div className="rounded-2xl bg-surface-container-lowest p-space-md shadow-sm sm:p-space-lg">
             <div className="mb-space-md flex items-center justify-between gap-space-sm border-b border-surface-container-low pb-space-md">
@@ -1152,6 +1492,23 @@ export function CheckoutView() {
                 </div>
               ))}
             </div>
+
+            {giftMode && gift.fullName.trim() ? (
+              <div className="mb-space-md rounded-xl bg-tertiary-fixed/40 p-4">
+                <p className="text-label-sm font-bold uppercase tracking-widest text-on-tertiary-fixed-variant">
+                  Gift delivery
+                </p>
+                <p className="mt-0.5 text-body-sm text-on-surface">
+                  Shipping to <strong>{gift.fullName.trim()}</strong>
+                  {gift.city.trim() ? ` — ${gift.city.trim()}` : ""}
+                </p>
+                {giftMessage.trim() ? (
+                  <p className="mt-1 text-body-sm italic text-on-surface-variant">
+                    &ldquo;{giftMessage.trim()}&rdquo;
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
 
             {quote ? (
               <div className="mb-space-md space-y-2.5 rounded-xl bg-surface-container-low p-4">

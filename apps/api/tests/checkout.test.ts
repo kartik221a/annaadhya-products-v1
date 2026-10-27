@@ -115,6 +115,7 @@ async function quoteAndOrder(itemSuffix: string, qty: number): Promise<{ order: 
       customer: { displayName: "Test Customer", email: "cust@test.dev", phone: "9876543210" },
       address: address(),
       acceptTerms: true,
+      deliverToSomeoneElse: false,
     },
     customer,
   );
@@ -183,6 +184,7 @@ describe("order creation — reservations & oversell protection", () => {
         customer: { displayName: "A", email: "", phone: "9876543210" },
         address: address(),
         acceptTerms: true,
+        deliverToSomeoneElse: false,
       },
       customer,
     );
@@ -196,6 +198,7 @@ describe("order creation — reservations & oversell protection", () => {
           customer: { displayName: "B", email: "", phone: "9876543210" },
           address: address(),
           acceptTerms: true,
+          deliverToSomeoneElse: false,
         },
         customer,
       ),
@@ -210,6 +213,7 @@ describe("order creation — reservations & oversell protection", () => {
       customer: { displayName: "C", email: "", phone: "9876543210" },
       address: address(),
       acceptTerms: true as const,
+      deliverToSomeoneElse: false as const,
     };
     await checkout.createOrder(payload, customer);
     await expect(checkout.createOrder(payload, customer)).rejects.toThrow(/already used/);
@@ -227,6 +231,7 @@ describe("order creation — reservations & oversell protection", () => {
           customer: { displayName: "Guest", email: "", phone: "9876543210" },
           address: address(),
           acceptTerms: true,
+          deliverToSomeoneElse: false,
         },
         null as never,
       ),
@@ -492,6 +497,7 @@ describe("inventory policies — auto-track + backorders", () => {
         customer: { displayName: "Test Customer", email: "cust@test.dev", phone: "9876543210" },
         address: address(),
         acceptTerms: true,
+        deliverToSomeoneElse: false,
       },
       customer,
     );

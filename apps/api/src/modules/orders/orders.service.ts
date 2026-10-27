@@ -81,6 +81,7 @@ export class OrdersService {
     status?: OrderStatus;
     paymentStatus?: OrderDoc["paymentStatus"];
     paymentProvider?: OrderDoc["paymentProvider"];
+    gift?: boolean;
     from?: number;
     to?: number;
     page: number;
@@ -93,6 +94,7 @@ export class OrdersService {
         filters.status ||
         filters.paymentStatus ||
         filters.paymentProvider ||
+        filters.gift !== undefined ||
         filters.from !== undefined ||
         filters.to !== undefined,
     );
@@ -116,10 +118,11 @@ export class OrdersService {
       if (filters.status && o.status !== filters.status) return false;
       if (filters.paymentStatus && o.paymentStatus !== filters.paymentStatus) return false;
       if (filters.paymentProvider && o.paymentProvider !== filters.paymentProvider) return false;
+      if (filters.gift !== undefined && o.isGiftOrder !== filters.gift) return false;
       if (filters.from !== undefined && o.createdAt < filters.from) return false;
       if (filters.to !== undefined && o.createdAt > filters.to) return false;
       if (needle) {
-        const haystack = `${o.orderNumber} ${o.customerContact.email ?? ""} ${o.customerContact.phone ?? ""} ${o.customerContact.displayName}`.toLowerCase();
+        const haystack = `${o.orderNumber} ${o.customerContact.email ?? ""} ${o.customerContact.phone ?? ""} ${o.customerContact.displayName} ${o.isGiftOrder ? `${o.gift?.recipientName ?? ""} ${o.gift?.recipientPhone ?? ""}` : ""}`.toLowerCase();
         if (!haystack.includes(needle)) return false;
       }
       return true;

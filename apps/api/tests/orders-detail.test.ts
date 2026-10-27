@@ -98,6 +98,7 @@ async function paidOrder(index: number): Promise<OrderDoc> {
       customer: { displayName: "Aarav Sharma", email: customerA.email!, phone: "9820144520" },
       address: address(),
       acceptTerms: true,
+      deliverToSomeoneElse: false,
     },
     customerA,
   );
@@ -191,6 +192,7 @@ describe("order timeline (real audit events only)", () => {
         customer: { displayName: "COD Customer", email: customerA.email!, phone: "9820144520" },
         address: address(),
         acceptTerms: true,
+        deliverToSomeoneElse: false,
       },
       customerA,
     )) as OrderDoc;
@@ -271,6 +273,7 @@ describe("payment attempts (display references)", () => {
         customer: { displayName: "COD Customer", email: customerA.email!, phone: "9820144520" },
         address: address(),
         acceptTerms: true,
+        deliverToSomeoneElse: false,
       },
       customerA,
     )) as OrderDoc;
