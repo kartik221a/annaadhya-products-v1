@@ -72,6 +72,7 @@ function address(email: string) {
     city: "Bengaluru",
     state: "Karnataka",
     pincode: "560038",
+    country: "India",
   };
 }
 

@@ -102,6 +102,7 @@ function address() {
     city: "Meerut",
     state: "Uttar Pradesh",
     pincode: "250002",
+    country: "India",
   };
 }
 

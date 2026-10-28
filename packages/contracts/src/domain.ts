@@ -522,6 +522,11 @@ export interface CustomerAddress {
   city: string;
   state: string;
   pincode: string; // 6 digits
+  /** Canonical destination country ("India"). Optional only for documents written
+   *  before India-only delivery was enforced — every new write carries the field,
+   *  and absent values are treated as "India" (the storefront never offered
+   *  international addresses). */
+  country?: string;
   isDefault: boolean;
 }
 

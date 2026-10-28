@@ -35,6 +35,7 @@ export class CustomersController {
         city: dto.city,
         state: dto.state,
         pincode: dto.pincode,
+        country: dto.country,
         isDefault: dto.isDefault,
       })
       .then((c) => this.customers.forSelf(c));
@@ -60,6 +61,7 @@ export class CustomersController {
         city: dto.city,
         state: dto.state,
         pincode: dto.pincode,
+        country: dto.country,
         isDefault: dto.isDefault,
       })
       .then((c) => this.customers.forSelf(c));

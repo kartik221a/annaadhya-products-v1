@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Logo } from "./logo";
 import { IconLeaf } from "./icons";
 import { NewsletterForm } from "./newsletter-form";
+import { PaymentLogos } from "./payment-logos";
 
 /** Approved editorial footer — warm ivory canvas, gold hairline, four columns.
  *  Rendered once from the root layout; pages must not add their own footer.
@@ -48,9 +49,11 @@ export function Footer({
     <footer className="w-full border-t border-gold-deep/30 bg-ivory text-umber">
       <div className="mx-auto max-w-7xl px-margin-mobile pb-space-lg pt-space-xl lg:px-margin">
         <div className="grid grid-cols-1 gap-space-xl pb-space-xl md:grid-cols-2 lg:grid-cols-4">
-          {/* Brand column */}
+          {/* Brand column — the desktop footer logo is the brand's anchor here and
+              reads larger than body content (56px mark, 40px wordmark) while the
+              original assets keep their aspect ratio untouched. */}
           <div className="space-y-space-md">
-            <Logo height={38} dark />
+            <Logo height={56} dark />
             <p className="text-body-sm leading-relaxed text-umber-soft">
               Artisanal pantry essentials inspired by the richness of Indian food traditions.
             </p>
@@ -107,16 +110,9 @@ export function Footer({
               <span className="mb-2 block text-[0.625rem] font-bold uppercase tracking-widest text-outline">
                 Accepted Payment Modes
               </span>
-              <div className="flex flex-wrap items-center gap-space-xs">
-                {["UPI", "RuPay", "Visa", "Mastercard", "NetBanking"].map((mode) => (
-                  <span
-                    key={mode}
-                    className="rounded-sm bg-surface-container-high px-2 py-1 text-[0.625rem] font-bold text-on-surface"
-                  >
-                    {mode}
-                  </span>
-                ))}
-              </div>
+              {/* Authentic brand marks (local assets) — see payment-logos.tsx for
+                  provenance and the gateway-accuracy rule. */}
+              <PaymentLogos />
               <p className="mt-2 text-[0.625rem] text-umber-soft">
                 Payments run in sandbox mode until launch approval.
               </p>

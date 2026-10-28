@@ -31,6 +31,7 @@ export function Logo({
   withWordmark = true,
   compactOnMobile = false,
   wordmarkHeight,
+  mobileHeight,
 }: {
   /** Rendered size of the animated mark in px (the name lockup scales with it). */
   height?: number;
@@ -47,18 +48,30 @@ export function Logo({
    *  proportions; the header pins it so the wordmark stays unchanged while the
    *  animated mark fills the full navbar height. */
   wordmarkHeight?: number;
+  /** Optional LARGER mark size for phones (< sm). Scales only the animated mark
+   *  via the `.brand-mark-size` rule (pure CSS, no layout shift or hydration
+   *  mismatch); desktop keeps `height` untouched. The sticky header pairs this
+   *  with a matching responsive bar height so nothing clips or overlaps. */
+  mobileHeight?: number;
 }) {
   const nameHeight = wordmarkHeight ?? Math.max(18, Math.round(height * 0.72));
 
   return (
     <Link href="/" className="flex shrink-0 items-center gap-2.5" aria-label="Annaadhya Products home">
       {/* Animated mark + static reduced-motion fallback stacked in one grid cell. */}
-      <span className="grid shrink-0" style={{ height, width: height }}>
+      <span
+        className="brand-mark-size grid shrink-0"
+        style={
+          {
+            "--logo-size": `${height}px`,
+            ...(mobileHeight ? { "--logo-size-mobile": `${mobileHeight}px` } : {}),
+          } as React.CSSProperties
+        }
+      >
         <video
           className="col-start-1 row-start-1 h-full w-full rounded-full object-contain motion-reduce:hidden"
           width={800}
           height={800}
-          style={{ height, width: height }}
           src={VIDEO_SRC}
           poster={POSTER_SRC}
           autoPlay

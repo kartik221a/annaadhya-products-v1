@@ -116,6 +116,9 @@ export interface CustomerDoc {
     city: string;
     state: string;
     pincode: string;
+    /** Canonical destination country. Absent only on entries written before
+     *  India-only delivery was enforced — treated as "India" everywhere. */
+    country?: string;
     isDefault: boolean;
   }[];
 }

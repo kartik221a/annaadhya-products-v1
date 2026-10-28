@@ -43,6 +43,15 @@ export function ShopControls({ current, showing, allCount, categoryName, basePat
   const [query, setQuery] = useState(current.search ?? "");
   const [sheetOpen, setSheetOpen] = useState(false);
 
+  // URL → field sync: searches started OUTSIDE this toolbar (global header search,
+  // the 404 page's quick search, browser back/forward, chip removal on other
+  // surfaces) change `current.search` without remounting this component — the local
+  // state must follow or the field silently shows a stale query while the results
+  // already changed. Re-runs only when the URL's query actually differs.
+  useEffect(() => {
+    setQuery(current.search ?? "");
+  }, [current.search]);
+
   const inStockOnly = current.instock !== "0";
   const tier = current.price && PRICE_TIERS[current.price] ? current.price : undefined;
 
@@ -150,7 +159,10 @@ export function ShopControls({ current, showing, allCount, categoryName, basePat
             role="search"
             onSubmit={(e) => {
               e.preventDefault();
-              navigate({ search: query.trim() || undefined });
+              // Same normalization the header search applies (trim + collapse runs)
+              // so both entry points produce identical URLs for identical input.
+              const q = query.trim().replace(/\s+/g, " ");
+              navigate({ search: q || undefined });
             }}
           >
             <IconSearch size={20} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />

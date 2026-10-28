@@ -305,3 +305,18 @@ body {
   padding-left: 0.9rem;
   font-style: italic;
 }
+
+/* Brand mark responsive sizing — the Logo component sets --logo-size (and
+   optionally a larger --logo-size-mobile for phones). Pure CSS swap: no JS
+   breakpoint logic, no hydration mismatch, and every other call site keeps
+   its exact rendered size. */
+.brand-mark-size {
+  height: var(--logo-size, 40px);
+  width: var(--logo-size, 40px);
+}
+@media (max-width: 639.98px) {
+  .brand-mark-size {
+    height: var(--logo-size-mobile, var(--logo-size, 40px));
+    width: var(--logo-size-mobile, var(--logo-size, 40px));
+  }
+}

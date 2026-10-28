@@ -117,6 +117,7 @@ function address() {
     city: "Bengaluru",
     state: "Karnataka",
     pincode: "560038",
+    country: "India",
   };
 }
 
@@ -386,6 +387,7 @@ describe("customers privacy and account management", () => {
           city: "Bengaluru",
           state: "Karnataka",
           pincode: "560038",
+          country: "India",
           isDefault: true,
         },
       ],

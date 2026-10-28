@@ -234,6 +234,8 @@ export class CheckoutService {
           city: dto.recipientAddress!.city,
           state: dto.recipientAddress!.state,
           pincode: dto.recipientAddress!.pincode,
+          // Normalized by the DTO schema — always "India" (India-only delivery).
+          country: dto.recipientAddress!.country,
           isDefault: false,
         }
       : ({ id: newId("addr"), ...dto.address! } as CustomerAddress);

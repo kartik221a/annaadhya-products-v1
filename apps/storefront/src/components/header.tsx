@@ -61,9 +61,22 @@ export function Header({ navItems }: { navItems?: { href: string; label: string 
 
   function submitSearch(e: React.FormEvent) {
     e.preventDefault();
-    router.push(query.trim() ? `/shop?search=${encodeURIComponent(query.trim())}` : "/shop");
+    // Whitespace-normalized, trimmed — the Shop page + API re-trim anyway, this keeps
+    // the URL honest ("  honey   " becomes "honey").
+    const q = query.trim().replace(/\s+/g, " ");
+    router.push(q ? `/shop?search=${encodeURIComponent(q)}` : "/shop");
     setMenuOpen(false);
     setSearchOpen(false);
+  }
+
+  /** Opening the search row while already on /shop pre-fills it with the query the
+   *  URL currently carries, so header and toolbar never show different searches. */
+  function toggleSearch() {
+    if (!searchOpen && pathname === "/shop") {
+      const current = new URLSearchParams(window.location.search).get("search") ?? "";
+      setQuery(current);
+    }
+    setSearchOpen((v) => !v);
   }
 
   const cartLabel = ready
@@ -72,7 +85,10 @@ export function Header({ navItems }: { navItems?: { href: string; label: string 
 
   return (
     <header className="sticky top-0 z-40 w-full bg-surface/90 shadow-[0_2px_12px_rgba(39,24,16,0.06)] backdrop-blur-xl">
-      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-margin-mobile lg:px-margin">
+      {/* Phones give the brand a slightly taller bar (h-[92px]) so the honey-drop mark
+          reads larger; sm+ keeps the approved 80px bar and mark untouched. The icons
+          stay centred and nothing overlaps — the row is the only thing that grows. */}
+      <div className="mx-auto flex h-[92px] max-w-7xl items-center justify-between px-margin-mobile sm:h-20 lg:px-margin">
         <div className="flex items-center gap-space-md">
           <button
             className="-ml-1.5 rounded-sm p-1.5 text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface xl:hidden"
@@ -82,10 +98,9 @@ export function Header({ navItems }: { navItems?: { href: string; label: string 
           >
             {menuOpen ? <IconX size={22} /> : <IconMenu size={22} />}
           </button>
-          {/* Animated mark fills the entire h-20 (80px) navbar height so the honey
-              drop reads at full size — the bar's own height and the wordmark size
-              are untouched (wordmarkHeight = the 40px default's derived 29px). */}
-          <Logo height={80} wordmarkHeight={29} compactOnMobile />
+          {/* Animated mark: 92px on phones, the approved 80px from sm up — the wordmark
+              size is untouched (wordmarkHeight = the 40px default's derived 29px). */}
+          <Logo height={80} mobileHeight={92} wordmarkHeight={29} compactOnMobile />
         </div>
 
         <nav className="hidden items-center gap-space-lg xl:flex" aria-label="Primary">
@@ -113,7 +128,7 @@ export function Header({ navItems }: { navItems?: { href: string; label: string 
             aria-label="Search"
             aria-expanded={searchOpen}
             className="flex h-9 w-9 items-center justify-center rounded-full text-on-surface-variant transition-all hover:bg-surface-container-high hover:text-on-surface"
-            onClick={() => setSearchOpen((v) => !v)}
+            onClick={toggleSearch}
           >
             <IconSearch size={20} />
           </button>

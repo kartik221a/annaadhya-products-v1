@@ -84,6 +84,7 @@ function purchaserAddress() {
     city: "Delhi",
     state: "Delhi",
     pincode: "110001",
+    country: "India",
   };
 }
 
@@ -99,6 +100,7 @@ function recipientDetails() {
       city: "Meerut",
       state: "Uttar Pradesh",
       pincode: "250002",
+      country: "India",
     },
     giftMessage: "Happy Diwali didi! Enjoy the honey — from your little brother.",
   };
@@ -249,6 +251,7 @@ describe("Scenario C — purchaser's saved address is never modified", () => {
       city: "Delhi",
       state: "Delhi",
       pincode: "110001",
+      country: "India",
       isDefault: true,
     };
     const customerDoc: CustomerDoc = {

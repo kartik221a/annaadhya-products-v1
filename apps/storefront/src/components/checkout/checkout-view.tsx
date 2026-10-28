@@ -29,7 +29,9 @@ import { useCart } from "@/lib/cart";
 import { useAuth } from "@/lib/auth";
 import { PUBLIC_API_URL } from "@/lib/api";
 import { formatINR } from "@/lib/format";
+import { DELIVERY_COUNTRY, DELIVERY_COUNTRY_ERROR, isIndianCountry } from "@/lib/delivery-country";
 import type { CustomerAddressShape } from "./checkout-types";
+import { PaymentLogos } from "../payment-logos";
 import {
   IconArrowRight,
   IconBadgeCheck,
@@ -81,6 +83,7 @@ const EMPTY_FORM = {
   city: "",
   state: "Uttar Pradesh",
   pincode: "",
+  country: DELIVERY_COUNTRY,
   saveToProfile: true,
   acceptTerms: false,
 };
@@ -131,6 +134,7 @@ function validateAddress(form: FormState): Record<string, string> {
   if (form.city.trim().length < 2) errors.city = "City is required";
   if (form.state.trim().length < 2) errors.state = "State is required";
   if (!/^\d{6}$/.test(form.pincode.trim())) errors.pincode = "PIN code must be exactly 6 digits";
+  if (!isIndianCountry(form.country)) errors.country = DELIVERY_COUNTRY_ERROR;
   return errors;
 }
 
@@ -145,6 +149,7 @@ function toAddressPayload(form: FormState) {
     city: form.city.trim(),
     state: form.state.trim(),
     pincode: form.pincode.trim(),
+    country: DELIVERY_COUNTRY,
   };
 }
 
@@ -159,6 +164,7 @@ const EMPTY_GIFT = {
   city: "",
   state: "Uttar Pradesh",
   pincode: "",
+  country: DELIVERY_COUNTRY,
 };
 type GiftFormState = typeof EMPTY_GIFT;
 
@@ -173,6 +179,7 @@ function validateGift(gift: GiftFormState): Record<string, string> {
   if (gift.city.trim().length < 2) errors.city = "City is required";
   if (gift.state.trim().length < 2) errors.state = "State is required";
   if (!/^\d{6}$/.test(gift.pincode.trim())) errors.pincode = "PIN code must be exactly 6 digits";
+  if (!isIndianCountry(gift.country)) errors.country = DELIVERY_COUNTRY_ERROR;
   return errors;
 }
 
@@ -187,6 +194,7 @@ function toGiftAddressPayload(gift: GiftFormState) {
     city: gift.city.trim(),
     state: gift.state.trim(),
     pincode: gift.pincode.trim(),
+    country: DELIVERY_COUNTRY,
   };
 }
 
@@ -381,6 +389,14 @@ export function CheckoutView() {
     } else {
       const selected = addresses.find((a) => a.id === selectedAddressId);
       if (selected && !formOpen) {
+        // India-only delivery applies to saved addresses too: a legacy book entry
+        // (written before the country field existed) was Indian by construction, but
+        // anything explicitly non-Indian is refused here — before any payment step.
+        if (!isIndianCountry(selected.country)) {
+          setError(DELIVERY_COUNTRY_ERROR);
+          document.getElementById("delivery-address-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          return;
+        }
         addressPayload = {
           label: selected.label,
           fullName: selected.fullName,
@@ -391,6 +407,7 @@ export function CheckoutView() {
           city: selected.city,
           state: selected.state,
           pincode: selected.pincode,
+          country: DELIVERY_COUNTRY,
         };
       } else {
         const errors = validateAddress(form);
@@ -683,7 +700,7 @@ export function CheckoutView() {
         {/* ================= LEFT: address + payment ================= */}
         <section className="flex flex-col gap-space-lg lg:col-span-7">
           {/* ---- Delivery address ---- */}
-          <div className="rounded-2xl bg-surface-container-lowest p-space-md shadow-sm sm:p-space-lg">
+          <div id="delivery-address-card" className="rounded-2xl bg-surface-container-lowest p-space-md shadow-sm sm:p-space-lg">
             <div className="mb-space-md flex items-center justify-between gap-space-sm border-b border-surface-container-low pb-space-md">
               <div className="flex items-center gap-3">
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-fixed text-primary">
@@ -768,7 +785,7 @@ export function CheckoutView() {
                         {a.line2 ? `, ${a.line2}` : ""}
                       </p>
                       <p className="text-body-md text-on-surface-variant">
-                        {a.city}, {a.state} — <span className="font-semibold text-on-surface">{a.pincode}</span>
+                        {a.city}, {a.state}, {a.country ?? "India"} — <span className="font-semibold text-on-surface">{a.pincode}</span>
                       </p>
                     </div>
                   );
@@ -961,6 +978,28 @@ export function CheckoutView() {
                       ))}
                     </select>
                   </div>
+                  <div>
+                    <label htmlFor="ck-country" className="mb-1 block text-label-sm font-medium text-on-surface">
+                      Country *
+                    </label>
+                    {/* India-only delivery: the select is pinned to India — the API
+                        re-validates the final address server-side regardless. */}
+                    <select
+                      id="ck-country"
+                      className="input-base"
+                      autoComplete="country-name"
+                      value={form.country}
+                      onChange={(e) => setForm({ ...form, country: e.target.value })}
+                    >
+                      <option value={DELIVERY_COUNTRY}>India</option>
+                    </select>
+                    <p className="mt-1 text-label-sm text-on-surface-variant">
+                      We currently deliver only within India — international delivery isn&apos;t available yet.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <span className="mb-1 block text-label-sm font-medium text-on-surface">Address Label</span>
                     <div className="flex items-center gap-2" role="radiogroup" aria-label="Address label">
@@ -1218,6 +1257,28 @@ export function CheckoutView() {
                   </div>
                 </div>
 
+                {/* India-only delivery — gift destinations follow the same rule as the
+                    purchaser's own address; the API re-validates the snapshot too. */}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="gift-country" className="mb-1 block text-label-sm font-medium text-on-surface">
+                      Country *
+                    </label>
+                    <select
+                      id="gift-country"
+                      className="input-base"
+                      autoComplete="country-name"
+                      value={gift.country}
+                      onChange={(e) => setGift({ ...gift, country: e.target.value })}
+                    >
+                      <option value={DELIVERY_COUNTRY}>India</option>
+                    </select>
+                  </div>
+                  <p className="self-end pb-2 text-body-sm text-on-surface-variant">
+                    Gift delivery is available only within India right now.
+                  </p>
+                </div>
+
                 {/* Gift message */}
                 <div>
                   <label htmlFor="gift-message" className="mb-1 block text-label-sm font-medium text-on-surface">
@@ -1320,13 +1381,7 @@ export function CheckoutView() {
                         {paymentsMode === "razorpay" ? "Pay Online (Recommended)" : "Demo Checkout"}
                       </span>
                       {paymentsMode === "razorpay" && (
-                        <div className="flex items-center gap-1.5">
-                          {["UPI", "Cards", "NetBanking", "Wallets"].map((m) => (
-                            <span key={m} className="rounded bg-surface-container px-2 py-0.5 text-label-sm font-semibold text-on-surface">
-                              {m}
-                            </span>
-                          ))}
-                        </div>
+                        <PaymentLogos className="max-w-full" />
                       )}
                     </div>
                     <p className="mt-1 text-body-sm text-on-surface-variant">

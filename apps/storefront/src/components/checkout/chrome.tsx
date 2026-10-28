@@ -4,6 +4,7 @@
 import Link from "next/link";
 import { Logo } from "../logo";
 import { IconArrowRight, IconShieldCheck, IconUser } from "../icons";
+import { PaymentLogos } from "../payment-logos";
 
 export function CheckoutHeader() {
   return (
@@ -68,11 +69,12 @@ export function CheckoutFooter({ paymentsMode }: { paymentsMode: "razorpay" | "m
           </nav>
         </div>
         {paymentsMode === "razorpay" && (
-          <div className="flex items-center gap-2 rounded-full bg-surface-container px-3 py-1">
-            <IconShieldCheck size={15} className="text-secondary" />
-            <span className="whitespace-nowrap text-label-sm text-on-surface-variant">
-              Payments secured by Razorpay: UPI • Cards • NetBanking
+          <div className="flex flex-wrap items-center justify-center gap-2.5 rounded-full bg-surface-container px-3 py-1.5">
+            <span className="flex items-center gap-1.5 whitespace-nowrap text-label-sm text-on-surface-variant">
+              <IconShieldCheck size={15} className="text-secondary" />
+              Payments secured by Razorpay
             </span>
+            <PaymentLogos />
           </div>
         )}
       </div>

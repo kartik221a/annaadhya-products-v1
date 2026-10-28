@@ -37,6 +37,49 @@ export const checkoutQuoteSchema = z.object({
 
 export type CheckoutQuoteDto = z.infer<typeof checkoutQuoteSchema>;
 
+/* --------------------------- India-only delivery ---------------------------- */
+/**
+ * Annaadhya fulfils orders inside India only. The storefront pins the country
+ * select to India, but the API is the enforcement point — every delivery
+ * address (purchaser's, gift recipient's, saved-to-profile) is re-validated
+ * here on the server, never trusting the client-supplied value.
+ */
+
+export const DELIVERY_COUNTRY = "India";
+
+/** Common representations of India that clients legitimately send
+ *  (e.g. "India", "IN", "IND", "Bharat"). Everything else is rejected. */
+const INDIA_COUNTRY_ALIASES = new Set([
+  "india",
+  "in",
+  "ind",
+  "bharat",
+  "भारत",
+  "hindustan",
+  "republic of india",
+]);
+
+export const DELIVERY_COUNTRY_ERROR =
+  "We currently deliver only within India — international delivery isn't available yet.";
+
+/** Destination country for a delivery address. Absent or empty → India (the
+ *  storefront always offered Indian addresses, so legacy payloads are Indian by
+ *  construction). Valid aliases normalize to the canonical display name "India". */
+export const deliveryCountrySchema = z.preprocess(
+  (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+  z
+    .string()
+    .trim()
+    .max(80, "Country name is too long")
+    .optional()
+    .transform((v) => (v === undefined ? DELIVERY_COUNTRY : v))
+    .refine((v) => INDIA_COUNTRY_ALIASES.has(v.toLowerCase()), {
+      message: DELIVERY_COUNTRY_ERROR,
+    })
+    .transform(() => DELIVERY_COUNTRY),
+);
+export type DeliveryCountryDto = z.infer<typeof deliveryCountrySchema>;
+
 export const addressSchema = z.object({
   label: z.string().trim().min(1).max(48).default("Home"),
   fullName: z.string().trim().min(1).max(120),
@@ -50,6 +93,7 @@ export const addressSchema = z.object({
   city: z.string().trim().min(2, "City is required").max(80),
   state: z.string().trim().min(2, "State is required").max(80),
   pincode: z.string().regex(/^\d{6}$/, "Pincode must be 6 digits"),
+  country: deliveryCountrySchema,
 });
 export type AddressDto = z.infer<typeof addressSchema>;
 
@@ -137,6 +181,7 @@ export const savedAddressSchema = z.object({
   city: z.string().trim().min(2, "City is required").max(80),
   state: z.string().trim().min(2, "State is required").max(80),
   pincode: z.string().regex(/^\d{6}$/, "Pincode must be 6 digits"),
+  country: deliveryCountrySchema,
   isDefault: z.boolean().default(false),
 });
 export type SavedAddressDto = z.infer<typeof savedAddressSchema>;

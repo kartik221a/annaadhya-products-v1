@@ -261,6 +261,8 @@ export class CustomersService {
     target.city = dto.city;
     target.state = dto.state;
     target.pincode = dto.pincode;
+    // Normalized by the DTO schema — always "India" (India-only delivery).
+    target.country = dto.country;
     target.isDefault = dto.isDefault || (existing.isDefault && addresses.length === 1);
     const patch: Partial<CustomerDoc> = { addresses, updatedAt: Date.now() };
     const newDefault = addresses.find((a) => a.isDefault);
