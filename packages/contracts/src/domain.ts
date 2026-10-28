@@ -997,6 +997,11 @@ export interface PageDoc extends BaseDoc {
   status: PageStatus;
   content: PageContent;
   seo?: { title?: string; description?: string; socialImage?: string };
+  /** True once an admin has explicitly saved published content over the shipped
+   *  default. Bespoke built-in pages (Our Story) keep their approved storefront
+   *  design until this flag is set — the boot-seeded mirror of the built-in
+   *  copy must never hijack the designed page. */
+  adminEdited?: boolean;
   /** Display name of the last admin who edited (audit trail carries the full record). */
   updatedByName?: string;
 }
@@ -1011,6 +1016,7 @@ export interface PublicPageDoc {
   updatedAt: number;
   content: PageContent;
   seo?: { title?: string; description?: string; socialImage?: string };
+  adminEdited?: boolean;
 }
 
 export type NavLocation = "header" | "footer-care" | "footer-legal";

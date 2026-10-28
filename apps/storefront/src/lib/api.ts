@@ -145,6 +145,21 @@ export async function getNavigation(): Promise<PublicNavigationItem[]> {
   return (await apiGet<PublicNavigationItem[]>("/navigation", 60, ["cms", "navigation"])) ?? [];
 }
 
+/** Saved navigation-item counts per location, regardless of enabled state.
+ *  Null when the API is unreachable. Distinguishes "Navigation manager never
+ *  configured for this surface" (the curated fallback menus apply) from "admin
+ *  saved items here" (the CMS owns the surface — even when every item is
+ *  currently hidden, which is an explicit configuration, not a gap). */
+export interface NavConfiguredCounts {
+  header: number;
+  "footer-care": number;
+  "footer-legal": number;
+}
+
+export async function getNavigationConfigured(): Promise<NavConfiguredCounts | null> {
+  return apiGet<NavConfiguredCounts>("/navigation/configured", 60, ["cms", "navigation"]);
+}
+
 export async function getHomepageConfig(): Promise<HomepageDoc | null> {
   return apiGet<HomepageDoc>("/homepage", 60, ["cms", "homepage"]);
 }

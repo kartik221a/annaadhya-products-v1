@@ -52,6 +52,15 @@ export class PublicContentController {
     return this.navigationSvc.listPublic();
   }
 
+  /** Saved-item counts per location (any enabled state). Public — no hidden
+   *  content leaks, just whether the Navigation manager has been configured
+   *  for each surface, so the storefront can honour "all items hidden". */
+  @Public()
+  @Get("navigation/configured")
+  async navigationConfigured() {
+    return this.navigationSvc.configStatus();
+  }
+
   /** Homepage section configuration (never includes hero copy — that is settings). */
   @Public()
   @Get("homepage")

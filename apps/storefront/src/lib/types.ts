@@ -202,6 +202,9 @@ export interface PublicPageDoc {
   updatedAt: number;
   content: PageContent;
   seo?: { title?: string; description?: string; socialImage?: string };
+  /** True once an admin saved published content over the shipped default —
+   *  bespoke built-in pages (Our Story) render the CMS document only then. */
+  adminEdited?: boolean;
 }
 
 export interface PublicNavigationItem {

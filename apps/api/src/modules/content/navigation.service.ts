@@ -9,6 +9,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import {
   COLLECTIONS,
   type CategoryDoc,
+  type NavLocation,
   type NavigationItemDoc,
   type NavigationItemUpsertDto,
   type PageDoc,
@@ -106,6 +107,17 @@ export class NavigationService {
     return out.sort(
       (a, b) => LOCATIONS.indexOf(a.location) - LOCATIONS.indexOf(b.location) || a.sortOrder - b.sortOrder,
     );
+  }
+
+  /** Saved-item counts per location, regardless of enabled state. Lets the
+   *  storefront tell "manager never configured" (curated fallback menus apply)
+   *  apart from "admin saved items here" (the CMS owns the surface — even when
+   *  every item is currently hidden, which is an explicit configuration). */
+  async configStatus(): Promise<Record<NavLocation, number>> {
+    const items = await this.list();
+    const counts: Record<NavLocation, number> = { header: 0, "footer-care": 0, "footer-legal": 0 };
+    for (const item of items) counts[item.location] += 1;
+    return counts;
   }
 
   private resolveHref(

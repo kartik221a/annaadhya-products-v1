@@ -996,6 +996,10 @@ export interface PageDoc extends BaseDoc {
   status: PageStatus;
   content: CmsPageContent;
   seo?: { title?: string; description?: string; socialImage?: string };
+  /** True once an admin saved content over the shipped default — bespoke
+   *  built-in pages (Our Story) switch from their approved designs to the
+   *  CMS document from then on. */
+  adminEdited?: boolean;
   updatedByName?: string;
 }
 

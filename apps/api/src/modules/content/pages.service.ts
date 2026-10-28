@@ -47,6 +47,7 @@ function toPublicPage(doc: PageDoc): PublicPageDoc {
     updatedAt: doc.updatedAt,
     content: doc.content,
     seo: doc.seo,
+    adminEdited: doc.adminEdited === true,
   };
 }
 
@@ -71,6 +72,9 @@ export class PagesService {
         status: "published",
         content: def.content,
         seo: def.seo,
+        // The seed is a mirror of the shipped storefront copy, NOT an admin
+        // edit — bespoke built-in pages keep their approved designs.
+        adminEdited: false,
         createdAt: now,
         updatedAt: now,
         isDemo: false,
@@ -153,6 +157,9 @@ export class PagesService {
       status: dto.status,
       content: dto.content,
       seo: dto.seo,
+      // An explicit save is an admin decision — bespoke built-in pages switch
+      // from their approved designs to this CMS content from now on.
+      adminEdited: true,
       updatedByName: actor.displayName,
       updatedAt: Date.now(),
     };
@@ -190,6 +197,9 @@ export class PagesService {
       status: "published",
       content: def.content,
       seo: def.seo,
+      // Back to the shipped default — bespoke built-in pages return to their
+      // approved storefront designs.
+      adminEdited: false,
       updatedByName: actor.displayName,
       updatedAt: Date.now(),
     };

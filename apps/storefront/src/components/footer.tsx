@@ -8,7 +8,10 @@ import { PaymentLogos } from "./payment-logos";
  *  Rendered once from the root layout; pages must not add their own footer.
  *  Customer-care and legal links come from the admin Navigation manager when it
  *  has saved items for those locations; the curated defaults below are the
- *  fallback (API offline / empty CMS configuration).
+ *  fallback for an unconfigured manager / offline API (`careConfigured` /
+ *  `legalConfigured` are null|false). When the manager HAS saved items for a
+ *  column, it owns the column outright — hiding every item shows an honest
+ *  empty column instead of resurrecting the curated defaults the toggles hid.
  *  Category links always follow the live catalogue: the static Gift Hampers
  *  entry renders ONLY when the catalogue itself is unreachable (`catalogueUnavailable`)
  *  — when the API answered, its list is the truth and an archived category is
@@ -17,11 +20,17 @@ export function Footer({
   categories,
   careLinks,
   legalLinks,
+  careConfigured = null,
+  legalConfigured = null,
   catalogueUnavailable = false,
 }: {
   categories: { slug: string; name: string }[];
   careLinks?: { href: string; label: string }[];
   legalLinks?: { href: string; label: string }[];
+  /** True when the Navigation manager has saved care/legal items (any enabled
+   *  state) — the CMS owns that column; null when the signal is unreachable. */
+  careConfigured?: boolean | null;
+  legalConfigured?: boolean | null;
   /** True only when the catalogue API could not be read — the one case where
    *  the static curated category entries are safer than an empty column. */
   catalogueUnavailable?: boolean;
@@ -30,21 +39,25 @@ export function Footer({
   const CARE =
     careLinks && careLinks.length > 0
       ? careLinks
-      : [
-          { href: "/faq", label: "Frequently Asked Questions" },
-          { href: "/policies/shipping", label: "Shipping & Delivery" },
-          { href: "/policies/returns", label: "Returns & Replacements" },
-          { href: "/account", label: "Track Your Order" },
-          { href: "/contact", label: "Contact Us" },
-        ];
+      : careConfigured === true
+        ? []
+        : [
+            { href: "/faq", label: "Frequently Asked Questions" },
+            { href: "/policies/shipping", label: "Shipping & Delivery" },
+            { href: "/policies/returns", label: "Returns & Replacements" },
+            { href: "/account", label: "Track Your Order" },
+            { href: "/contact", label: "Contact Us" },
+          ];
   const LEGAL =
     legalLinks && legalLinks.length > 0
       ? legalLinks
-      : [
-          { href: "/policies/privacy", label: "Privacy Policy" },
-          { href: "/policies/terms", label: "Terms & Conditions" },
-          { href: "/policies/shipping", label: "Shipping & Returns" },
-        ];
+      : legalConfigured === true
+        ? []
+        : [
+            { href: "/policies/privacy", label: "Privacy Policy" },
+            { href: "/policies/terms", label: "Terms & Conditions" },
+            { href: "/policies/shipping", label: "Shipping & Returns" },
+          ];
   return (
     <footer className="w-full border-t border-gold-deep/30 bg-ivory text-umber">
       <div className="mx-auto max-w-7xl px-margin-mobile pb-space-lg pt-space-xl lg:px-margin">

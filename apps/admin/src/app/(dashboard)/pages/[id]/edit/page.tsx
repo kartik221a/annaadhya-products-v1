@@ -359,6 +359,18 @@ export default function PageEditorRoute() {
           {saveError}
         </div>
       ) : null}
+      {/* Our Story is a bespoke designed page: the boot-seeded CMS mirror must not
+          hijack it silently — tell the admin exactly when an edit takes over. */}
+      {builtIn && page?.slug === "our-story" && !page.adminEdited ? (
+        <div className="mb-4 rounded-xl border border-tertiary/30 bg-tertiary-fixed/40 px-4 py-3 text-sm text-on-tertiary-fixed-variant">
+          <p className="font-semibold">Our Story shows the approved brand design on the storefront.</p>
+          <p className="mt-0.5 text-[13px]">
+            The live /about page keeps that designed layout until you publish custom content here —
+            publishing swaps it for this editor&apos;s document layout. Restore the shipped default any
+            time from the Pages list.
+          </p>
+        </div>
+      ) : null}
 
       {/* ------------------------------ editor + preview ----------------------------- */}
       <div className={previewOpen ? "grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_400px]" : ""}>

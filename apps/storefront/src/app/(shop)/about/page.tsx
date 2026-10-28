@@ -127,10 +127,11 @@ const PILLARS = [
  *  no client JS, no data fetching beyond the shared (shop) shell. Copy follows the
  *  approved design with claims kept to the established editorial voice (see
  *  category-editorial.tsx): qualitative storytelling only, honesty stance preserved. */
-/** Our Story page. Admin → Storefront → Pages can publish an editable version of
- *  this page (slug "our-story"); once published it renders through the reusable
- *  CMS document template. Until then (or when the CMS doc is unpublished) the
- *  approved built-in design below renders unchanged — the live page never goes blank. */
+/** Our Story page. The approved built-in design below is the default face of /about —
+ *  the boot-seeded CMS mirror of this copy (badge/card-number-free, generic template)
+ *  must never hijack the designed page. Only when an admin has explicitly saved and
+ *  published their own content here (pages.service marks such docs `adminEdited`)
+ *  does the page render through the reusable CMS document template instead. */
 export async function generateMetadata(): Promise<Metadata> {
   const page = await getPage("our-story");
   if (page?.seo?.title || page?.seo?.description) {
@@ -144,7 +145,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function AboutPage() {
   const page = await getPage("our-story");
-  if (page) return <CmsDocument page={page} />;
+  if (page?.adminEdited) return <CmsDocument page={page} />;
   return <BuiltInOurStory />;
 }
 

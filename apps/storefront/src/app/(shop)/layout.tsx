@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
-import { getCategoryOverview, getNavigation } from "@/lib/api";
-import { DEFAULT_NAV } from "@/lib/default-nav";
-import { pruneDeadCategoryLinks, type PublishedCategorySlugs } from "@/lib/navigation-guard";
+import { getCategoryOverview, getNavigation, getNavigationConfigured } from "@/lib/api";
+import { cmsNavLinks, resolveHeaderNav } from "@/lib/chrome-nav";
+import { type PublishedCategorySlugs } from "@/lib/navigation-guard";
 import { AnnouncementStrip } from "@/components/announcement-strip";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
@@ -15,12 +15,16 @@ import { BottomNav } from "@/components/bottom-nav";
  *  category link is validated against the LIVE catalogue before it renders.
  *  Archiving a category therefore removes its navbar/footer links within
  *  seconds, automatically: no one has to revisit the Navigation manager to
- *  clean up. When the CMS has no header items at all, the curated built-in
- *  menu is pruned by the same rule, so the fallback navbar can never point at
- *  an archived category either. If the catalogue API is unreachable the prune
- *  is skipped (fail-open) — an offline API never empties the chrome. */
+ *  clean up. The curated built-in menu only steps in when the manager has
+ *  never been configured for a surface (or its signal is unreachable —
+ *  fail-open), so the admin's show/hide toggles always win: hiding every
+ *  header item hides the menu, it never resurrects the curated defaults. */
 export default async function ShopLayout({ children }: { children: ReactNode }) {
-  const [overview, navigation] = await Promise.all([getCategoryOverview(), getNavigation()]);
+  const [overview, navigation, navConfigured] = await Promise.all([
+    getCategoryOverview(),
+    getNavigation(),
+    getNavigationConfigured(),
+  ]);
 
   // The overview's categories ARE the published set (the same list the
   // /category/[slug] route resolves against) — including not-yet-ready ones,
@@ -31,19 +35,19 @@ export default async function ShopLayout({ children }: { children: ReactNode }) 
     : null;
 
   const pick = (location: "header" | "footer-care" | "footer-legal") =>
-    pruneDeadCategoryLinks(
-      navigation
-        .filter((n) => n.location === location)
-        .sort((a, b) => a.sortOrder - b.sortOrder)
-        .map((n) => ({ href: n.href, label: n.label })),
-      publishedSlugs,
-    );
+    cmsNavLinks(navigation, location, publishedSlugs);
 
-  // Admin-managed navigation wins; the curated default keeps the header complete
-  // when the CMS has nothing saved (or everything saved was pruned as dead) —
-  // pruned by the same catalogue rule so the fallback respects archives too.
-  const cmsHeader = pick("header");
-  const headerItems = cmsHeader.length > 0 ? cmsHeader : pruneDeadCategoryLinks(DEFAULT_NAV, publishedSlugs);
+  // Admin-managed navigation wins: if the manager has saved header items, the
+  // CMS owns the navbar outright — even "every item hidden" is an explicit
+  // configuration and renders an empty menu (the show/hide toggles must never
+  // look broken). The curated default only keeps the header complete when the
+  // manager has never been configured (signal unreachable ⇒ fail-open with the
+  // pre-configured behaviour). Either way the fallback menu is pruned by the
+  // same catalogue rule so it can never point at an archived category.
+  const headerItems = resolveHeaderNav({ navigation, navConfigured, publishedSlugs });
+
+  const careSaved = navConfigured ? navConfigured["footer-care"] > 0 : null;
+  const legalSaved = navConfigured ? navConfigured["footer-legal"] > 0 : null;
 
   return (
     <>
@@ -57,6 +61,8 @@ export default async function ShopLayout({ children }: { children: ReactNode }) 
         catalogueUnavailable={!overview}
         careLinks={pick("footer-care")}
         legalLinks={pick("footer-legal")}
+        careConfigured={careSaved}
+        legalConfigured={legalSaved}
       />
       {/* Flow spacer matching the fixed BottomNav (nav + safe-area) so the footer's
           last line can never be pinned behind the bar on phones. */}
