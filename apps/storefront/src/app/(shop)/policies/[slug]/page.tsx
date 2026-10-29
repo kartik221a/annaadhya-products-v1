@@ -59,7 +59,10 @@ export const revalidate = 60;
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const cmsPage = await getPage(slug);
-  if (cmsPage) {
+  // Only an admin's explicitly saved content (pages.service marks such docs
+  // `adminEdited`) may override the approved policy metadata — the boot-seeded
+  // mirror of the shipped copy must never hijack the designed page.
+  if (cmsPage?.adminEdited) {
     return {
       title: cmsPage.seo?.title || cmsPage.title,
       description: cmsPage.seo?.description || undefined,
@@ -83,9 +86,11 @@ export default async function PolicyPage({ params }: { params: Promise<{ slug: s
   const { slug } = await params;
 
   // Admin-published CMS version wins (Admin → Storefront → Pages, slug = policy
-  // slug). Unpublished/absent docs fall back to the approved built-in rendering.
+  // slug) — but only when an admin explicitly saved it (adminEdited). The
+  // boot-seeded mirror of the shipped copy renders through the generic document
+  // template and must never replace the approved built-in policy design below.
   const cmsPage = await getPage(slug);
-  if (cmsPage) {
+  if (cmsPage?.adminEdited) {
     return (
       <CmsDocument page={cmsPage}>
         <nav aria-label="Related policies" className="flex flex-wrap gap-space-md border-t border-gold-deep/25 pt-space-lg">

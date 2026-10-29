@@ -126,12 +126,18 @@ export default async function ContactPage() {
   const store = (settings ?? FALLBACK_SETTINGS).store;
 
   // Admin → Storefront → Pages can publish an editable intro for this page (slug
-  // "contact"). When published, its title/lede replace the hero copy and its
+  // "contact"). The boot-seeded mirror of the shipped copy must never hijack the
+  // approved design, so the intro only applies when an admin has explicitly saved
+  // and published their own content here (pages.service marks such docs
+  // `adminEdited`). When it applies, its title/lede replace the hero copy and its
   // blocks render as an intro band; the working form + settings-driven contact
   // facts (email/phone/address) are never replaced by CMS content.
-  const cmsIntro = cmsPage && cmsPage.content.kind === "document" ? cmsPage : null;
+  const cmsIntro =
+    cmsPage && cmsPage.adminEdited && cmsPage.content.kind === "document" ? cmsPage : null;
   const cmsBlocks =
-    cmsPage && cmsPage.content.kind === "document" ? cmsPage.content.sections.flatMap((s) => s.blocks) : [];
+    cmsIntro && cmsIntro.content.kind === "document"
+      ? cmsIntro.content.sections.flatMap((s) => s.blocks)
+      : [];
 
   // Truth discipline: a `.example` address is the seeded placeholder — it is shown
   // as a placeholder, never linked, and no address/phone/social is claimed unless
@@ -198,7 +204,8 @@ export default async function ContactPage() {
       </section>
 
       {/* CMS intro band — editable blocks from Admin → Storefront → Pages (slug
-          "contact"); renders only when that page is published with content. */}
+          "contact"); renders only when an admin explicitly saved published content
+          (adminEdited). The boot-seeded mirror never renders here. */}
       {cmsBlocks.length > 0 && (
         <section className="px-margin-mobile pb-space-lg lg:px-margin">
           <div className="mx-auto max-w-3xl rounded-xl border border-outline-variant/40 bg-surface-container-lowest p-space-lg">
