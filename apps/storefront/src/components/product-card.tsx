@@ -49,7 +49,18 @@ export function ProductCard({ product }: { product: ProductWithVariantsShape }) 
   }
 
   return (
-    <div className="group flex flex-col rounded-lg bg-surface-container-lowest p-space-md shadow-sm transition-all duration-300 hover:shadow-lg">
+    <div className="group relative flex flex-col rounded-lg bg-surface-container-lowest p-space-md shadow-sm transition-all duration-300 hover:shadow-lg">
+      {/* Stretched-link: the WHOLE card opens the product (image, title, copy,
+          price — everywhere), per the approved UX. Interactive controls stay
+          usable by sitting above this overlay (z-10 below). Keyboard users
+          reach the product via the title link; this overlay is pointer-only
+          (tabIndex -1, no duplicate tab stop). */}
+      <Link
+        href={`/product/${product.slug}`}
+        aria-label={`View ${product.name}`}
+        tabIndex={-1}
+        className="absolute inset-0 z-10 rounded-lg"
+      />
       <div className="relative aspect-square w-full overflow-hidden rounded-sm bg-surface-container">
         {/* Demo SVG placeholders are replaceable; Cloudinary photography drops into the same field. */}
         <img
@@ -63,7 +74,7 @@ export function ProductCard({ product }: { product: ProductWithVariantsShape }) 
           aria-label={saved ? `Remove ${product.name} from wishlist` : `Add ${product.name} to wishlist`}
           aria-pressed={saved}
           onClick={() => wishlist.toggle(product.slug)}
-          className={`absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full shadow-sm transition-all ${
+          className={`absolute right-3 top-3 z-20 flex h-9 w-9 items-center justify-center rounded-full shadow-sm transition-all ${
             saved
               ? "bg-primary text-on-primary"
               : "bg-surface-container-lowest/90 text-on-surface-variant hover:bg-primary hover:text-on-primary"
@@ -92,8 +103,8 @@ export function ProductCard({ product }: { product: ProductWithVariantsShape }) 
         </Link>
         <p className="mt-1 line-clamp-2 text-body-sm text-on-surface-variant">{product.subtitle}</p>
 
-        {/* Weight variant chips */}
-        <div className="my-space-md flex flex-wrap items-center gap-space-xs" role="radiogroup" aria-label={`Pack size for ${product.name}`}>
+        {/* Weight variant chips — interactive: kept above the card overlay */}
+        <div className="relative z-20 my-space-md flex flex-wrap items-center gap-space-xs" role="radiogroup" aria-label={`Pack size for ${product.name}`}>
           {variants.map((v) => {
             const isSel = v.id === selected?.id;
             const vAvail = availableQty(v);
@@ -117,8 +128,8 @@ export function ProductCard({ product }: { product: ProductWithVariantsShape }) 
           })}
         </div>
 
-        {/* Price + cart */}
-        <div className="mt-auto flex items-center justify-between pt-space-xs">
+        {/* Price + cart — interactive: kept above the card overlay */}
+        <div className="relative z-20 mt-auto flex items-center justify-between pt-space-xs">
           <div className="flex flex-col">
             <div className="flex items-baseline gap-space-xs">
               <span className="font-display text-[1.3125rem] font-bold leading-7 text-primary text-tabular">

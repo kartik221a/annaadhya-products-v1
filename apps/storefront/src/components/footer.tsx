@@ -62,11 +62,12 @@ export function Footer({
     <footer className="w-full border-t border-gold-deep/30 bg-ivory text-umber">
       <div className="mx-auto max-w-7xl px-margin-mobile pb-space-lg pt-space-xl lg:px-margin">
         <div className="grid grid-cols-1 gap-space-xl pb-space-xl md:grid-cols-2 lg:grid-cols-4">
-          {/* Brand column — the desktop footer logo is the brand's anchor here and
-              reads larger than body content (56px mark, 40px wordmark) while the
-              original assets keep their aspect ratio untouched. */}
+          {/* Brand column — the desktop footer logo is the brand's anchor here.
+              Stacked lockup (2026-11): the animated mark reads larger (76px,
+              up from 56px) as the photo logo, and the golden script name logo
+              sits beneath it; the original assets keep their aspect ratio. */}
           <div className="space-y-space-md">
-            <Logo height={56} dark />
+            <Logo height={76} wordmarkHeight={44} stacked dark />
             <p className="text-body-sm leading-relaxed text-umber-soft">
               Artisanal pantry essentials inspired by the richness of Indian food traditions.
             </p>

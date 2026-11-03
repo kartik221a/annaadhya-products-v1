@@ -9,7 +9,8 @@ import Image from "next/image";
  *        badge crop. Its background is color-matched to the site's warm ivory
  *        surfaces, and the circular crop keeps it seamless on every canvas.
  * Right: the transparent name-only logo image (asset typography — never
- *        recreated as HTML text).
+ *        recreated as HTML text) — the 2026-11 golden script mark, trimmed to
+ *        its 704x172 bounding box with a fully transparent background.
  *
  * Reduced motion: the video is hidden via `motion-reduce` and the static
  * standalone logo mark takes the exact same grid cell, so the brand stays
@@ -32,6 +33,7 @@ export function Logo({
   compactOnMobile = false,
   wordmarkHeight,
   mobileHeight,
+  stacked = false,
 }: {
   /** Rendered size of the animated mark in px (the name lockup scales with it). */
   height?: number;
@@ -53,11 +55,19 @@ export function Logo({
    *  mismatch); desktop keeps `height` untouched. The sticky header pairs this
    *  with a matching responsive bar height so nothing clips or overlaps. */
   mobileHeight?: number;
+  /** Stack the name logo UNDER the mark (footer brand column): the mark reads
+   *  larger as the anchor, the script wordmark sits beneath it. Row layout
+   *  (default) keeps the classic side-by-side lockup for header/checkout. */
+  stacked?: boolean;
 }) {
   const nameHeight = wordmarkHeight ?? Math.max(18, Math.round(height * 0.72));
 
   return (
-    <Link href="/" className="flex shrink-0 items-center gap-2.5" aria-label="Annaadhya Products home">
+    <Link
+      href="/"
+      className={`flex shrink-0 items-center gap-2.5 ${stacked ? "flex-col items-start gap-3" : ""}`}
+      aria-label="Annaadhya Products home"
+    >
       {/* Animated mark + static reduced-motion fallback stacked in one grid cell. */}
       <span
         className="brand-mark-size grid shrink-0"
@@ -98,8 +108,8 @@ export function Logo({
         <Image
           src={NAME_SRC}
           alt=""
-          width={1023}
-          height={285}
+          width={704}
+          height={172}
           priority
           unoptimized
           className={compactOnMobile ? "hidden sm:block" : ""}
