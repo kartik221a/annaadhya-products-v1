@@ -746,6 +746,7 @@ function SectionCard({
   index,
   total,
   ctx,
+  highlighted = false,
   onSectionChange,
   onMove,
   onRemove,
@@ -754,6 +755,9 @@ function SectionCard({
   index: number;
   total: number;
   ctx: EditorCtx;
+  /** True while the admin navigated here from the preview pane — a short ring
+   *  flash marks the card they landed on. */
+  highlighted?: boolean;
   onSectionChange: (next: CmsSection) => void;
   onMove: (dir: -1 | 1) => void;
   onRemove: () => void;
@@ -767,7 +771,12 @@ function SectionCard({
   }
 
   return (
-    <div className="rounded-2xl border border-outline-variant/50 bg-surface-container-lowest shadow-[0_1px_8px_rgba(39,24,16,0.05)]">
+    <div
+      id={`page-section-${index}`}
+      className={`scroll-mt-28 rounded-2xl border bg-surface-container-lowest shadow-[0_1px_8px_rgba(39,24,16,0.05)] transition-shadow ${
+        highlighted ? "border-primary/60 ring-2 ring-primary/40" : "border-outline-variant/50"
+      }`}
+    >
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant/30 px-4 py-3">
         <div className="flex min-w-0 items-center gap-2">
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-on-primary">
@@ -919,11 +928,14 @@ export function DocumentSectionsEditor({
   onChange,
   disabled = false,
   shipping,
+  highlightIndex = null,
 }: {
   sections: CmsSection[];
   onChange: (sections: CmsSection[]) => void;
   disabled?: boolean;
   shipping: ShippingFigures | null;
+  /** Section card currently flashed by a preview-pane navigation. */
+  highlightIndex?: number | null;
 }) {
   const ctx: EditorCtx = { disabled, shipping };
 
@@ -940,6 +952,7 @@ export function DocumentSectionsEditor({
           index={index}
           total={sections.length}
           ctx={ctx}
+          highlighted={highlightIndex === index}
           onSectionChange={(next) => setSection(index, next)}
           onMove={(dir) => onChange(move(sections, index, dir))}
           onRemove={() => onChange(sections.filter((_, i) => i !== index))}

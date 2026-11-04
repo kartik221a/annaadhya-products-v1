@@ -13,7 +13,7 @@
  *    422 message surfaced verbatim in the inline banner);
  *  - maxlengths everywhere are the server's zod limits.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ApiError, apiGet, apiPost, can } from "@/lib/api";
@@ -167,7 +167,30 @@ export default function PageEditorRoute() {
   const [saving, setSaving] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[] | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [previewOpen, setPreviewOpen] = useState(true);
+    /* ---------------------- preview-as-navigation state ---------------------- */
+  /* Clicking a section/question in the right-hand preview scrolls the editor to
+     the matching editable card and flashes it, so the owner never hunts for the
+     block they are changing. Indices are shared by construction: the preview and
+     the editors map over the SAME content arrays in the SAME order. */
+  const [focusedEditorBlock, setFocusedEditorBlock] = useState<{ kind: "section" | "faq"; index: number } | null>(null);
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function jumpToEditorBlock(kind: "section" | "faq", index: number) {
+    setFocusedEditorBlock({ kind, index });
+    document
+      .getElementById(kind === "section" ? `page-section-${index}` : `page-faq-entry-${index}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (highlightTimer.current) clearTimeout(highlightTimer.current);
+    highlightTimer.current = setTimeout(() => setFocusedEditorBlock(null), 1800);
+  }
+
+  useEffect(
+    () => () => {
+      if (highlightTimer.current) clearTimeout(highlightTimer.current);
+    },
+    [],
+  );
+const [previewOpen, setPreviewOpen] = useState(true);
 
   // Hydrate the editable state once per page identity (never on background reloads,
   // so a save → reload cycle cannot clobber newer local edits).
@@ -527,6 +550,7 @@ export default function PageEditorRoute() {
                     onChange={(sections) => setDocument({ sections })}
                     disabled={saving}
                     shipping={shipping}
+                    highlightIndex={focusedEditorBlock?.kind === "section" ? focusedEditorBlock.index : null}
                   />
                 </div>
               </div>
@@ -549,6 +573,7 @@ export default function PageEditorRoute() {
                     entries={content.kind === "faq" ? content.entries : []}
                     onChange={(entries) => setFaq({ entries })}
                     disabled={saving}
+                    highlightIndex={focusedEditorBlock?.kind === "faq" ? focusedEditorBlock.index : null}
                   />
                 </div>
               </div>
@@ -558,7 +583,15 @@ export default function PageEditorRoute() {
 
         {previewOpen ? (
           <aside className="xl:sticky xl:top-36">
-            <CmsPreview title={title} pageType={pageType} status={status} content={content} shipping={shipping} />
+            <CmsPreview
+              title={title}
+              pageType={pageType}
+              status={status}
+              content={content}
+              shipping={shipping}
+              onSectionClick={(i) => jumpToEditorBlock("section", i)}
+              onEntryClick={(i) => jumpToEditorBlock("faq", i)}
+            />
           </aside>
         ) : null}
       </div>

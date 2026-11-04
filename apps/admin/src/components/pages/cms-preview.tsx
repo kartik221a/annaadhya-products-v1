@@ -7,6 +7,7 @@
  * shown raw (the storefront parses **bold** / *italic* / [label](/href); the
  * preview intentionally does not pretend to).
  */
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { CmsDocumentBlock, CmsPageContent, PageStatus } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import type { ShippingFigures } from "./blocks-editor";
@@ -199,17 +200,43 @@ export function CmsPreview({
   status,
   content,
   shipping,
+  onSectionClick,
+  onEntryClick,
 }: {
   title: string;
   pageType: "document" | "faq";
   status: PageStatus;
   content: CmsPageContent;
   shipping: ShippingFigures | null;
+  /** Preview-as-navigation: click a section to scroll the editor to it. */
+  onSectionClick?: (sectionIndex: number) => void;
+  /** Same affordance for FAQ entries. */
+  onEntryClick?: (entryIndex: number) => void;
 }) {
+  const interactive = Boolean(onSectionClick || onEntryClick);
+
+  /** Accessible click target for flow content (sections hold headings/divs, so
+   *  a real <button> would violate its phrasing-content model). */
+  function jumpKey(handler: () => void) {
+    return (e: ReactKeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        handler();
+      }
+    };
+  }
+
   return (
     <div className="overflow-hidden rounded-2xl border border-outline-variant/50 bg-surface-container-lowest shadow-[0_1px_8px_rgba(39,24,16,0.05)]">
       <div className="flex items-center justify-between gap-2 border-b border-outline-variant/30 bg-surface-container-low px-4 py-2.5">
-        <span className="label-eyebrow text-on-surface-variant">Storefront preview</span>
+        <span className="min-w-0">
+          <span className="label-eyebrow block text-on-surface-variant">Storefront preview</span>
+          {interactive ? (
+            <span className="mt-0.5 block text-[10px] text-on-surface-variant/80">
+              Click a {pageType === "faq" ? "question" : "section"} to jump to it in the editor
+            </span>
+          ) : null}
+        </span>
         <Badge tone={status === "published" ? "green" : status === "draft" ? "amber" : "neutral"}>{status}</Badge>
       </div>
       <div className="scroll-slim max-h-[70vh] space-y-5 overflow-y-auto bg-cream/60 px-5 py-5">
@@ -221,22 +248,38 @@ export function CmsPreview({
         {content.kind === "document" ? (
           <>
             {content.lede ? <p className="text-sm leading-relaxed text-on-surface-variant">{content.lede}</p> : null}
-            {content.sections.map((section, i) => (
-              <section key={i} className="space-y-3 border-t border-outline-variant/30 pt-4 first:border-t-0 first:pt-0">
-                {section.eyebrow ? <p className="label-eyebrow text-secondary">{section.eyebrow}</p> : null}
-                {section.title ? (
-                  <h2 className="font-heritage-display text-lg font-semibold text-primary">{section.title}</h2>
-                ) : null}
-                <div className="space-y-3">
-                  {(section.blocks ?? []).map((block, j) => (
-                    <BlockPreview key={j} block={block} shipping={shipping} />
-                  ))}
-                  {(section.blocks ?? []).length === 0 ? (
-                    <p className="text-xs italic text-on-surface-variant/70">Empty section</p>
+            {content.sections.map((section, i) => {
+              const jump = onSectionClick ? () => onSectionClick(i) : null;
+              return (
+                <section
+                  key={i}
+                  role={jump ? "button" : undefined}
+                  tabIndex={jump ? 0 : undefined}
+                  onClick={jump ?? undefined}
+                  onKeyDown={jump ? jumpKey(jump) : undefined}
+                  aria-label={jump ? `Edit section ${i + 1}${section.title ? `: ${section.title}` : ""}` : undefined}
+                  title={jump ? "Click to edit this section" : undefined}
+                  className={`space-y-3 border-t border-outline-variant/30 pt-4 first:border-t-0 first:pt-0 ${
+                    jump
+                      ? "-mx-2 cursor-pointer rounded-xl px-2 py-1 transition-colors hover:bg-primary/5 hover:ring-1 hover:ring-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                      : ""
+                  }`}
+                >
+                  {section.eyebrow ? <p className="label-eyebrow text-secondary">{section.eyebrow}</p> : null}
+                  {section.title ? (
+                    <h2 className="font-heritage-display text-lg font-semibold text-primary">{section.title}</h2>
                   ) : null}
-                </div>
-              </section>
-            ))}
+                  <div className="space-y-3">
+                    {(section.blocks ?? []).map((block, j) => (
+                      <BlockPreview key={j} block={block} shipping={shipping} />
+                    ))}
+                    {(section.blocks ?? []).length === 0 ? (
+                      <p className="text-xs italic text-on-surface-variant/70">Empty section</p>
+                    ) : null}
+                  </div>
+                </section>
+              );
+            })}
             {content.sections.length === 0 ? (
               <p className="text-xs italic text-on-surface-variant/70">No sections yet.</p>
             ) : null}
@@ -245,19 +288,35 @@ export function CmsPreview({
           <>
             {content.intro ? <p className="text-sm leading-relaxed text-on-surface-variant">{content.intro}</p> : null}
             <div className="space-y-2.5">
-              {content.entries.map((entry, i) => (
-                <div key={i} className="rounded-lg border border-outline-variant/40 bg-surface-container-lowest p-3">
-                  <span className="rounded-full bg-secondary-container px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-on-secondary-container">
-                    {entry.category}
-                  </span>
-                  <p className="font-heritage-display mt-1.5 text-sm font-semibold text-primary">
-                    {entry.question || <em>Untitled question</em>}
-                  </p>
-                  <p className="mt-1 text-[13px] leading-relaxed text-on-surface-variant">
-                    {entry.answer || <em>Empty answer</em>}
-                  </p>
-                </div>
-              ))}
+              {content.entries.map((entry, i) => {
+                const jump = onEntryClick ? () => onEntryClick(i) : null;
+                return (
+                  <div
+                    key={i}
+                    role={jump ? "button" : undefined}
+                    tabIndex={jump ? 0 : undefined}
+                    onClick={jump ?? undefined}
+                    onKeyDown={jump ? jumpKey(jump) : undefined}
+                    aria-label={jump ? `Edit question ${i + 1}` : undefined}
+                    title={jump ? "Click to edit this question" : undefined}
+                    className={`rounded-lg border bg-surface-container-lowest p-3 ${
+                      jump
+                        ? "cursor-pointer border-outline-variant/40 transition-colors hover:bg-primary/5 hover:ring-1 hover:ring-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                        : "border-outline-variant/40"
+                    }`}
+                  >
+                    <span className="rounded-full bg-secondary-container px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-on-secondary-container">
+                      {entry.category}
+                    </span>
+                    <p className="font-heritage-display mt-1.5 text-sm font-semibold text-primary">
+                      {entry.question || <em>Untitled question</em>}
+                    </p>
+                    <p className="mt-1 text-[13px] leading-relaxed text-on-surface-variant">
+                      {entry.answer || <em>Empty answer</em>}
+                    </p>
+                  </div>
+                );
+              })}
               {content.entries.length === 0 ? (
                 <p className="text-xs italic text-on-surface-variant/70">No questions yet.</p>
               ) : null}

@@ -17,10 +17,13 @@ export function FaqEntriesEditor({
   entries,
   onChange,
   disabled = false,
+  highlightIndex = null,
 }: {
   entries: FaqEntry[];
   onChange: (entries: FaqEntry[]) => void;
   disabled?: boolean;
+  /** Entry card currently flashed by a preview-pane navigation. */
+  highlightIndex?: number | null;
 }) {
   function setEntry(index: number, next: FaqEntry) {
     onChange(entries.map((e, i) => (i === index ? next : e)));
@@ -38,7 +41,13 @@ export function FaqEntriesEditor({
   return (
     <div className="space-y-3">
       {entries.map((entry, index) => (
-        <div key={index} className="rounded-xl border border-outline-variant/40 bg-surface-container-low/60">
+        <div
+          key={index}
+          id={`page-faq-entry-${index}`}
+          className={`scroll-mt-28 rounded-xl border bg-surface-container-low/60 transition-shadow ${
+            highlightIndex === index ? "border-primary/60 ring-2 ring-primary/40" : "border-outline-variant/40"
+          }`}
+        >
           <div className="flex items-center justify-between gap-2 border-b border-outline-variant/30 px-3 py-2">
             <span className="label-tracked text-on-surface-variant">Entry {index + 1}</span>
             <div className="flex items-center gap-1">
