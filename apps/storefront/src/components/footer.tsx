@@ -12,17 +12,14 @@ import { PaymentLogos } from "./payment-logos";
  *  `legalConfigured` are null|false). When the manager HAS saved items for a
  *  column, it owns the column outright — hiding every item shows an honest
  *  empty column instead of resurrecting the curated defaults the toggles hid.
- *  Category links always follow the live catalogue: the static Gift Hampers
- *  entry renders ONLY when the catalogue itself is unreachable (`catalogueUnavailable`)
- *  — when the API answered, its list is the truth and an archived category is
- *  never resurrected here. */
+ *  Category links ALWAYS follow the live catalogue — the owner's deletions are
+ *  never re-added here, not even when the catalogue itself is unreachable. */
 export function Footer({
   categories,
   careLinks,
   legalLinks,
   careConfigured = null,
   legalConfigured = null,
-  catalogueUnavailable = false,
 }: {
   categories: { slug: string; name: string }[];
   careLinks?: { href: string; label: string }[];
@@ -31,9 +28,6 @@ export function Footer({
    *  state) — the CMS owns that column; null when the signal is unreachable. */
   careConfigured?: boolean | null;
   legalConfigured?: boolean | null;
-  /** True only when the catalogue API could not be read — the one case where
-   *  the static curated category entries are safer than an empty column. */
-  catalogueUnavailable?: boolean;
 }) {
   const year = new Date().getFullYear();
   const CARE =
@@ -89,11 +83,9 @@ export function Footer({
                   </Link>
                 </li>
               ))}
-              {/* Offline-only fallback: when the catalogue answered, its list is the
-                  truth — an archived category must never be resurrected here. */}
-              {catalogueUnavailable && !categories.some((c) => c.slug === "gift-boxes") ? (
-                <li><Link className="transition-colors hover:text-primary" href="/category/gift-boxes">Gift Hampers</Link></li>
-              ) : null}
+              {/* Deletion doctrine: the live catalogue's list is the ONLY source of
+                  category links here — an offline catalogue renders no category
+                  entries rather than re-adding ones the owner deleted. */}
             </ul>
           </nav>
 

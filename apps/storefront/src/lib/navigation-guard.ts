@@ -10,9 +10,11 @@
  * links from the navbar, footer and homepage within seconds — the client
  * never has to edit navigation options by hand.
  *
- * Fail-open by design: when the catalogue cannot be read (API offline during
- * a build/preview render) the published set is `null` and nothing is pruned —
- * an unreachable API must never empty the navbar.
+ * Unreachable catalogue (deploy-time builds race the API service, outages):
+ * category links are DROPPED, never guessed. The old fail-open behaviour kept
+ * every curated/CMS category link — which resurrected categories the owner
+ * had deleted on every fresh prerender. Non-category links (home, shop, CMS
+ * pages, contact) always survive, so the chrome never looks broken.
  */
 
 /** The exact set of category slugs that resolve to a real storefront page. */
@@ -32,28 +34,27 @@ export function categorySlugFromHref(href: string): string | null {
 
 /**
  * Drop entries whose href points at a category that is not in the published
- * set. Non-category hrefs always survive; a null set (catalogue unavailable)
- * skips pruning entirely.
+ * set. Non-category hrefs always survive. An unknown catalogue (null set)
+ * drops category links too — deletions are never un-done by an outage.
  */
 export function pruneDeadCategoryLinks<T extends { href: string }>(
   items: readonly T[],
   publishedSlugs: PublishedCategorySlugs,
 ): T[] {
-  if (!publishedSlugs) return [...items];
   return items.filter((item) => {
     const slug = categorySlugFromHref(item.href);
-    return slug === null || publishedSlugs.has(slug);
+    if (slug === null) return true;
+    return publishedSlugs !== null && publishedSlugs.has(slug);
   });
 }
 
 /**
  * Resolve a stored "CTA" href (CMS homepage overrides and the like): if it
- * points at an unpublished category, fall back to a destination that always
- * exists. Non-category hrefs pass through untouched.
+ * points at a category that is not verifiably published, fall back to a
+ * destination that always exists. Non-category hrefs pass through untouched.
  */
 export function safeCategoryHref(href: string, publishedSlugs: PublishedCategorySlugs, fallback: string): string {
-  if (!publishedSlugs) return href;
   const slug = categorySlugFromHref(href);
   if (slug === null) return href;
-  return publishedSlugs.has(slug) ? href : fallback;
+  return publishedSlugs !== null && publishedSlugs.has(slug) ? href : fallback;
 }

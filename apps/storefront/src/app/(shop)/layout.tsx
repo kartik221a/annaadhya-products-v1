@@ -58,7 +58,6 @@ export default async function ShopLayout({ children }: { children: ReactNode }) 
         categories={(overview?.categories ?? [])
           .filter((c) => c.isReady)
           .map((c) => ({ slug: c.slug, name: c.name }))}
-        catalogueUnavailable={!overview}
         careLinks={pick("footer-care")}
         legalLinks={pick("footer-legal")}
         careConfigured={careSaved}

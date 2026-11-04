@@ -16,6 +16,7 @@
 
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
+import { categorySlugFromHref } from "@/lib/navigation-guard";
 import {
   IconArrowRight,
   IconBadgeCheck,
@@ -70,11 +71,19 @@ function parseAnswer(answer: string): AnswerSegment[] {
   return segments;
 }
 
-function AnswerText({ answer }: { answer: string }) {
+function AnswerText({ answer, liveCategorySlugs }: { answer: string; liveCategorySlugs: Set<string> | null }) {
   return (
     <>
-      {parseAnswer(answer).map((segment, i) =>
-        segment.link ? (
+      {parseAnswer(answer).map((segment, i) => {
+        if (!segment.link) return <span key={i}>{segment.text}</span>;
+        // Deletion doctrine: a link to a category that is not verifiably live
+        // renders as plain text — never a 404, never a resurrected category.
+        const linkedSlug = categorySlugFromHref(segment.link.href);
+        const dead =
+          linkedSlug !== null && (liveCategorySlugs === null || !liveCategorySlugs.has(linkedSlug));
+        return dead ? (
+          <span key={i}>{segment.link.label}</span>
+        ) : (
           <Link
             key={i}
             href={segment.link.href}
@@ -82,10 +91,8 @@ function AnswerText({ answer }: { answer: string }) {
           >
             {segment.link.label}
           </Link>
-        ) : (
-          <span key={i}>{segment.text}</span>
-        ),
-      )}
+        );
+      })}
     </>
   );
 }
@@ -104,10 +111,12 @@ function FaqRow({
   entry,
   open,
   onToggle,
+  liveCategorySlugs,
 }: {
   entry: FaqEntry;
   open: boolean;
   onToggle: (id: string) => void;
+  liveCategorySlugs: Set<string> | null;
 }) {
   return (
     <article className="overflow-hidden rounded-md bg-surface-container-lowest shadow-sm transition-shadow duration-200 hover:shadow-md">
@@ -142,7 +151,7 @@ function FaqRow({
           <div className="px-5 pb-5 sm:px-6">
             <div className="rounded-sm bg-surface-container-low/50 p-4">
               <p className="text-body-md leading-relaxed text-on-surface-variant">
-                <AnswerText answer={entry.answer} />
+                <AnswerText answer={entry.answer} liveCategorySlugs={liveCategorySlugs} />
               </p>
             </div>
           </div>
@@ -155,10 +164,14 @@ function FaqRow({
 export function FaqExplorer({
   supportEmail,
   entries = FAQ_ENTRIES,
+  liveCategorySlugs = null,
 }: {
   supportEmail: string | null;
   /** Admin-managed FAQ entries (CMS) override the built-in set when provided. */
   entries?: FaqEntry[];
+  /** Live category slugs from the server page — answer links to categories that
+   *  are not verifiably live render as plain text (deletions never resurrect). */
+  liveCategorySlugs?: Set<string> | null;
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
@@ -427,6 +440,7 @@ export function FaqExplorer({
                         entry={entry}
                         open={openIds.has(entry.id)}
                         onToggle={toggleEntry}
+                        liveCategorySlugs={liveCategorySlugs}
                       />
                     ))}
                   </div>

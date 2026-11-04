@@ -11,7 +11,9 @@
  * is CMS-owned: hiding every item hides the menu/column, and the show/hide
  * toggles can never look broken. An unreachable configured-signal fails open to
  * the pre-existing behaviour (CMS items when present, curated defaults
- * otherwise), and every fallback list is category-pruned like everywhere else.
+ * otherwise), and every list — curated or CMS — is category-pruned: an unknown
+ * catalogue DROPS category links instead of showing them, so a deploy-time
+ * build race can never re-render a category the owner deleted.
  */
 import type { NavConfiguredCounts } from "./api";
 import type { PublicNavigationItem } from "./types";

@@ -610,10 +610,10 @@ export function WishlistView({ shipping }: { shipping: ShippingPolicy }) {
               Explore All Treasures
             </Link>
             <Link
-              href="/category/gift-boxes"
+              href="/about"
               className="inline-block w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-space-xl py-3 text-label-md font-semibold uppercase tracking-wider text-on-surface transition-colors hover:border-outline sm:w-auto"
             >
-              Discover Festive Hampers
+              Read Our Story
             </Link>
           </div>
         </div>

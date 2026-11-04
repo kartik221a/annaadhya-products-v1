@@ -14,7 +14,7 @@ import {
   IconSparkles,
   IconSunrise,
 } from "@/components/icons";
-import { getPage } from "@/lib/api";
+import { getPage, getCategoryOverview } from "@/lib/api";
 import type { CmsSection } from "@/lib/types";
 import { CmsBlocks } from "@/components/blocks/document-blocks";
 
@@ -149,7 +149,14 @@ export async function generateMetadata(): Promise<Metadata> {
 
 /** The admin-owned slots the design exposes: hero title/lede + story sections. */
 export default async function AboutPage() {
-  const page = await getPage("our-story");
+  const [page, overview] = await Promise.all([getPage("our-story"), getCategoryOverview()]);
+  // Deletion doctrine: the live catalogue decides which collection cards and
+  // category CTAs exist here. An unreachable catalogue (deploy-time build race)
+  // drops them too — an owner's deletion is never re-rendered by an outage.
+  const liveSlugs: Set<string> | null = overview
+    ? new Set(overview.categories.map((c) => c.slug))
+    : null;
+  const isLive = (slug: string) => liveSlugs !== null && liveSlugs.has(slug);
   const cms =
     page && page.adminEdited && page.content.kind === "document"
       ? {
@@ -158,17 +165,21 @@ export default async function AboutPage() {
           sections: page.content.sections.filter((s) => (s.blocks ?? []).length > 0),
         }
       : null;
-  return <BuiltInOurStory cms={cms} />;
+  return <BuiltInOurStory cms={cms} showCollections={(slug: string) => isLive(slug)} />;
 }
 
 function BuiltInOurStory({
   cms,
+  showCollections,
 }: {
   cms?: {
     title: string;
     lede: string;
     sections: CmsSection[];
   } | null;
+  /** Live-catalogue predicate — a deleted/archived category's collection card
+   *  and category CTA never render, even when the catalogue is unreachable. */
+  showCollections: (slug: string) => boolean;
 }) {
   const cmsTitle = cms?.title?.trim() ?? "";
   const cmsLede = cms?.lede?.trim() ?? "";
@@ -372,7 +383,7 @@ function BuiltInOurStory({
           </div>
 
           <div className="grid grid-cols-1 gap-space-lg md:grid-cols-2 lg:grid-cols-4">
-            {COLLECTIONS.map((col) => (
+            {COLLECTIONS.filter((col) => showCollections(col.slug)).map((col) => (
               <div
                 key={col.slug}
                 className="group flex flex-col overflow-hidden rounded-2xl bg-surface-container-lowest shadow-sm transition-shadow hover:shadow-md"
@@ -477,13 +488,15 @@ function BuiltInOurStory({
                   Each hamper is hand-assembled in keepsake velvet boxes with gold embossing, pairing
                   golden wild honeys with Mamra almonds and Kashmiri saffron.
                 </p>
-                <Link
-                  href="/category/gift-boxes"
-                  className="inline-flex items-center gap-space-xs rounded-md bg-primary px-space-lg py-3 text-label-lg text-on-primary shadow-sm transition-colors hover:bg-primary-container"
-                >
-                  <span>Explore Gift Hampers</span>
-                  <IconGift size={18} />
-                </Link>
+                {showCollections("gift-boxes") ? (
+                  <Link
+                    href="/category/gift-boxes"
+                    className="inline-flex items-center gap-space-xs rounded-md bg-primary px-space-lg py-3 text-label-lg text-on-primary shadow-sm transition-colors hover:bg-primary-container"
+                  >
+                    <span>Explore Gift Hampers</span>
+                    <IconGift size={18} />
+                  </Link>
+                ) : null}
               </div>
               {/* Hamper showcase */}
               <div className="order-1 lg:order-2 lg:col-span-6">

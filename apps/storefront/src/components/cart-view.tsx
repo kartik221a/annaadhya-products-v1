@@ -30,6 +30,7 @@ import {
   IconGift,
   IconShieldCheck,
   IconShoppingBag,
+  IconSparkles,
   IconSprout,
   IconTruck,
 } from "./icons";
@@ -50,14 +51,33 @@ function fmt(paise: number): string {
   return formatINR(paise, paise % 100 !== 0);
 }
 
-const EMPTY_STATE_SHELVES = [
-  { href: "/category/honey", label: "Forest Honeys", icon: IconDroplet },
-  { href: "/category/kesar", label: "Kesar", icon: IconFlower2 },
-  { href: "/category/dry-fruits", label: "Dry Fruits", icon: IconSprout },
-  { href: "/category/gift-boxes", label: "Gift Hampers", icon: IconGift },
-] as const;
+/** Empty-cart shelf icons, keyed by category slug (unknown slugs get Sparkles). */
+const SHELF_ICONS: Record<string, (p: { size?: number; className?: string }) => React.ReactNode> = {
+  honey: IconDroplet,
+  kesar: IconFlower2,
+  "dry-fruits": IconSprout,
+  "gift-boxes": IconGift,
+};
 
-export function CartView({ shipping, crossSell }: { shipping: ShippingPolicy; crossSell: ProductWithVariantsShape[] }) {
+/** Live category shelves handed over by the server cart page (slug + label + href).
+ *  The page prunes against the live catalogue, so deleted categories never render. */
+interface CategoryShelf {
+  slug: string;
+  label: string;
+  href: string;
+}
+
+export function CartView({
+  shipping,
+  crossSell,
+  shelves,
+}: {
+  shipping: ShippingPolicy;
+  crossSell: ProductWithVariantsShape[];
+  /** Live-catalogue quick links for the empty cart — only categories that
+   *  exist right now; unknown slugs (deleted/archived) are never shown. */
+  shelves?: CategoryShelf[];
+}) {
   const cart = useCart();
   const auth = useAuth();
   const wishlist = useWishlist();
@@ -268,19 +288,26 @@ export function CartView({ shipping, crossSell }: { shipping: ShippingPolicy; cr
             </Link>
           </div>
 
-          {/* Quick collection links — real categories only */}
-          <div className="mt-space-md grid w-full grid-cols-2 gap-space-md border-t border-outline-variant/30 pt-space-xl sm:grid-cols-4">
-            {EMPTY_STATE_SHELVES.map((shelf) => (
-              <Link
-                key={shelf.href}
-                href={shelf.href}
-                className="flex flex-col items-center gap-1 rounded-xl bg-surface-container-lowest p-space-md shadow-sm transition-shadow hover:shadow-md"
-              >
-                <shelf.icon size={24} className="text-primary" />
-                <span className="text-label-sm font-bold text-on-surface">{shelf.label}</span>
-              </Link>
-            ))}
-          </div>
+          {/* Quick collection links — real, currently-published categories only.
+              The server cart page prunes against the live catalogue; when the
+              catalogue is unreachable nothing renders (never a guessed category). */}
+          {(shelves ?? []).length > 0 && (
+            <div className="mt-space-md grid w-full grid-cols-2 gap-space-md border-t border-outline-variant/30 pt-space-xl sm:grid-cols-4">
+              {(shelves ?? []).map((shelf) => {
+                const Icon = SHELF_ICONS[shelf.slug] ?? IconSparkles;
+                return (
+                  <Link
+                    key={shelf.href}
+                    href={shelf.href}
+                    className="flex flex-col items-center gap-1 rounded-xl bg-surface-container-lowest p-space-md shadow-sm transition-shadow hover:shadow-md"
+                  >
+                    <Icon size={24} className="text-primary" />
+                    <span className="text-label-sm font-bold text-on-surface">{shelf.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     );

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getPage, getPublicSettings } from "@/lib/api";
+import { getCategoryOverview, getPage, getPublicSettings } from "@/lib/api";
 import { FaqExplorer } from "./faq-explorer";
 import type { FaqCategoryId, FaqEntry } from "@/lib/faq-content";
 
@@ -41,7 +41,11 @@ function cmsToFaqEntries(
 }
 
 export default async function FaqPage() {
-  const [settings, cmsPage] = await Promise.all([getPublicSettings(), getPage("faq")]);
+  const [settings, cmsPage, overview] = await Promise.all([
+    getPublicSettings(),
+    getPage("faq"),
+    getCategoryOverview(),
+  ]);
 
   // Truth discipline (same rule as the contact + account pages): a `.example`
   // address is the seeded placeholder — it is never rendered as a real channel.
@@ -51,5 +55,9 @@ export default async function FaqPage() {
   const cmsEntries =
     cmsPage && cmsPage.content.kind === "faq" ? cmsToFaqEntries(cmsPage.content.entries) : undefined;
 
-  return <FaqExplorer supportEmail={supportEmail} entries={cmsEntries} />;
+  // Deletion doctrine: answer copy may mention a category that the owner later
+  // deleted — those inline links degrade to plain text instead of 404ing.
+  const liveCategorySlugs = overview ? new Set(overview.categories.map((c) => c.slug)) : null;
+
+  return <FaqExplorer supportEmail={supportEmail} entries={cmsEntries} liveCategorySlugs={liveCategorySlugs} />;
 }

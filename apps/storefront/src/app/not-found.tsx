@@ -49,7 +49,6 @@ export default async function GlobalNotFound() {
       </main>
       <Footer
         categories={readyCategories.map((c) => ({ slug: c.slug, name: c.name }))}
-        catalogueUnavailable={!overview}
         careLinks={cmsNavLinks(navigation, "footer-care", publishedSlugs)}
         legalLinks={cmsNavLinks(navigation, "footer-legal", publishedSlugs)}
         careConfigured={navConfigured ? navConfigured["footer-care"] > 0 : null}
