@@ -5,6 +5,7 @@ import { getPage, getPublicSettings } from "@/lib/api";
 import type { PublicStoreSettings } from "@/lib/types";
 import { ContactForm } from "@/components/contact/contact-form";
 import { CmsBlocks } from "@/components/blocks/document-blocks";
+import { mapCmsPageToSlots, isCustomizedTitle } from "@/lib/cms-page-slots";
 import {
   IconBadgeCheck,
   IconClock,
@@ -18,6 +19,16 @@ import {
   IconShieldCheck,
   IconTruck,
 } from "@/components/icons";
+
+/** Stable anchor ids of the shipped Contact document (packages/data-core). */
+const CONTACT_SECTION_IDS = ["write-to-us", "reaching-our-team"] as const;
+
+const SEED_CONTACT_HEADLINE = "Let\u2019s Talk. We\u2019d Love to Hear From You.";
+const SEED_CONTACT_LEDE =
+  "Questions about our honey harvests, Kashmiri saffron, or putting together a thoughtful gift? Send us a message \u2014 every enquiry is read by our team and answered by email.";
+
+/** Chip icons cycled across admin-provided hero trust items. */
+const HERO_CHIP_ICONS = [IconClock, IconBadgeCheck, IconTruck, IconShieldCheck];
 
 export const metadata: Metadata = {
   title: "Contact",
@@ -125,19 +136,34 @@ export default async function ContactPage() {
   const [settings, cmsPage] = await Promise.all([getPublicSettings(), getPage("contact")]);
   const store = (settings ?? FALLBACK_SETTINGS).store;
 
-  // Admin → Storefront → Pages can publish an editable intro for this page (slug
-  // "contact"). The boot-seeded mirror of the shipped copy must never hijack the
-  // approved design, so the intro only applies when an admin has explicitly saved
-  // and published their own content here (pages.service marks such docs
-  // `adminEdited`). When it applies, its title/lede replace the hero copy and its
-  // blocks render as an intro band; the working form + settings-driven contact
-  // facts (email/phone/address) are never replaced by CMS content.
-  const cmsIntro =
-    cmsPage && cmsPage.adminEdited && cmsPage.content.kind === "document" ? cmsPage : null;
-  const cmsBlocks =
-    cmsIntro && cmsIntro.content.kind === "document"
-      ? cmsIntro.content.sections.flatMap((s) => s.blocks)
-      : [];
+  // Admin → Storefront → Pages can edit this page (slug "contact"). The admin's
+  // published content flows INTO the approved design by section id: "write-to-us"
+  // owns the hero (eyebrow, headline, lede, trust chips, image) and only brand-new
+  // sections render as the intro band — nothing duplicates. The boot-seeded mirror
+  // (adminEdited: false) never hijacks the design, and the working form plus the
+  // settings-driven contact facts (email/phone/address) are never replaced by CMS
+  // content ("reaching-our-team" stays settings-driven by design).
+  const cms = mapCmsPageToSlots(cmsPage, CONTACT_SECTION_IDS);
+  const writeUs = cms?.byId["write-to-us"];
+  // Hero headline: the admin's customized page title wins; otherwise the
+  // "write-to-us" section title when changed; otherwise the approved headline.
+  const contactTitle =
+    isCustomizedTitle(cms, "Contact") ??
+    (writeUs?.title && writeUs.title.toLowerCase() !== SEED_CONTACT_HEADLINE.toLowerCase()
+      ? writeUs.title
+      : null);
+  const contactLede = cms?.lede || SEED_CONTACT_LEDE;
+  const heroChips =
+    writeUs?.listItems && writeUs.listItems.length > 0
+      ? writeUs.listItems.slice(0, 4)
+      : [
+          { text: "We reply within one working day" },
+          { text: "Ships across India" },
+        ];
+  const heroImage = writeUs?.image;
+  // Only brand-new sections (unknown anchor ids) render in the intro band —
+  // the shipped sections flow into the hero above instead of duplicating it.
+  const cmsBlocks = cms?.extras.flatMap((e) => e.blocks) ?? [];
 
   // Truth discipline: a `.example` address is the seeded placeholder — it is shown
   // as a placeholder, never linked, and no address/phone/social is claimed unless
@@ -159,25 +185,24 @@ export default async function ContactPage() {
           <div className="flex flex-col gap-4 lg:col-span-7">
             <div className="flex items-center gap-2">
               <span className="inline-block h-px w-5 bg-on-tertiary-container" aria-hidden />
-              <span className="text-label-sm font-bold uppercase tracking-widest text-on-tertiary-container">We&apos;re here to help</span>
+              <span className="text-label-sm font-bold uppercase tracking-widest text-on-tertiary-container">
+                {writeUs?.eyebrow ?? "We\u2019re here to help"}
+              </span>
             </div>
             <h1 className="font-display text-headline-lg-mobile font-semibold leading-tight tracking-tight text-primary lg:text-display-lg">
-              {cmsIntro?.title?.trim() || "Let’s Talk. We’d Love to Hear From You."}
+              {contactTitle ?? "Let’s Talk. We’d Love to Hear From You."}
             </h1>
-            <p className="max-w-2xl text-body-lg leading-relaxed text-on-surface-variant">
-              {cmsIntro && cmsIntro.content.kind === "document" && cmsIntro.content.lede?.trim()
-                ? cmsIntro.content.lede
-                : "Questions about our honey harvests, Kashmiri saffron, or putting together a thoughtful gift? Send us a message — every enquiry is read by our team and answered by email."}
-            </p>
+            <p className="max-w-2xl text-body-lg leading-relaxed text-on-surface-variant">{contactLede}</p>
             <div className="flex flex-wrap items-center gap-6 pt-2">
-              <span className="flex items-center gap-2 text-on-surface-variant">
-                <IconClock size={18} className="text-on-tertiary-container" aria-hidden />
-                <span className="text-label-sm font-semibold tracking-wide">We reply within one working day</span>
-              </span>
-              <span className="flex items-center gap-2 text-on-surface-variant">
-                <IconBadgeCheck size={18} className="text-on-tertiary-container" aria-hidden />
-                <span className="text-label-sm font-semibold tracking-wide">Ships across India</span>
-              </span>
+              {heroChips.map((chip, i) => {
+                const ChipIcon = HERO_CHIP_ICONS[i % HERO_CHIP_ICONS.length];
+                return (
+                  <span key={i} className="flex items-center gap-2 text-on-surface-variant">
+                    <ChipIcon size={18} className="text-on-tertiary-container" aria-hidden />
+                    <span className="text-label-sm font-semibold tracking-wide">{chip.text}</span>
+                  </span>
+                );
+              })}
             </div>
           </div>
 
@@ -185,8 +210,8 @@ export default async function ContactPage() {
             <div className="relative w-full max-w-sm overflow-hidden rounded-b-2xl rounded-t-[140px] bg-surface-container-low p-2 shadow-xl">
               <div className="relative h-80 w-full overflow-hidden rounded-b-xl rounded-t-[132px]">
                 <Image
-                  src="/images/hero-pantry-still-life.webp"
-                  alt="A warm still life of honey jars, saffron and dry fruits arranged on a sunlit table"
+                  src={heroImage?.src ?? "/images/hero-pantry-still-life.webp"}
+                  alt={heroImage?.alt || "A warm still life of honey jars, saffron and dry fruits arranged on a sunlit table"}
                   fill
                   sizes="(max-width: 1024px) 92vw, 40vw"
                   className="object-cover"
@@ -194,7 +219,7 @@ export default async function ContactPage() {
                 <div className="absolute inset-0 bg-gradient-to-t from-primary/80 via-primary/20 to-transparent" aria-hidden />
                 <div className="absolute inset-x-4 bottom-4 text-center">
                   <span className="inline-block rounded-full bg-surface-container-lowest/90 px-3 py-1 text-label-sm font-bold uppercase tracking-wider text-primary shadow-sm backdrop-blur-md">
-                    Thoughtfully sourced, honestly described
+                    {heroImage?.caption ?? "Thoughtfully sourced, honestly described"}
                   </span>
                 </div>
               </div>
@@ -203,9 +228,9 @@ export default async function ContactPage() {
         </div>
       </section>
 
-      {/* CMS intro band — editable blocks from Admin → Storefront → Pages (slug
-          "contact"); renders only when an admin explicitly saved published content
-          (adminEdited). The boot-seeded mirror never renders here. */}
+      {/* CMS intro band — only brand-new sections (unknown anchor ids) from
+          Admin → Storefront → Pages (slug "contact"); the shipped sections flow
+          into the hero above instead. The boot-seeded mirror never renders. */}
       {cmsBlocks.length > 0 && (
         <section className="px-margin-mobile pb-space-lg lg:px-margin">
           <div className="mx-auto max-w-3xl rounded-xl border border-outline-variant/40 bg-surface-container-lowest p-space-lg">

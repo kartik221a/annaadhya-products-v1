@@ -360,14 +360,24 @@ export default function PageEditorRoute() {
         </div>
       ) : null}
       {/* Our Story is a bespoke designed page: edits flow INTO the approved design
-          (hero copy + a story band) instead of swapping it for a generic template. */}
-      {builtIn && page?.slug === "our-story" && !page.adminEdited ? (
+          slot by slot (hero, philosophy, values cards, …) instead of swapping it
+          for a generic template. Shown before AND after the first publish. */}
+      {builtIn && page?.slug === "our-story" ? (
         <div className="mb-4 rounded-xl border border-tertiary/30 bg-tertiary-fixed/40 px-4 py-3 text-sm text-on-tertiary-fixed-variant">
           <p className="font-semibold">Our Story keeps its approved brand design on the storefront.</p>
           <p className="mt-0.5 text-[13px]">
-            When you publish content here, your title and intro become the hero copy and your sections
-            render as a story band inside the designed page — the layout never degrades into a plain
-            document. Restore the shipped default any time from the Pages list.
+            Each section below feeds a matching part of the designed page by its anchor id —
+            <span className="font-mono text-[12px]"> story</span> (hero),
+            <span className="font-mono text-[12px]"> philosophy</span>,
+            <span className="font-mono text-[12px]"> collections</span>,
+            <span className="font-mono text-[12px]"> what-guides-us</span>,
+            <span className="font-mono text-[12px]"> art-of-giving</span>,
+            <span className="font-mono text-[12px]"> our-promise</span>,
+            <span className="font-mono text-[12px]"> bring-it-home</span>. Edit a section&apos;s
+            text or image and that exact part of the design updates; anything left blank keeps the
+            approved copy; brand-new sections render as an elegant story band under the hero. The
+            layout never degrades into a plain document. Restore the shipped default any time from
+            the Pages list.
           </p>
         </div>
       ) : null}
@@ -379,7 +389,17 @@ export default function PageEditorRoute() {
           <section className="rounded-2xl border border-outline-variant/50 bg-surface-container-lowest p-4 shadow-[0_1px_8px_rgba(39,24,16,0.05)] sm:p-5">
             <h2 className="label-eyebrow mb-3 text-secondary">Basics</h2>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Title" required hint="2–160 characters — the heading on the storefront.">
+              <Field
+                label="Title"
+                required
+                hint={
+                  builtIn && page?.slug === "our-story"
+                    ? "2–160 characters — becomes the storefront hero headline when changed; otherwise the first section's title drives it."
+                    : builtIn && page?.slug === "contact"
+                      ? "2–160 characters — becomes the storefront hero headline when changed; otherwise the first section's title drives it."
+                      : "2–160 characters — the heading on the storefront."
+                }
+              >
                 <Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={160} disabled={saving} />
               </Field>
               <Field
