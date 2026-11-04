@@ -83,7 +83,7 @@ export function blockTypeLabel(type: DocumentBlockType): string {
 
 /** Server contract limits, mirrored for the block editor's honest inputs. */
 export const BLOCK_LIMITS = {
-  heading: 300,
+  heading: 500,
   paragraph: 8000,
   sectionEyebrow: 120,
   sectionTitle: 200,
@@ -92,6 +92,8 @@ export const BLOCK_LIMITS = {
   lede: 600,
   seoTitle: 180,
   seoDescription: 300,
+  imageAlt: 500,
+  imageCaption: 500,
   faqQuestion: 300,
   faqAnswer: 4000,
 } as const;

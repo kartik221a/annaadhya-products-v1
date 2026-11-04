@@ -42,7 +42,8 @@ export function formatNumber(value: number): string {
  * Returns NaN for empty/invalid input so callers can validate.
  */
 export function rupeesToPaise(rupees: string): number {
-  const cleaned = rupees.replace(/,/g, "").trim();
+  // Tolerant to how people actually type money: "₹49", "1,299", " 49 " all parse.
+  const cleaned = rupees.replace(/[₹,\s]/g, "").trim();
   if (cleaned === "") return NaN;
   const value = Number(cleaned);
   if (!Number.isFinite(value)) return NaN;

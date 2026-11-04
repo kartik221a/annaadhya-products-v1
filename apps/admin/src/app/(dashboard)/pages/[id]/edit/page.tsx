@@ -359,15 +359,15 @@ export default function PageEditorRoute() {
           {saveError}
         </div>
       ) : null}
-      {/* Our Story is a bespoke designed page: the boot-seeded CMS mirror must not
-          hijack it silently — tell the admin exactly when an edit takes over. */}
+      {/* Our Story is a bespoke designed page: edits flow INTO the approved design
+          (hero copy + a story band) instead of swapping it for a generic template. */}
       {builtIn && page?.slug === "our-story" && !page.adminEdited ? (
         <div className="mb-4 rounded-xl border border-tertiary/30 bg-tertiary-fixed/40 px-4 py-3 text-sm text-on-tertiary-fixed-variant">
-          <p className="font-semibold">Our Story shows the approved brand design on the storefront.</p>
+          <p className="font-semibold">Our Story keeps its approved brand design on the storefront.</p>
           <p className="mt-0.5 text-[13px]">
-            The live /about page keeps that designed layout until you publish custom content here —
-            publishing swaps it for this editor&apos;s document layout. Restore the shipped default any
-            time from the Pages list.
+            When you publish content here, your title and intro become the hero copy and your sections
+            render as a story band inside the designed page — the layout never degrades into a plain
+            document. Restore the shipped default any time from the Pages list.
           </p>
         </div>
       ) : null}

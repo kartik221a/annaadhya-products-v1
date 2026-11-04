@@ -126,7 +126,13 @@ export default function SettingsPage() {
     setFormError(null);
 
     // Build a patch matching settingsUpdateSchema; only send fields that carry values.
-    const flatRatePaise = rupeesToPaise(form.flatRate);
+    // The flat rate only CHARGES in flat-rate mode — in free-shipping/disabled mode an
+    // empty field normalizes to 0 instead of blocking the save (that was the "switching
+    // to Flat rate / Free shipping shows an error" bug: a blank field became NaN → null
+    // → a cryptic server-side "Amount must be a number").
+    const flatRatePaise = form.shippingMode === "flat_rate" || form.flatRate.trim() !== ""
+      ? rupeesToPaise(form.flatRate)
+      : 0;
     if (Number.isNaN(flatRatePaise) || flatRatePaise < 0) {
       setFormError("Flat rate is not a valid amount.");
       return;
@@ -134,7 +140,7 @@ export default function SettingsPage() {
     let freeAbovePaise: number | null = null;
     if (form.freeAbove.trim() !== "") {
       freeAbovePaise = rupeesToPaise(form.freeAbove);
-      if (Number.isNaN(freeAbovePaise)) {
+      if (Number.isNaN(freeAbovePaise) || freeAbovePaise < 0) {
         setFormError("Free-above threshold is not a valid amount.");
         return;
       }
@@ -313,7 +319,14 @@ export default function SettingsPage() {
                 <option value="disabled">Disabled</option>
               </Select>
             </Field>
-            <Field label="Flat rate (₹)" hint={form.shippingMode === "flat_rate" ? "Applied to every quote" : "Only used in flat-rate mode"}>
+            <Field
+              label="Flat rate (₹)"
+              hint={
+                form.shippingMode === "flat_rate"
+                  ? "Applied to every quote"
+                  : "Only used in flat-rate mode — switching modes never charges this"
+              }
+            >
               <Input
                 type="number"
                 min="0"
@@ -321,10 +334,17 @@ export default function SettingsPage() {
                 inputMode="decimal"
                 value={form.flatRate}
                 onChange={(e) => update("flatRate", e.target.value)}
-                disabled={!canWrite}
+                disabled={!canWrite || form.shippingMode !== "flat_rate"}
               />
             </Field>
-            <Field label="Free above (₹)" hint="Leave blank for no free-shipping threshold">
+            <Field
+              label="Free above (₹)"
+              hint={
+                form.shippingMode === "flat_rate"
+                  ? "Leave blank for no free-shipping threshold"
+                  : "Only used in flat-rate mode"
+              }
+            >
               <Input
                 type="number"
                 min="0"
@@ -332,7 +352,7 @@ export default function SettingsPage() {
                 inputMode="decimal"
                 value={form.freeAbove}
                 onChange={(e) => update("freeAbove", e.target.value)}
-                disabled={!canWrite}
+                disabled={!canWrite || form.shippingMode !== "flat_rate"}
               />
             </Field>
             <Field label="Delivery estimate (days)" hint="Two numbers, e.g. 3 and 7 — shown only when configured">

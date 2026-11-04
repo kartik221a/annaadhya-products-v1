@@ -39,12 +39,13 @@ function isActivePath(pathname: string, href: string): boolean {
 export function Header({ navItems }: { navItems?: { href: string; label: string }[] }) {
   const { count, subtotalPaise, ready } = useCart();
   const wishlist = useWishlist();
-  const { principal, signOut } = useAuth();
+  const { principal, customer, signOut } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [query, setQuery] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [photoFailed, setPhotoFailed] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   // Admin-managed navigation wins; the curated default keeps the header complete
   // when the CMS has no header items (or the API is offline).
@@ -82,6 +83,22 @@ export function Header({ navItems }: { navItems?: { href: string; label: string 
   const cartLabel = ready
     ? `₹${formatINR(subtotalPaise, false).slice(1)} · ${count} ${count === 1 ? "item" : "items"}`
     : "Bag";
+
+  /* Signed-in identity for the navbar: name (first name reads best in a navbar)
+     and the Google profile photo when the sign-in carried one. A broken/absent
+     photo falls back to the customer's initials, so the pill never looks empty. */
+  const displayName = principal?.displayName ?? customer?.displayName ?? "";
+  const firstName = displayName.trim().split(/\s+/)[0] ?? "";
+  const initials = displayName
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("");
+  const photoUrl = principal?.photoUrl;
+  useEffect(() => {
+    setPhotoFailed(false); // reset when the session identity changes
+  }, [photoUrl, displayName]);
 
   return (
     <header className="sticky top-0 z-40 w-full bg-surface/90 shadow-[0_2px_12px_rgba(39,24,16,0.06)] backdrop-blur-xl">
@@ -167,10 +184,30 @@ export function Header({ navItems }: { navItems?: { href: string; label: string 
           {principal ? (
             <Link
               href="/account"
-              aria-label="Your account"
-              className="ml-space-xs flex h-8 w-8 items-center justify-center rounded-full bg-primary text-on-primary transition-opacity hover:opacity-90"
+              aria-label={`Your account${firstName ? `, ${displayName}` : ""}`}
+              title={displayName || "Your account"}
+              className="ml-space-xs flex h-9 items-center gap-2 rounded-full bg-surface-container-low pl-1 pr-2.5 transition-colors hover:bg-surface-container-high sm:pr-3"
             >
-              <IconUser size={17} />
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-[11px] font-bold text-on-primary">
+                {photoUrl && !photoFailed ? (
+                  <img
+                    src={photoUrl}
+                    alt=""
+                    className="h-full w-full object-cover"
+                    referrerPolicy="no-referrer"
+                    onError={() => setPhotoFailed(true)}
+                  />
+                ) : initials ? (
+                  initials
+                ) : (
+                  <IconUser size={15} />
+                )}
+              </span>
+              {firstName ? (
+                <span className="hidden max-w-[7rem] truncate text-label-md font-semibold text-primary lg:inline">
+                  {firstName}
+                </span>
+              ) : null}
             </Link>
           ) : (
             <Link

@@ -127,6 +127,8 @@ export interface Principal {
   uid: string;
   email?: string;
   displayName?: string;
+  /** Profile photo from the verified identity provider (Google account picture). */
+  photoUrl?: string;
   role: string;
   isStaff: boolean;
 }

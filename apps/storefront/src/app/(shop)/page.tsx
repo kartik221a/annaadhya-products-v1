@@ -136,6 +136,9 @@ export default async function HomePage() {
   const giftingTitle = g?.title?.trim() || "Make Every Celebration";
   const giftingTitleAccent = g?.title?.trim() ? "" : "More Thoughtful.";
   const giftingCopy = g?.copy?.trim() || "Curated gourmet gifts designed to bring traditional warmth and everyday indulgence to festivals, family gatherings, and meaningful milestones.";
+  // The admin's banner image (Admin → Storefront → Homepage → Gifting) — blank in
+  // the CMS means the approved gifting photograph, exactly as the field's hint says.
+  const giftingImage = g?.image?.trim() || "/images/gifting-royal-hamper.webp";
   const rawGiftingCta = g?.ctaHref?.trim() || "/category/gift-boxes";
   const giftingCtaHref = safeCategoryHref(rawGiftingCta, liveCategorySlugs, "/shop");
   const giftingCtaLabel = g?.ctaLabel?.trim() || "Explore Gift Hampers";
@@ -521,8 +524,10 @@ export default async function HomePage() {
             <div className="lg:col-span-6">
               <div className="relative overflow-hidden rounded-2xl bg-primary shadow-2xl">
                 <Image
-                  src="/images/gifting-royal-hamper.webp"
-                  alt="Opulent festive gift box in heritage maroon velvet with gold embossing, honey jars, saffron and dry fruits"
+                  src={giftingImage}
+                  alt={giftingImage === "/images/gifting-royal-hamper.webp"
+                    ? "Opulent festive gift box in heritage maroon velvet with gold embossing, honey jars, saffron and dry fruits"
+                    : "Annaadhya gifting banner"}
                   width={1376}
                   height={768}
                   sizes="(max-width: 1024px) 100vw, 50vw"

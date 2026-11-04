@@ -48,6 +48,9 @@ export interface AuthPrincipal {
   email?: string;
   phone?: string;
   displayName?: string;
+  /** Profile photo from the verified identity provider (Google account picture).
+   *  Only present when the token carries one — never client-supplied. */
+  photoUrl?: string;
   provider: string; // "google" | "password" | "phone" | "dev"
   role: AdminRole | "customer";
   permissions: string[]; // for admin roles

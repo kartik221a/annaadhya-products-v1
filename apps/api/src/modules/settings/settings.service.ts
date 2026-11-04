@@ -14,11 +14,17 @@ export class SettingsService {
 
   async get(): Promise<SettingsDoc> {
     const doc = await this.data.get<SettingsDoc>(COLLECTIONS.settings, SETTINGS_ID);
-    if (doc) return doc;
-    const created = await this.data.set(COLLECTIONS.settings, SETTINGS_ID, defaultSettings(), {
-      isDemo: false,
-    });
-    return created as unknown as SettingsDoc;
+    if (!doc) {
+      const created = await this.data.set(COLLECTIONS.settings, SETTINGS_ID, defaultSettings(), {
+        isDemo: false,
+      });
+      return created as unknown as SettingsDoc;
+    }
+    // Legacy-shape guard: a settings doc written before a section/field existed
+    // (e.g. shipping added later) previously surfaced as undefined mode/amounts —
+    // 500s on the public settings endpoint and cryptic admin save errors. Defaults
+    // fill any gap; stored values always win.
+    return deepMerge(defaultSettings(), doc) as SettingsDoc;
   }
 
   async update(patch: DeepPartial<SettingsDoc>): Promise<SettingsDoc> {

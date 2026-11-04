@@ -15,7 +15,8 @@ import {
   IconSunrise,
 } from "@/components/icons";
 import { getPage } from "@/lib/api";
-import { CmsDocument } from "@/components/blocks/document-blocks";
+import type { CmsSection } from "@/lib/types";
+import { CmsBlocks } from "@/components/blocks/document-blocks";
 
 const ABOUT_METADATA: Metadata = {
   title: "Our Story",
@@ -127,11 +128,14 @@ const PILLARS = [
  *  no client JS, no data fetching beyond the shared (shop) shell. Copy follows the
  *  approved design with claims kept to the established editorial voice (see
  *  category-editorial.tsx): qualitative storytelling only, honesty stance preserved. */
-/** Our Story page. The approved built-in design below is the default face of /about —
+/** Our Story page. The approved built-in design below is the only face of /about —
  *  the boot-seeded CMS mirror of this copy (badge/card-number-free, generic template)
- *  must never hijack the designed page. Only when an admin has explicitly saved and
- *  published their own content here (pages.service marks such docs `adminEdited`)
- *  does the page render through the reusable CMS document template instead. */
+ *  must never hijack the designed page, AND an admin's own published content must
+ *  never degrade it into the generic document template either (the "ugly takeover"
+ *  bug). Instead the admin's title/lede flow into the hero and their sections render
+ *  as a story band inside the design; images upload into that band like anywhere
+ *  else. Only an explicit admin save (pages.service marks docs `adminEdited`) with
+ *  at least one block takes over the editable slots. */
 export async function generateMetadata(): Promise<Metadata> {
   const page = await getPage("our-story");
   if (page?.seo?.title || page?.seo?.description) {
@@ -143,13 +147,32 @@ export async function generateMetadata(): Promise<Metadata> {
   return ABOUT_METADATA;
 }
 
+/** The admin-owned slots the design exposes: hero title/lede + story sections. */
 export default async function AboutPage() {
   const page = await getPage("our-story");
-  if (page?.adminEdited) return <CmsDocument page={page} />;
-  return <BuiltInOurStory />;
+  const cms =
+    page && page.adminEdited && page.content.kind === "document"
+      ? {
+          title: page.title,
+          lede: page.content.lede ?? "",
+          sections: page.content.sections.filter((s) => (s.blocks ?? []).length > 0),
+        }
+      : null;
+  return <BuiltInOurStory cms={cms} />;
 }
 
-function BuiltInOurStory() {
+function BuiltInOurStory({
+  cms,
+}: {
+  cms?: {
+    title: string;
+    lede: string;
+    sections: CmsSection[];
+  } | null;
+}) {
+  const cmsTitle = cms?.title?.trim() ?? "";
+  const cmsLede = cms?.lede?.trim() ?? "";
+  const cmsSections = (cms?.sections ?? []).filter((s) => (s.blocks ?? []).length > 0);
   return (
     <div className="flex w-full flex-col">
       {/* ---------------- Section 1 · Hero ---------------- */}
@@ -173,13 +196,18 @@ function BuiltInOurStory() {
                 <span>The Story of Annaadhya</span>
               </div>
               <h1 className="mb-space-md font-display text-display-lg-mobile leading-[1.15] tracking-tight text-primary lg:text-display-lg">
-                Rooted in Tradition. <br className="hidden sm:inline" />
-                <span className="font-normal italic text-primary-container">Chosen with Care.</span>
+                {cmsTitle ? (
+                  cmsTitle
+                ) : (
+                  <>
+                    Rooted in Tradition. <br className="hidden sm:inline" />
+                    <span className="font-normal italic text-primary-container">Chosen with Care.</span>
+                  </>
+                )}
               </h1>
               <p className="mb-space-lg max-w-xl text-body-lg leading-relaxed text-on-surface-variant">
-                Discover a thoughtful collection of pantry treasures inspired by India&rsquo;s rich
-                food heritage, where everyday rituals, beautiful ingredients, and the joy of sharing
-                come together.
+                {cmsLede ||
+                  "Discover a thoughtful collection of pantry treasures inspired by India\u2019s rich food heritage, where everyday rituals, beautiful ingredients, and the joy of sharing come together."}
               </p>
               <div className="flex flex-wrap items-center gap-space-md pt-space-xs">
                 <Link
@@ -229,6 +257,35 @@ function BuiltInOurStory() {
           </div>
         </div>
       </section>
+
+      {/* ---------------- Admin story band ---------------- */}
+      {/* An admin's published page content flows INTO this approved design:
+          their sections render here, between the hero and the philosophy
+          chapters — same design language, never the generic CMS template.
+          Uploaded images (Cloudinary) render right inside these blocks. */}
+      {cmsSections.length > 0 && (
+        <section className="w-full bg-surface-container-lowest py-space-xl lg:py-24" aria-label="Our story, in the team's own words">
+          <div className="mx-auto max-w-3xl px-margin-mobile lg:px-margin">
+            <div className="space-y-space-xl">
+              {cmsSections.map((section, i) => (
+                <div key={section.id ?? i} id={section.id ?? `story-${i + 1}`} className="scroll-mt-32 space-y-space-md">
+                  {section.eyebrow ? (
+                    <span className="block text-label-md font-bold uppercase tracking-[0.22em] text-on-tertiary-fixed-variant">
+                      {String(i + 1).padStart(2, "0")}
+                      {" • "}
+                      {section.eyebrow}
+                    </span>
+                  ) : null}
+                  {section.title ? (
+                    <h2 className="font-display text-headline-md tracking-tight text-primary">{section.title}</h2>
+                  ) : null}
+                  <CmsBlocks blocks={section.blocks ?? []} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ---------------- Section 2 · Our Philosophy ---------------- */}
       <section className="relative w-full bg-surface-container-low py-space-xl lg:py-28">

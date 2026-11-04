@@ -3,7 +3,7 @@
  * Document content editor for the Pages console — sections + typed blocks.
  *
  * Faithful to the server contract (packages/contracts …/dto/admin.ts):
- *  - maxlengths below ARE the server's zod limits (heading 300, paragraph 8000,
+ *  - maxlengths below ARE the server's zod limits (heading 500, paragraph 8000,
  *    list item text 2000 …) so a saved draft never bounces with a validation
  *    error the UI could have caught.
  *  - inline markup (**bold**, *italic*, [label](/href)) is shown as raw text —
@@ -635,7 +635,7 @@ function BlockCard({
             <Input
               className="h-9 text-[13px]"
               value={block.alt}
-              maxLength={300}
+              maxLength={BLOCK_LIMITS.imageAlt}
               disabled={disabled}
               onChange={(e) => onChange({ ...block, alt: e.target.value })}
             />
@@ -644,7 +644,7 @@ function BlockCard({
             <Input
               className="h-9 text-[13px]"
               value={block.caption ?? ""}
-              maxLength={300}
+              maxLength={BLOCK_LIMITS.imageCaption}
               disabled={disabled}
               onChange={(e) => onChange({ ...block, caption: e.target.value || undefined })}
             />

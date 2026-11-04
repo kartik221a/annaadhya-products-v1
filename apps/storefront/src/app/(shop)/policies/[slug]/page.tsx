@@ -5,7 +5,7 @@ import { getPage, getPublicSettings } from "@/lib/api";
 import { POLICIES, POLICY_ORDER, type PolicyDoc } from "@/lib/policies";
 import { PolicyBlockRenderer } from "@/components/policy/policy-blocks";
 import { PolicyToc } from "@/components/policy/policy-toc";
-import { CmsDocument } from "@/components/blocks/document-blocks";
+import { CmsBlocks } from "@/components/blocks/document-blocks";
 import {
   IconBadgeCheck,
   IconChevronRight,
@@ -20,14 +20,20 @@ import {
 /**
  * Policy pages — the approved Stitch document design (breadcrumb, editorial
  * header, policy switcher, sticky table of contents, numbered article cards,
- * related-policies band) wired to the repo's typed content module.
+ * related-policies band).
+ *
+ * ADMIN EDITS WEAR THE DESIGN: an admin's explicitly saved page content (the
+ * API marks such docs `adminEdited`) flows INTO this approved layout — title,
+ * lede, sections and blocks replace the built-in article content while the
+ * header chrome, switcher, TOC, help cards and related band stay. The
+ * boot-seeded mirror of the shipped copy (adminEdited: false) never hijacks
+ * the designed page — that was the "ugly takeover" bug.
  *
  * Truth rules carried from lib/policies.ts:
  *  - shipping figures render LIVE from public settings (same source as cart +
  *    checkout), never hardcoded;
  *  - no invented contacts, couriers, dates or automation — the help cards
  *    route to the real contact workflow;
- *  - the DRAFT review status is stated on every page via the header chips;
  *  - unknown slugs fall through to the site-wide not-found experience.
  */
 
@@ -46,6 +52,11 @@ function formatReviewDate(iso: string): string {
     "July", "August", "September", "October", "November", "December",
   ];
   return `${d} ${months[m - 1]} ${y}`;
+}
+
+function isoDateFromMillis(ms: number | undefined): string {
+  const d = ms ? new Date(ms) : new Date();
+  return d.toISOString().slice(0, 10);
 }
 
 export function generateStaticParams() {
@@ -82,42 +93,63 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   };
 }
 
+/** One article card in the approved numbered-section style. Blocks arrive
+ *  pre-rendered (built-in PolicyBlocks vs CMS CmsBlocks differ in renderer). */
+function ArticleCard({
+  id,
+  eyebrow,
+  title,
+  children,
+}: {
+  id: string;
+  eyebrow: string;
+  title?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <article id={id} className="scroll-mt-32 rounded-xl bg-surface-container-lowest p-6 shadow-[0_1px_12px_rgba(39,24,16,0.03)] sm:p-8">
+      <div className="mb-space-xs flex items-center gap-space-xs font-label-sm text-label-sm font-bold uppercase tracking-widest text-primary-container">
+        <span>{eyebrow}</span>
+      </div>
+      {title ? (
+        <h2 className="mb-space-md font-display font-medium text-primary text-headline-md">{title}</h2>
+      ) : null}
+      <div className="space-y-4 font-body-md text-body-md leading-relaxed text-on-surface">{children}</div>
+    </article>
+  );
+}
+
 export default async function PolicyPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-
-  // Admin-published CMS version wins (Admin → Storefront → Pages, slug = policy
-  // slug) — but only when an admin explicitly saved it (adminEdited). The
-  // boot-seeded mirror of the shipped copy renders through the generic document
-  // template and must never replace the approved built-in policy design below.
-  const cmsPage = await getPage(slug);
-  if (cmsPage?.adminEdited) {
-    return (
-      <CmsDocument page={cmsPage}>
-        <nav aria-label="Related policies" className="flex flex-wrap gap-space-md border-t border-gold-deep/25 pt-space-lg">
-          {POLICY_ORDER.filter((s) => s !== slug).map((s) => (
-            <Link
-              key={s}
-              href={`/policies/${s}`}
-              className="rounded-full border border-outline-variant/60 px-space-md py-space-xs text-label-md text-primary transition-colors hover:bg-surface-container-low"
-            >
-              {POLICIES[s]?.shortLabel ?? s}
-            </Link>
-          ))}
-        </nav>
-      </CmsDocument>
-    );
-  }
-
   const policy: PolicyDoc | undefined = POLICIES[slug];
   if (!policy) notFound();
 
-  const settings = await getPublicSettings();
+  const [settings, cmsPage] = await Promise.all([getPublicSettings(), getPage(slug)]);
   const shipping = settings?.shipping ?? null;
-  const siblings = POLICY_ORDER.filter((s) => s !== policy.slug).map((s) => POLICIES[s]);
-  const tocItems = policy.sections.map((section) => ({ id: section.id, label: section.toc ?? section.title }));
+
+  // Admin-published CMS version wears the SAME approved design — its title/lede
+  // land in the editorial header and its sections render as the numbered article
+  // cards. Only an explicit admin save (adminEdited) with document content and
+  // at least one block takes over; the boot-seeded mirror never does.
+  const cmsSections =
+    cmsPage?.adminEdited && cmsPage.content.kind === "document"
+      ? cmsPage.content.sections.filter((s) => (s.blocks ?? []).length > 0)
+      : [];
+  const cmsOwnsContent = Boolean(cmsPage?.adminEdited) && cmsSections.length > 0;
+
+  const headerTitle = cmsOwnsContent && cmsPage ? cmsPage.title : policy.title;
+  const headerLede =
+    cmsOwnsContent && cmsPage && cmsPage.content.kind === "document" ? cmsPage.content.lede?.trim() : "";
+  const reviewedIso = cmsOwnsContent
+    ? isoDateFromMillis(cmsPage?.updatedAt)
+    : policy.updated;
+  const tocItems = cmsOwnsContent
+    ? cmsSections.map((s, i) => ({ id: s.id ?? `section-${i + 1}`, label: s.toc ?? s.title ?? `Section ${i + 1}` }))
+    : policy.sections.map((section) => ({ id: section.id, label: section.toc ?? section.title }));
   const contactHref = policy.contactEnquiry
     ? `/contact?enquiry=${encodeURIComponent(policy.contactEnquiry)}#contact-form-section`
     : "/contact";
+  const siblings = POLICY_ORDER.filter((s) => s !== policy.slug).map((s) => POLICIES[s]);
 
   return (
     <div className="bg-surface">
@@ -140,7 +172,7 @@ export default async function PolicyPage({ params }: { params: Promise<{ slug: s
             <span className="font-light text-outline-variant" aria-hidden>/</span>
             <span>Policies</span>
             <span className="font-light text-outline-variant" aria-hidden>/</span>
-            <span className="font-bold text-primary">{policy.title}</span>
+            <span className="font-bold text-primary">{headerTitle}</span>
           </nav>
 
           {/* Editorial heading */}
@@ -151,10 +183,10 @@ export default async function PolicyPage({ params }: { params: Promise<{ slug: s
                 Our Policies • {policy.eyebrowTopic}
               </span>
               <h1 className="mb-space-sm mt-1 font-display text-headline-lg-mobile font-semibold tracking-tight text-primary lg:text-headline-lg">
-                {policy.title}
+                {headerTitle}
               </h1>
               <p className="max-w-2xl font-body-lg text-body-lg leading-relaxed text-on-surface-variant">
-                {policy.lede}
+                {headerLede || policy.lede}
               </p>
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -162,13 +194,13 @@ export default async function PolicyPage({ params }: { params: Promise<{ slug: s
                 <IconBadgeCheck size={20} className="text-secondary" aria-hidden />
                 <span className="flex flex-col">
                   <span className="font-label-sm text-label-sm uppercase text-on-surface-variant">Last reviewed</span>
-                  <span className="font-label-md text-label-md text-on-surface">{formatReviewDate(policy.updated)}</span>
+                  <span className="font-label-md text-label-md text-on-surface">{formatReviewDate(reviewedIso)}</span>
                 </span>
               </span>
               <span className="flex items-center gap-1.5 rounded-lg bg-tertiary-fixed px-space-md py-space-sm">
                 <IconPenLine size={16} className="text-on-tertiary-fixed-variant" aria-hidden />
                 <span className="font-label-md text-label-md text-on-tertiary-fixed-variant">
-                  Draft pending business review
+                  {cmsOwnsContent ? "Curated by the business" : "Draft pending business review"}
                 </span>
               </span>
             </div>
@@ -249,25 +281,27 @@ export default async function PolicyPage({ params }: { params: Promise<{ slug: s
             </div>
           </aside>
 
-          {/* Right: numbered article cards */}
+          {/* Right: numbered article cards — built-in content or the admin's
+              published version, always in the same approved card design */}
           <div className="flex max-w-3xl flex-col gap-12 lg:col-span-8">
-            {policy.sections.map((section) => (
-              <article
-                key={section.id}
-                id={section.id}
-                className="scroll-mt-32 rounded-xl bg-surface-container-lowest p-6 shadow-[0_1px_12px_rgba(39,24,16,0.03)] sm:p-8"
-              >
-                <div className="mb-space-xs flex items-center gap-space-xs font-label-sm text-label-sm font-bold uppercase tracking-widest text-primary-container">
-                  <span>{section.eyebrow}</span>
-                </div>
-                <h2 className="mb-space-md font-display font-medium text-primary text-headline-md">{section.title}</h2>
-                <div className="space-y-4 font-body-md text-body-md leading-relaxed text-on-surface">
-                  {section.blocks.map((block, i) => (
-                    <PolicyBlockRenderer key={i} block={block} shipping={shipping} contactHref={contactHref} />
-                  ))}
-                </div>
-              </article>
-            ))}
+            {cmsOwnsContent
+              ? cmsSections.map((section, i) => (
+                  <ArticleCard
+                    key={section.id ?? i}
+                    id={section.id ?? `section-${i + 1}`}
+                    eyebrow={`${String(i + 1).padStart(2, "0")}${section.eyebrow ? ` • ${section.eyebrow}` : ""}`}
+                    title={section.title}
+                  >
+                    <CmsBlocks blocks={section.blocks ?? []} />
+                  </ArticleCard>
+                ))
+              : policy.sections.map((section) => (
+                  <ArticleCard key={section.id} id={section.id} eyebrow={section.eyebrow} title={section.title}>
+                    {section.blocks.map((block, i) => (
+                      <PolicyBlockRenderer key={i} block={block} shipping={shipping} contactHref={contactHref} />
+                    ))}
+                  </ArticleCard>
+                ))}
           </div>
         </div>
       </section>

@@ -44,6 +44,7 @@ export class AuthService {
     let email: string | undefined;
     let phone: string | undefined;
     let displayName: string | undefined;
+    let photoUrl: string | undefined;
     let provider: string;
 
     if (this.env.firebaseConfigured) {
@@ -52,6 +53,9 @@ export class AuthService {
       email = decoded.email;
       phone = decoded.phone_number;
       displayName = decoded.name;
+      // Google sign-in carries the account picture in the verified token — surfacing
+      // it lets the storefront greet the customer by face, not just by name.
+      photoUrl = typeof decoded.picture === "string" && decoded.picture.startsWith("https://") ? decoded.picture : undefined;
       provider = decoded.firebase?.sign_in_provider ?? "unknown";
     } else {
       if (this.env.isProduction) {
@@ -72,6 +76,7 @@ export class AuthService {
       email: email ?? staff?.email,
       phone,
       displayName: displayName ?? staff?.displayName,
+      photoUrl,
       provider,
       role,
       permissions: role === "customer" ? [] : [...permissionsForRole(role)],
@@ -81,7 +86,7 @@ export class AuthService {
 
   private async verifyFirebaseIdToken(
     token: string,
-  ): Promise<{ uid: string; email?: string; phone_number?: string; name?: string; firebase?: { sign_in_provider?: string } }> {
+  ): Promise<{ uid: string; email?: string; phone_number?: string; name?: string; picture?: string; firebase?: { sign_in_provider?: string } }> {
     try {
       if (!this.firebaseAuth) {
         const { getAuth } = await import("firebase-admin/auth");

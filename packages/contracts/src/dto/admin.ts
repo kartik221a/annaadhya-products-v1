@@ -662,7 +662,7 @@ const cmsImageUrlSchema = z
 export const cmsBlockSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("heading"),
-    text: cmsText(300),
+    text: cmsText(500),
     level: z.union([z.literal(2), z.literal(3)]).optional(),
   }),
   z.object({ type: z.literal("paragraph"), text: cmsText(8000) }),
@@ -727,8 +727,8 @@ export const cmsBlockSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("image"),
     src: cmsImageUrlSchema,
-    alt: cmsText(300),
-    caption: cmsText(300).optional(),
+    alt: cmsText(500),
+    caption: cmsText(500).optional(),
   }),
   z.object({
     type: z.literal("cta"),
