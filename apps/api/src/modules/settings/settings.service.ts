@@ -61,6 +61,7 @@ export class SettingsService {
         newsletterEnabled: s.storefront.newsletterEnabled,
         giftCollectionEnabled: s.storefront.giftCollectionEnabled,
         heroHeadline: s.storefront.heroHeadline ?? "",
+        heroHeadlineAccent: s.storefront.heroHeadlineAccent ?? "",
         heroSubcopy: s.storefront.heroSubcopy ?? "",
         heroImage: s.storefront.heroImage ?? undefined,
         heroCtaHref: s.storefront.heroCtaHref ?? "",

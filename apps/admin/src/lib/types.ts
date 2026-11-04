@@ -779,6 +779,7 @@ export interface SettingsDoc {
   };
   storefront: {
     heroHeadline: string;
+    heroHeadlineAccent: string;
     heroSubcopy: string;
     heroImage?: string;
     heroCtaHref: string;

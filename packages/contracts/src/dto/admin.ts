@@ -582,6 +582,7 @@ export const settingsUpdateSchema = z.object({
   storefront: z
     .object({
       heroHeadline: z.string().trim().max(120).optional(),
+      heroHeadlineAccent: z.string().trim().max(120).optional(),
       heroSubcopy: z.string().trim().max(240).optional(),
       heroImage: z.string().trim().max(600).optional(),
       heroCtaHref: z.string().trim().max(200).optional(),

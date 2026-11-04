@@ -91,6 +91,7 @@ interface HomepageFormState {
 
 interface HeroFormState {
   headline: string;
+  headlineAccent: string;
   subcopy: string;
   image: string;
   ctaHref: string;
@@ -163,6 +164,7 @@ function docToForm(doc: HomepageDoc): HomepageFormState {
 function settingsToHeroForm(doc: SettingsDoc): HeroFormState {
   return {
     headline: doc.storefront.heroHeadline ?? "",
+    headlineAccent: doc.storefront.heroHeadlineAccent ?? "",
     subcopy: doc.storefront.heroSubcopy ?? "",
     image: doc.storefront.heroImage ?? "",
     ctaHref: doc.storefront.heroCtaHref ?? "",
@@ -300,6 +302,7 @@ export default function HomepagePage() {
       const saved = await apiPost<SettingsDoc>("/admin/settings", {
         storefront: {
           heroHeadline: heroForm.headline.trim(),
+          heroHeadlineAccent: heroForm.headlineAccent.trim(),
           heroSubcopy: heroForm.subcopy.trim(),
           ...(image ? { heroImage: image } : {}),
           heroCtaHref: heroForm.ctaHref.trim(),
@@ -546,10 +549,24 @@ export default function HomepagePage() {
             ) : (
               <form onSubmit={saveHero} noValidate className="space-y-4">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <Field label="Hero headline" hint="Max 120 characters — blank renders the approved design headline">
+                  <Field
+                    label="Hero headline — part 1 (dark)"
+                    hint="First line of the headline, dark serif. Blank = this part is skipped"
+                  >
                     <Input
                       value={heroForm.headline}
                       onChange={(e) => setHeroForm({ ...heroForm, headline: e.target.value })}
+                      maxLength={120}
+                      disabled={heroFieldsDisabled}
+                    />
+                  </Field>
+                  <Field
+                    label="Hero headline — part 2 (wine-red italic)"
+                    hint="Second line in the accent style (like “Brought Home.”). Blank = skipped; both blank = the approved design headline"
+                  >
+                    <Input
+                      value={heroForm.headlineAccent}
+                      onChange={(e) => setHeroForm({ ...heroForm, headlineAccent: e.target.value })}
                       maxLength={120}
                       disabled={heroFieldsDisabled}
                     />

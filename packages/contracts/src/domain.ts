@@ -889,6 +889,10 @@ export interface SettingsDoc {
   };
   storefront: {
     heroHeadline: string;
+    /** Optional second headline segment rendered in the accent style (wine-red
+     *  italic, like the approved "Brought Home."). Empty = not rendered — the
+     *  headline stays one visual unit, never a blank gap. */
+    heroHeadlineAccent: string;
     heroSubcopy: string;
     heroImage?: string;
     heroCtaHref: string;
@@ -920,6 +924,7 @@ export interface PublicStoreSettings {
     /** Owner-controlled hero copy. Empty string means "use the approved design
      *  default" — the storefront falls back to its curated hero when blank. */
     heroHeadline: string;
+    heroHeadlineAccent: string;
     heroSubcopy: string;
     heroImage?: string;
     heroCtaHref: string;

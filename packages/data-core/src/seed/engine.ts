@@ -389,6 +389,7 @@ export function defaultSettings(): SettingsDoc {
       // Hero fields blank = the storefront renders its approved design default.
       // The owner overrides them in Admin → Settings when real copy is decided.
       heroHeadline: "",
+      heroHeadlineAccent: "",
       heroSubcopy: "",
       heroCtaHref: "",
       heroCtaLabel: "",

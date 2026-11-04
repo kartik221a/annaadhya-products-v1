@@ -151,6 +151,7 @@ export interface PublicStoreSettings {
     /** Owner-controlled hero copy. Empty string = the storefront renders its
      *  approved design default (mirrors PublicStoreSettings from contracts). */
     heroHeadline: string;
+    heroHeadlineAccent: string;
     heroSubcopy: string;
     heroImage?: string;
     heroCtaHref: string;

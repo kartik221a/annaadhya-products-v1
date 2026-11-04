@@ -49,6 +49,7 @@ interface FormState {
   includeDemo: boolean;
 
   heroHeadline: string;
+  heroHeadlineAccent: string;
   heroSubcopy: string;
   heroImage: string;
   heroCtaHref: string;
@@ -88,6 +89,7 @@ function docToForm(doc: SettingsDoc): FormState {
     includeDemo: doc.reporting.includeDemoDataByDefault,
 
     heroHeadline: doc.storefront.heroHeadline ?? "",
+    heroHeadlineAccent: doc.storefront.heroHeadlineAccent ?? "",
     heroSubcopy: doc.storefront.heroSubcopy ?? "",
     heroImage: doc.storefront.heroImage ?? "",
     heroCtaHref: doc.storefront.heroCtaHref ?? "",
@@ -193,6 +195,7 @@ export default function SettingsPage() {
       },
       storefront: {
         heroHeadline: form.heroHeadline.trim(),
+        heroHeadlineAccent: form.heroHeadlineAccent.trim(),
         heroSubcopy: form.heroSubcopy.trim(),
         heroImage: form.heroImage.trim() || undefined,
         heroCtaHref: form.heroCtaHref.trim(),
@@ -432,8 +435,14 @@ export default function SettingsPage() {
         <Card>
           <CardHeader title="Storefront" subtitle="Hero copy and feature flags — leave a hero field blank to keep the approved design default" />
           <CardBody className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Field label="Hero headline" hint="Blank = the approved design headline shows">
+            <Field label="Hero headline — part 1 (dark)" hint="First line, dark serif. Blank = skipped">
               <Input value={form.heroHeadline} onChange={(e) => update("heroHeadline", e.target.value)} maxLength={120} disabled={!canWrite} />
+            </Field>
+            <Field
+              label="Hero headline — part 2 (wine-red italic)"
+              hint="Second line in the accent style. Blank = skipped; both blank = the approved design headline"
+            >
+              <Input value={form.heroHeadlineAccent} onChange={(e) => update("heroHeadlineAccent", e.target.value)} maxLength={120} disabled={!canWrite} />
             </Field>
             <Field label="Hero CTA link" hint="Blank = /shop">
               <Input value={form.heroCtaHref} onChange={(e) => update("heroCtaHref", e.target.value)} maxLength={200} disabled={!canWrite} />

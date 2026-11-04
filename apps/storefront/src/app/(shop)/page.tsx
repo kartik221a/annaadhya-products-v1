@@ -98,6 +98,11 @@ export default async function HomePage() {
   // guard (fail-open, nothing to compare against).
   const liveCategorySlugs = new Set(categories.map((c) => c.slug));
   const heroHeadline = sf?.heroHeadline?.trim() ?? "";
+  // Second headline segment in the accent style (wine-red italic). Both segments
+  // render as ONE headline — part 1 dark, part 2 accent, line-broken like the
+  // approved design; whichever segment is left blank is simply not rendered, so
+  // the admin can never publish a hollow half-line.
+  const heroHeadlineAccent = sf?.heroHeadlineAccent?.trim() ?? "";
   const heroSubcopy = sf?.heroSubcopy?.trim() ?? "";
   const heroImage = sf?.heroImage?.trim() ?? "";
   const heroCtaHref = safeCategoryHref(sf?.heroCtaHref?.trim() || "/shop", liveCategorySlugs, "/shop");
@@ -167,9 +172,13 @@ export default async function HomePage() {
                   A Little Tradition. A Lot of Goodness.
                 </span>
               </div>
-              {heroHeadline ? (
+              {heroHeadline || heroHeadlineAccent ? (
                 <h1 className="font-display text-display-lg-mobile lg:text-display-lg tracking-tight text-on-surface">
                   {heroHeadline}
+                  {heroHeadline && heroHeadlineAccent ? <br /> : null}
+                  {heroHeadlineAccent ? (
+                    <span className="font-normal italic text-primary-container">{heroHeadlineAccent}</span>
+                  ) : null}
                 </h1>
               ) : (
                 <h1 className="font-display text-display-lg-mobile lg:text-display-lg tracking-tight text-on-surface">

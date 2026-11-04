@@ -58,6 +58,7 @@ const FALLBACK_SETTINGS: PublicStoreSettings = {
     newsletterEnabled: true,
     giftCollectionEnabled: true,
     heroHeadline: "",
+    heroHeadlineAccent: "",
     heroSubcopy: "",
     heroCtaHref: "",
   },
