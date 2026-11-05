@@ -31,6 +31,10 @@ const SWAY_AMPLITUDE_PX = 1.5;
 const TRAIL_INTERVAL_MS = 110; // controlled drip cadence — never per-event
 const TRAIL_MIN_DISTANCE_PX = 7; // and only while the bee actually travels
 const TRAIL_MAX_NODES = 14; // hard particle budget
+/* The bee rides the cursor's tail, not its tip: the standard arrow points
+ * up-left with its hotspot at the tip, so anchor the bee down-right of the
+ * pointer along that same diagonal — hovering just off the arrow's tail. */
+const CURSOR_TAIL_OFFSET_PX = 21;
 
 /** Original Annaadhya bee — golden body, umber stripes, translucent wings.
  *  Palette is lifted straight from the design tokens: #edc06a / #d3a955 /
@@ -217,8 +221,9 @@ export function HoneyBeeCursor() {
     };
 
     const onPointerMove = (event: PointerEvent) => {
-      targetX = event.clientX;
-      targetY = event.clientY;
+      // Anchor at the cursor's tail (down-right of the hotspot), not the tip.
+      targetX = event.clientX + CURSOR_TAIL_OFFSET_PX;
+      targetY = event.clientY + CURSOR_TAIL_OFFSET_PX;
       if (!pointerInside) {
         // First contact: snap so the bee never flies in from off-screen.
         currentX = targetX;
