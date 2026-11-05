@@ -24,6 +24,10 @@ const nextConfig: NextConfig = {
     // Alias the exact specifier to the TS source: the module is pure and
     // dependency-free, so webpack/SWC compiles it straight into the bundle —
     // no dist step, no Vercel build orchestration, single source of truth.
+        config.resolve.alias["@annaadhya/contracts/cms-design"] = path.resolve(
+      __dirname,
+      "../../packages/contracts/src/cms-design.ts",
+    );
     config.resolve.alias["@annaadhya/utils/rich-text"] = path.resolve(
       __dirname,
       "../../packages/utils/src/rich-text.ts",

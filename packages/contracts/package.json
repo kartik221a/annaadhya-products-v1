@@ -8,6 +8,10 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./dist/index.js"
+    },
+    "./cms-design": {
+      "types": "./src/cms-design.ts",
+      "default": "./dist/cms-design.js"
     }
   },
   "scripts": {

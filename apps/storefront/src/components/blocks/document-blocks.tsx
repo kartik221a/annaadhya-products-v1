@@ -10,70 +10,58 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import type { CmsDocumentBlock, CmsSection, PublicPageDoc } from "@/lib/types";
+import { isSafeInlineHref, splitParagraphs, tokenizeInline } from "@annaadhya/contracts/cms-design";
 import { formatINR } from "@/lib/format";
 import { getPublicSettings } from "@/lib/api";
 
 /* ----------------------------- inline markup ------------------------------ */
 
-const INLINE_PATTERN = /\*\*([^*]+)\*\*|\*([^*]+)\*|\[([^\]]+)\]\(([^()\s]+)\)/g;
-
-function safeLink(href: string): { internal: boolean; url: string } | null {
-  const trimmed = href.trim();
-  if (!trimmed) return null;
-  if (trimmed.startsWith("/") && !trimmed.startsWith("//")) return { internal: true, url: trimmed };
-  if (/^https?:\/\//i.test(trimmed)) return { internal: false, url: trimmed };
-  if (/^mailto:[^\s@]+@[^\s@]+\.[^\s@]+$/i.test(trimmed)) return { internal: false, url: trimmed };
-  return null;
+/** Render **bold**, *italic* and [label](href) spans as React elements.
+ *
+ * The tokenization (pattern + safe-link policy) lives in @annaadhya/contracts
+ * so the admin panel's preview renders the exact same markup the same way —
+ * what the admin previews is what this storefront shows. */
+export function renderInline(text: string): ReactNode[] {
+  return tokenizeInline(text).map((token, i) => {
+    switch (token.kind) {
+      case "bold":
+        return (
+          <strong key={i} className="font-semibold text-on-surface">
+            {token.text}
+          </strong>
+        );
+      case "italic":
+        return <em key={i}>{token.text}</em>;
+      case "link":
+        return token.href.startsWith("/") && !token.href.startsWith("//") ? (
+          <Link
+            key={i}
+            href={token.href}
+            className="font-medium text-primary underline decoration-gold-deep/50 underline-offset-2 transition-colors hover:text-primary-container"
+          >
+            {token.label}
+          </Link>
+        ) : (
+          <a
+            key={i}
+            href={token.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-primary underline decoration-gold-deep/50 underline-offset-2 transition-colors hover:text-primary-container"
+          >
+            {token.label}
+          </a>
+        );
+      default:
+        return <span key={i}>{token.text}</span>;
+    }
+  });
 }
 
-/** Render **bold**, *italic* and [label](href) spans as React elements. */
-export function renderInline(text: string): ReactNode[] {
-  const nodes: ReactNode[] = [];
-  let lastIndex = 0;
-  let key = 0;
-  INLINE_PATTERN.lastIndex = 0;
-  for (let m = INLINE_PATTERN.exec(text); m !== null; m = INLINE_PATTERN.exec(text)) {
-    if (m.index > lastIndex) nodes.push(text.slice(lastIndex, m.index));
-    if (m[1] !== undefined) {
-      nodes.push(
-        <strong key={key++} className="font-semibold text-on-surface">
-          {m[1]}
-        </strong>,
-      );
-    } else if (m[2] !== undefined) {
-      nodes.push(<em key={key++}>{m[2]}</em>);
-    } else if (m[3] !== undefined && m[4] !== undefined) {
-      const link = safeLink(m[4]);
-      if (link) {
-        nodes.push(
-          link.internal ? (
-            <Link
-              key={key++}
-              href={link.url}
-              className="font-medium text-primary underline decoration-gold-deep/50 underline-offset-2 transition-colors hover:text-primary-container"
-            >
-              {m[3]}
-            </Link>
-          ) : (
-            <a
-              key={key++}
-              href={link.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium text-primary underline decoration-gold-deep/50 underline-offset-2 transition-colors hover:text-primary-container"
-            >
-              {m[3]}
-            </a>
-          ),
-        );
-      } else {
-        nodes.push(m[3]);
-      }
-    }
-    lastIndex = m.index + m[0].length;
-  }
-  if (lastIndex < text.length) nodes.push(text.slice(lastIndex));
-  return nodes;
+/** CMS paragraphs split on blank lines — hero/lede fields render one <p> per
+ *  group, so admin formatting (and **bold** spans) shows exactly as written. */
+export function renderLedeParagraphs(text: string): ReactNode[] {
+  return splitParagraphs(text).map((p, i) => <span key={i} className="block">{renderInline(p)}</span>);
 }
 
 /* ------------------------------ shipping tiers ----------------------------- */
@@ -254,7 +242,7 @@ function BlockCard({ block }: { block: CmsDocumentBlock }) {
         <div className="flex flex-col items-start gap-space-xs rounded-md border border-outline-variant/50 bg-surface-container px-space-md py-space-md sm:flex-row sm:items-center sm:justify-between">
           <div>{block.note ? <p className="text-body-sm text-umber-soft">{renderInline(block.note)}</p> : null}</div>
           <Link
-            href={safeLink(block.href)?.url ?? "/contact"}
+            href={isSafeInlineHref(block.href) ? block.href.trim() : "/contact"}
             className="btn-primary shrink-0 px-space-lg text-label-lg"
           >
             {block.label}
@@ -296,7 +284,7 @@ export function CmsDocument({ page, children }: { page: PublicPageDoc; children?
           <h1 className="font-display mt-space-sm text-display-md-mobile lg:text-display-md font-semibold tracking-tight text-primary">
             {page.title}
           </h1>
-          {lede ? <p className="mt-space-md text-body-lg leading-relaxed text-umber-soft">{renderInline(lede)}</p> : null}
+          {lede ? <p className="mt-space-md text-body-lg leading-relaxed text-umber-soft">{renderLedeParagraphs(lede)}</p> : null}
 
           {hasToc ? (
             <nav aria-label="On this page" className="mt-space-xl rounded-md border border-outline-variant/50 bg-surface-container-low p-space-md">

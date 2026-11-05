@@ -20,6 +20,9 @@ importers:
 
   apps/admin:
     dependencies:
+      '@annaadhya/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@annaadhya/utils':
         specifier: workspace:*
         version: link:../../packages/utils

@@ -15,8 +15,9 @@ import {
   IconSunrise,
 } from "@/components/icons";
 import { getPage, getCategoryOverview } from "@/lib/api";
-import { CmsBlocks, renderInline } from "@/components/blocks/document-blocks";
+import { CmsBlocks, renderInline, renderLedeParagraphs } from "@/components/blocks/document-blocks";
 import { mapCmsPageToSlots, isCustomizedTitle, type MappedCmsPage } from "@/lib/cms-page-slots";
+import { OUR_STORY, STORY_SECTION_IDS, stripInlineMarkup } from "@annaadhya/contracts/cms-design";
 
 const ABOUT_METADATA: Metadata = {
   title: "Our Story",
@@ -79,50 +80,11 @@ const COLLECTIONS = [
   },
 ] as const;
 
-const PRINCIPLES = [
-  {
-    num: "01",
-    icon: IconFlower2,
-    title: "Thoughtful Selection",
-    copy: "We value choosing pantry essentials with care and consideration, never compromising on character or provenance.",
-  },
-  {
-    num: "02",
-    icon: IconSunrise,
-    title: "Everyday Rituals",
-    copy: "We celebrate the small moments that make food part of how we live, pause, reconnect, and nourish our families.",
-  },
-  {
-    num: "03",
-    icon: IconSparkles,
-    title: "The Joy of Sharing",
-    copy: "We believe a thoughtfully chosen gift can bridge distances and make any celebration feel deeply personal.",
-  },
-  {
-    num: "04",
-    icon: IconAward,
-    title: "Respect for Tradition",
-    copy: "We draw inspiration from India's timeless culinary heritage while tailoring a considered, contemporary experience.",
-  },
-] as const;
+/** Value-card copy cycles the storefront's own decorative icons — the approved
+ *  copy itself is single-sourced in @annaadhya/contracts (OUR_STORY). */
+const PRINCIPLES = OUR_STORY.principles;
 
-const PILLARS = [
-  {
-    icon: IconLeaf,
-    title: "A Considered Selection",
-    copy: "Pantry essentials chosen for their craftsmanship, regional balance, natural character, and quiet culinary distinction.",
-  },
-  {
-    icon: IconHeart,
-    title: "A Welcoming Experience",
-    copy: "Honest presentation, transparent details, and responsive care from our team — effortless exploration from our pantry to your table.",
-  },
-  {
-    icon: IconGift,
-    title: "Thoughtful Sharing & Gifting",
-    copy: "Distinctive festive presentations, protective transit packaging, and personalized touches that turn gifts into cherished keepsakes.",
-  },
-] as const;
+const PILLARS = OUR_STORY.pillars;
 
 /** ---------------------------------------------------------------------------
  *  OUR STORY (/about) — the approved Stitch brand-story page.
@@ -142,85 +104,26 @@ const PILLARS = [
  *      admin cards in the "collections" section are intentionally not rendered.
  *  ------------------------------------------------------------------------ */
 
-/** Stable anchor ids of the shipped Our Story document (packages/data-core). */
-const STORY_SECTION_IDS = [
-  "story",
-  "philosophy",
-  "collections",
-  "what-guides-us",
-  "art-of-giving",
-  "our-promise",
-  "bring-it-home",
-] as const;
+/** Stable anchor ids of the shipped Our Story document — single-sourced in
+ *  @annaadhya/contracts so the admin preview maps sections identically. */
 
-const SEED_HEADLINE = "Rooted in Tradition. Chosen with Care.";
-const DEFAULT_LEDE =
-  "Discover a thoughtful collection of pantry treasures inspired by India\u2019s rich food heritage, where everyday rituals, beautiful ingredients, and the joy of sharing come together.";
+const SEED_HEADLINE = OUR_STORY.seedHeadline;
+const DEFAULT_LEDE = OUR_STORY.defaultLede;
 
-/** Designed fallback copy for each managed slot (mirrors the boot-seed doc). */
-const PHILOSOPHY_DEFAULTS = {
-  eyebrow: "Our Philosophy",
-  title: "More Than What\u2019s in the Jar.",
-  paragraphs: [
-    "We believe the things we bring into our homes deserve a little more thought. From the ingredients we keep close to the way we share a gift, every choice can make an ordinary moment feel more considered.",
-    "In an era of rushed conveniences, Annaadhya pauses to venerate slow culinary practices\u2014the gentle golden trickle of raw wild forest honey, the fragrant unspooling of Kashmiri Mongra saffron threads in warm milk, and the earthy richness of raw Mamra almonds.",
-  ],
-  image: {
-    src: "/images/story-heritage-kitchen.webp",
-    alt: "Sunlit Indian kitchen scene with a brass thali, earthenware and soft jali window light",
-    caption: "Honoring quiet morning rituals and generational kitchen traditions.",
-  },
-  cards: [
-    { title: "Verified", text: "Every claim published with supplier documents behind it" },
-    { title: "Ritual", text: "Consciously chosen for daily moments" },
-  ],
-} as const;
+/** Designed fallback copy for each managed slot (mirrors the boot-seed doc) —
+ *  single-sourced in @annaadhya/contracts; the admin preview falls back to the
+ *  exact same copy, so the panel always shows what the storefront will render. */
+const PHILOSOPHY_DEFAULTS = OUR_STORY.philosophy;
 
-const COLLECTIONS_DEFAULTS = {
-  eyebrow: "Collection Essentials",
-  title: "A Pantry Inspired by India\u2019s Richness",
-  paragraph:
-    "Culinary staples harvested with reverence, celebrating the textures, aromas, and stories of regions steeped in harvest wisdom.",
-} as const;
+const COLLECTIONS_DEFAULTS = OUR_STORY.collections;
 
-const GUIDES_DEFAULTS = {
-  eyebrow: "Core Values",
-  title: "What Guides Us",
-  paragraph:
-    "Every product in our pantry stands upon principles that prioritize integrity, mindful savoring, and honest relationships.",
-} as const;
+const GUIDES_DEFAULTS = OUR_STORY.guides;
 
-const GIVING_DEFAULTS = {
-  eyebrow: "The Art of Giving",
-  title: "Some Things Are Better Shared.",
-  paragraphs: [
-    "A thoughtfully chosen gift can turn a simple gesture into a lasting memory. Our world of pantry treasures and gift hampers is inspired by the pleasure of giving something warm, meaningful, and made to be enjoyed.",
-    "Each hamper is hand-assembled in keepsake velvet boxes with gold embossing, pairing golden wild honeys with Mamra almonds and Kashmiri saffron.",
-  ],
-  image: {
-    src: "/images/gifting-royal-hamper.webp",
-    alt: "Handcrafted royal maroon keepsake box with honey jars, a saffron tin and assorted premium nuts",
-  },
-  cta: { label: "Explore Gift Hampers", href: "/category/gift-boxes" },
-} as const;
+const GIVING_DEFAULTS = OUR_STORY.giving;
 
-const PROMISE_DEFAULTS = {
-  eyebrow: "Our Commitment",
-  title: "A More Thoughtful Way to Shop.",
-  paragraph:
-    "From discovering something special to placing an order, we want your experience with Annaadhya Products to feel clear, considered, and welcoming.",
-} as const;
+const PROMISE_DEFAULTS = OUR_STORY.promise;
 
-const CTA_DEFAULTS = {
-  banner: {
-    title: "Bring Something Thoughtful Home.",
-    text: "Explore pantry favourites and gifts chosen for the moments worth savouring.",
-  },
-  ctas: [
-    { label: "Explore Our Collection", href: "/shop" },
-    { label: "Get in Touch", href: "/contact" },
-  ],
-} as const;
+const CTA_DEFAULTS = OUR_STORY.cta;
 
 /** Cycled decorative icons for admin-provided value/principle cards. */
 const PRINCIPLE_ICONS = [IconFlower2, IconSunrise, IconSparkles, IconAward, IconLeaf, IconHeart, IconGift, IconShoppingBag];
@@ -237,7 +140,9 @@ export async function generateMetadata(): Promise<Metadata> {
   if (page?.seo?.title || page?.seo?.description) {
     return {
       title: page.seo?.title || "Our Story",
-      description: page.seo?.description,
+      // Markup never belongs in search snippets — strip **bold**/*italic*/links
+      // to their plain text (the raw ** leak made snippets look broken).
+      description: page.seo?.description ? stripInlineMarkup(page.seo.description) : undefined,
     };
   }
   return ABOUT_METADATA;
@@ -285,7 +190,7 @@ function BuiltInOurStory({
   const heroLede = cms?.lede || DEFAULT_LEDE;
   const heroImage = hero?.image;
   const heroCta = hero?.ctas[0];
-  const heroNote = heroCta?.note ?? "Heirloom Recipes & Rare Harvests";
+  const heroNote = heroCta?.note ?? OUR_STORY.story.heroCtaNote;
   const philosophy = cms?.byId.philosophy;
   const philosophyParagraphs =
     philosophy?.paragraphs && philosophy.paragraphs.length > 0
@@ -335,11 +240,11 @@ function BuiltInOurStory({
             <div className="relative z-10 flex flex-col items-start lg:col-span-6">
               <div className="mb-space-md inline-flex items-center gap-space-xs rounded-full bg-surface-container px-3.5 py-1 text-label-sm uppercase tracking-[0.2em] text-on-tertiary-fixed-variant shadow-sm">
                 <IconFlower2 size={16} className="text-on-tertiary-container" />
-                <span>{hero?.eyebrow ?? "The Story of Annaadhya"}</span>
+                <span>{renderInline(hero?.eyebrow ?? OUR_STORY.story.eyebrow)}</span>
               </div>
               <h1 className="mb-space-md font-display text-display-lg-mobile leading-[1.15] tracking-tight text-primary lg:text-display-lg">
                 {heroTitle ? (
-                  heroTitle
+                  renderInline(heroTitle)
                 ) : (
                   <>
                     Rooted in Tradition. <br className="hidden sm:inline" />
@@ -347,17 +252,17 @@ function BuiltInOurStory({
                   </>
                 )}
               </h1>
-              <p className="mb-space-lg max-w-xl text-body-lg leading-relaxed text-on-surface-variant">{heroLede}</p>
+              <p className="mb-space-lg max-w-xl text-body-lg leading-relaxed text-on-surface-variant">{renderLedeParagraphs(heroLede)}</p>
               <div className="flex flex-wrap items-center gap-space-md pt-space-xs">
                 <Link
                   href={heroCta && isInternalHref(heroCta.href) ? heroCta.href : "/shop"}
                   className="btn-primary inline-flex items-center justify-center px-space-lg py-3 text-label-lg shadow-sm"
                 >
-                  {heroCta?.label ?? "Explore Our Pantry"}
+                  {renderInline(heroCta?.label ?? OUR_STORY.story.heroCtaLabel)}
                 </Link>
                 <div className="inline-flex items-center gap-2 text-label-md text-on-surface-variant">
                   <span className="h-1.5 w-1.5 rounded-full bg-on-tertiary-container" aria-hidden />
-                  <span>{heroNote}</span>
+                  <span>{renderInline(heroNote)}</span>
                 </div>
               </div>
             </div>
@@ -411,11 +316,11 @@ function BuiltInOurStory({
                     <span className="block text-label-md font-bold uppercase tracking-[0.22em] text-on-tertiary-fixed-variant">
                       {String(i + 1).padStart(2, "0")}
                       {" • "}
-                      {section.eyebrow}
+                      {renderInline(section.eyebrow)}
                     </span>
                   ) : null}
                   {section.title ? (
-                    <h2 className="font-display text-headline-md tracking-tight text-primary">{section.title}</h2>
+                    <h2 className="font-display text-headline-md tracking-tight text-primary">{renderInline(section.title)}</h2>
                   ) : null}
                   <CmsBlocks blocks={section.blocks ?? []} />
                 </div>
@@ -454,10 +359,10 @@ function BuiltInOurStory({
             {/* Narrative copy */}
             <div className="flex flex-col justify-center lg:col-span-6">
               <span className="mb-space-xs block text-label-md font-bold uppercase tracking-[0.22em] text-on-tertiary-fixed-variant">
-                {philosophy?.eyebrow ?? PHILOSOPHY_DEFAULTS.eyebrow}
+                {renderInline(philosophy?.eyebrow ?? PHILOSOPHY_DEFAULTS.eyebrow)}
               </span>
               <h2 className="mb-space-md font-display text-headline-lg-mobile tracking-tight text-primary lg:text-headline-lg">
-                {philosophy?.title ?? PHILOSOPHY_DEFAULTS.title}
+                {renderInline(philosophy?.title ?? PHILOSOPHY_DEFAULTS.title)}
               </h2>
               {philosophyParagraphs.map((text, i) => (
                 <p
@@ -475,9 +380,9 @@ function BuiltInOurStory({
                 {philosophyCards.slice(0, 4).map((card, i) => (
                   <div key={i} className="rounded-md bg-surface-container-lowest p-space-md shadow-sm">
                     <div className="mb-1 font-display text-headline-sm font-semibold text-on-tertiary-container">
-                      {card.title}
+                      {renderInline(card.title)}
                     </div>
-                    <p className="text-body-sm text-on-surface-variant">{card.text}</p>
+                    <p className="text-body-sm text-on-surface-variant">{renderInline(card.text)}</p>
                   </div>
                 ))}
               </div>
@@ -491,13 +396,13 @@ function BuiltInOurStory({
         <div className="mx-auto max-w-[1320px] px-margin-mobile lg:px-margin">
           <div className="mx-auto mb-space-xl max-w-2xl text-center">
             <span className="mb-space-xs block text-label-md font-bold uppercase tracking-[0.25em] text-on-tertiary-fixed-variant">
-              {collections?.eyebrow ?? COLLECTIONS_DEFAULTS.eyebrow}
+              {renderInline(collections?.eyebrow ?? COLLECTIONS_DEFAULTS.eyebrow)}
             </span>
             <h2 className="mb-space-sm font-display text-headline-lg-mobile tracking-tight text-primary lg:text-headline-lg">
-              {collections?.title ?? COLLECTIONS_DEFAULTS.title}
+              {renderInline(collections?.title ?? COLLECTIONS_DEFAULTS.title)}
             </h2>
             <p className="text-body-md leading-relaxed text-on-surface-variant">
-              {collections?.paragraphs[0] ?? COLLECTIONS_DEFAULTS.paragraph}
+              {renderInline(collections?.paragraphs[0] ?? COLLECTIONS_DEFAULTS.paragraph)}
             </p>
           </div>
 
@@ -548,14 +453,14 @@ function BuiltInOurStory({
           <div className="mb-space-xl flex flex-col justify-between gap-space-md md:flex-row md:items-end">
             <div>
               <span className="mb-space-xs block text-label-md font-bold uppercase tracking-[0.25em] text-on-tertiary-fixed-variant">
-                {guides?.eyebrow ?? GUIDES_DEFAULTS.eyebrow}
+                {renderInline(guides?.eyebrow ?? GUIDES_DEFAULTS.eyebrow)}
               </span>
               <h2 className="font-display text-headline-lg-mobile tracking-tight text-primary lg:text-headline-lg">
-                {guides?.title ?? GUIDES_DEFAULTS.title}
+                {renderInline(guides?.title ?? GUIDES_DEFAULTS.title)}
               </h2>
             </div>
             <p className="max-w-md text-body-md text-on-surface-variant">
-              {guides?.paragraphs[0] ?? GUIDES_DEFAULTS.paragraph}
+              {renderInline(guides?.paragraphs[0] ?? GUIDES_DEFAULTS.paragraph)}
             </p>
           </div>
 
@@ -575,9 +480,9 @@ function BuiltInOurStory({
                       <Icon size={24} className="text-secondary" />
                     </div>
                     <h3 className="mb-space-xs font-display text-headline-sm font-semibold text-primary">
-                      {card.title}
+                      {renderInline(card.title)}
                     </h3>
-                    <p className="text-body-md leading-relaxed text-on-surface-variant">{card.text}</p>
+                    <p className="text-body-md leading-relaxed text-on-surface-variant">{renderInline(card.text)}</p>
                   </div>
                   <div className="mt-space-lg h-0.5 w-8 rounded-full bg-tertiary-fixed" aria-hidden />
                 </div>
@@ -595,10 +500,10 @@ function BuiltInOurStory({
               {/* Text narrative */}
               <div className="order-2 flex flex-col items-start lg:order-1 lg:col-span-6">
                 <span className="mb-space-xs block text-label-md font-bold uppercase tracking-[0.25em] text-on-tertiary-fixed-variant">
-                  {giving?.eyebrow ?? GIVING_DEFAULTS.eyebrow}
+                  {renderInline(giving?.eyebrow ?? GIVING_DEFAULTS.eyebrow)}
                 </span>
                 <h2 className="mb-space-md font-display text-headline-lg-mobile tracking-tight text-primary lg:text-headline-lg">
-                  {giving?.title ?? GIVING_DEFAULTS.title}
+                  {renderInline(giving?.title ?? GIVING_DEFAULTS.title)}
                 </h2>
                 {givingParagraphs.map((text, i) => (
                   <p
@@ -617,7 +522,7 @@ function BuiltInOurStory({
                     href={isInternalHref(givingCta.href) ? givingCta.href : "/shop"}
                     className="inline-flex items-center gap-space-xs rounded-md bg-primary px-space-lg py-3 text-label-lg text-on-primary shadow-sm transition-colors hover:bg-primary-container"
                   >
-                    <span>{givingCta.label}</span>
+                    <span>{renderInline(givingCta.label)}</span>
                     <IconGift size={18} />
                   </Link>
                 ) : null}
@@ -646,13 +551,13 @@ function BuiltInOurStory({
         <div className="mx-auto max-w-[1320px] px-margin-mobile lg:px-margin">
           <div className="mx-auto mb-space-xl max-w-2xl text-center">
             <span className="mb-space-xs block text-label-md font-bold uppercase tracking-[0.25em] text-on-tertiary-fixed-variant">
-              {promise?.eyebrow ?? PROMISE_DEFAULTS.eyebrow}
+              {renderInline(promise?.eyebrow ?? PROMISE_DEFAULTS.eyebrow)}
             </span>
             <h2 className="mb-space-sm font-display text-headline-lg-mobile tracking-tight text-primary lg:text-headline-lg">
-              {promise?.title ?? PROMISE_DEFAULTS.title}
+              {renderInline(promise?.title ?? PROMISE_DEFAULTS.title)}
             </h2>
             <p className="text-body-md leading-relaxed text-on-surface-variant">
-              {promise?.paragraphs[0] ?? PROMISE_DEFAULTS.paragraph}
+              {renderInline(promise?.paragraphs[0] ?? PROMISE_DEFAULTS.paragraph)}
             </p>
           </div>
 
@@ -668,9 +573,9 @@ function BuiltInOurStory({
                     <Icon size={28} />
                   </div>
                   <h3 className="mb-space-xs font-display text-headline-sm font-semibold text-primary">
-                    {card.title}
+                    {renderInline(card.title)}
                   </h3>
-                  <p className="text-body-sm leading-relaxed text-on-surface-variant">{card.text}</p>
+                  <p className="text-body-sm leading-relaxed text-on-surface-variant">{renderInline(card.text)}</p>
                 </div>
               );
             })}
@@ -691,10 +596,10 @@ function BuiltInOurStory({
             <span>Artisanal Pantry</span>
           </div>
           <h2 className="mx-auto mb-space-sm max-w-2xl font-display text-headline-lg-mobile tracking-tight text-on-primary lg:text-headline-lg">
-            {closingBanner.title || CTA_DEFAULTS.banner.title}
+            {renderInline(closingBanner.title || CTA_DEFAULTS.banner.title)}
           </h2>
           <p className="mx-auto mb-space-xl max-w-xl text-body-lg leading-relaxed text-on-primary-container">
-            {closingBanner.text || CTA_DEFAULTS.banner.text}
+            {renderLedeParagraphs(closingBanner.text || CTA_DEFAULTS.banner.text)}
           </p>
           <div className="flex flex-col items-center justify-center gap-space-md sm:flex-row">
             {closingCtas.map((cta, i) => (
@@ -707,7 +612,7 @@ function BuiltInOurStory({
                     : "inline-flex w-full items-center justify-center rounded-md bg-transparent px-space-xl py-3 text-label-lg font-semibold text-on-primary transition-colors hover:bg-primary-container sm:w-auto"
                 }
               >
-                {cta.label}
+                {renderInline(cta.label)}
               </Link>
             ))}
           </div>

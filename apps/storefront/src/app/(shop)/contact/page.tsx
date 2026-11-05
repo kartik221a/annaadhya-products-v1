@@ -4,8 +4,9 @@ import Image from "next/image";
 import { getPage, getPublicSettings } from "@/lib/api";
 import type { PublicStoreSettings } from "@/lib/types";
 import { ContactForm } from "@/components/contact/contact-form";
-import { CmsBlocks } from "@/components/blocks/document-blocks";
+import { CmsBlocks, renderInline, renderLedeParagraphs } from "@/components/blocks/document-blocks";
 import { mapCmsPageToSlots, isCustomizedTitle } from "@/lib/cms-page-slots";
+import { CONTACT, CONTACT_SECTION_IDS } from "@annaadhya/contracts/cms-design";
 import {
   IconBadgeCheck,
   IconClock,
@@ -20,12 +21,11 @@ import {
   IconTruck,
 } from "@/components/icons";
 
-/** Stable anchor ids of the shipped Contact document (packages/data-core). */
-const CONTACT_SECTION_IDS = ["write-to-us", "reaching-our-team"] as const;
+/** Stable anchor ids of the shipped Contact document — single-sourced in
+ *  @annaadhya/contracts so the admin preview maps sections identically. */
 
-const SEED_CONTACT_HEADLINE = "Let\u2019s Talk. We\u2019d Love to Hear From You.";
-const SEED_CONTACT_LEDE =
-  "Questions about our honey harvests, Kashmiri saffron, or putting together a thoughtful gift? Send us a message \u2014 every enquiry is read by our team and answered by email.";
+const SEED_CONTACT_HEADLINE = CONTACT.seedHeadline;
+const SEED_CONTACT_LEDE = CONTACT.defaultLede;
 
 /** Chip icons cycled across admin-provided hero trust items. */
 const HERO_CHIP_ICONS = [IconClock, IconBadgeCheck, IconTruck, IconShieldCheck];
@@ -187,20 +187,20 @@ export default async function ContactPage() {
             <div className="flex items-center gap-2">
               <span className="inline-block h-px w-5 bg-on-tertiary-container" aria-hidden />
               <span className="text-label-sm font-bold uppercase tracking-widest text-on-tertiary-container">
-                {writeUs?.eyebrow ?? "We\u2019re here to help"}
+                {renderInline(writeUs?.eyebrow ?? CONTACT.writeUs.eyebrow)}
               </span>
             </div>
             <h1 className="font-display text-headline-lg-mobile font-semibold leading-tight tracking-tight text-primary lg:text-display-lg">
-              {contactTitle ?? "Let’s Talk. We’d Love to Hear From You."}
+              {contactTitle ? renderInline(contactTitle) : "Let’s Talk. We’d Love to Hear From You."}
             </h1>
-            <p className="max-w-2xl text-body-lg leading-relaxed text-on-surface-variant">{contactLede}</p>
+            <p className="max-w-2xl text-body-lg leading-relaxed text-on-surface-variant">{renderLedeParagraphs(contactLede)}</p>
             <div className="flex flex-wrap items-center gap-6 pt-2">
               {heroChips.map((chip, i) => {
                 const ChipIcon = HERO_CHIP_ICONS[i % HERO_CHIP_ICONS.length];
                 return (
                   <span key={i} className="flex items-center gap-2 text-on-surface-variant">
                     <ChipIcon size={18} className="text-on-tertiary-container" aria-hidden />
-                    <span className="text-label-sm font-semibold tracking-wide">{chip.text}</span>
+                    <span className="text-label-sm font-semibold tracking-wide">{renderInline(chip.text)}</span>
                   </span>
                 );
               })}

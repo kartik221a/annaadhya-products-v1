@@ -5,7 +5,7 @@ import { getPage, getPublicSettings } from "@/lib/api";
 import { POLICIES, POLICY_ORDER, type PolicyDoc } from "@/lib/policies";
 import { PolicyBlockRenderer } from "@/components/policy/policy-blocks";
 import { PolicyToc } from "@/components/policy/policy-toc";
-import { CmsBlocks } from "@/components/blocks/document-blocks";
+import { CmsBlocks, renderLedeParagraphs } from "@/components/blocks/document-blocks";
 import {
   IconBadgeCheck,
   IconChevronRight,
@@ -186,7 +186,7 @@ export default async function PolicyPage({ params }: { params: Promise<{ slug: s
                 {headerTitle}
               </h1>
               <p className="max-w-2xl font-body-lg text-body-lg leading-relaxed text-on-surface-variant">
-                {headerLede || policy.lede}
+                {renderLedeParagraphs(headerLede || policy.lede)}
               </p>
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-2">

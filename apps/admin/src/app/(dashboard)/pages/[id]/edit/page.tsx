@@ -531,7 +531,7 @@ const [previewOpen, setPreviewOpen] = useState(true);
               <div className="space-y-5">
                 <Field
                   label="Lede (optional)"
-                  hint={`Short standfirst under the page title (max ${BLOCK_LIMITS.lede}).`}
+                  hint={`Short standfirst under the page title — ${(content.lede ?? "").length}/${BLOCK_LIMITS.lede} characters; text pasted beyond the limit is clipped. Blank lines start a new paragraph; **bold**, *italic* and [label](/href) render on the storefront.`}
                 >
                   <Textarea
                     value={content.lede ?? ""}
@@ -589,6 +589,7 @@ const [previewOpen, setPreviewOpen] = useState(true);
               status={status}
               content={content}
               shipping={shipping}
+              builtinSlug={builtIn ? page?.slug : undefined}
               onSectionClick={(i) => jumpToEditorBlock("section", i)}
               onEntryClick={(i) => jumpToEditorBlock("faq", i)}
             />
