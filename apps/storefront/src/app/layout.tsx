@@ -5,6 +5,7 @@ import "./globals.css";
 import { CartProvider } from "@/lib/cart";
 import { WishlistProvider } from "@/lib/wishlist";
 import { AuthProvider } from "@/lib/auth";
+import { HoneyBeeCursor } from "@/components/honey-bee-cursor";
 
 // Self-hosted at build time (OFL licensed) — no runtime font CDN requests.
 const playfair = Playfair_Display({
@@ -52,6 +53,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <WishlistProvider>{children}</WishlistProvider>
           </CartProvider>
         </AuthProvider>
+        {/* Global pointer companion — mounts once, renders nothing on touch
+            devices or when reduced motion is preferred. */}
+        <HoneyBeeCursor />
         <noscript>
           <p className="p-4 text-center text-sm">
             Some features need JavaScript. Browse our <Link href="/shop">catalogue</Link> anytime.
