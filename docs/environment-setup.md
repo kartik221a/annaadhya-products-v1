@@ -129,16 +129,16 @@ jpg/png/webp/avif.
    `payment.captured`, `payment.failed`, `refund.processed`, and set a webhook secret.
 
 ```
-PAYMENT_PROVIDER=razorpay
 RAZORPAY_KEY_ID=rzp_test_…
 RAZORPAY_KEY_SECRET=…
-RAZORPAY_WEBHOOK_SECRET=…
+RAZORPAY_WEBHOOK_SECRET=…   # optional — only for the push webhook endpoint
 ```
 
-The adapter registers only when all three exist. **Keep `settings.payments.sandboxMode = true`
-until the owner explicitly approves production launch** — the API also refuses mock payment
-simulation whenever Razorpay/Firebase is configured. Test with Razorpay's standard test cards and
-verify a webhook appears in the dashboard before flipping anything live.
+The gateway activates on the credential pair alone (`RAZORPAY_KEY_ID` + `RAZORPAY_KEY_SECRET`)
+— no other flag is required. `RAZORPAY_WEBHOOK_SECRET` only enables the push webhook endpoint;
+the standard checkout handshake verifies every payment server-side without it. The API also
+refuses mock payment simulation whenever Razorpay/Firebase is configured. Test with Razorpay's
+standard test cards, then swap in live keys when the owner approves launch.
 
 ## 6. Admin bootstrap (first owner)
 

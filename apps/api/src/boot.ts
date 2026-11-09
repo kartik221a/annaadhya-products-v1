@@ -132,7 +132,7 @@ async function boot(): Promise<void> {
 
   console.info(`Annaadhya API listening on :${port} (prefix /api/v1, docs at /api/docs)`);
   console.info(
-    `Mode: provider=${env.DATA_PROVIDER} auth=${env.firebaseConfigured ? "firebase" : "mock-dev-tokens"} payments=${env.PAYMENT_PROVIDER}${env.isProduction ? " PRODUCTION" : " (sandbox)"}`,
+    `Mode: provider=${env.DATA_PROVIDER} auth=${env.firebaseConfigured ? "firebase" : "mock-dev-tokens"} payments=${env.razorpayConfigured ? "razorpay" : "mock"}${env.isProduction ? " PRODUCTION" : " (sandbox)"}`,
   );
 }
 

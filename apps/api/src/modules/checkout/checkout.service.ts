@@ -158,14 +158,19 @@ export class CheckoutService {
     if (dto.paymentMethod === "cod" && !settings.payments.codEnabled) {
       throw badRequest("Cash on delivery is not enabled");
     }
-    // Provider selection is fail-closed: Razorpay when configured; the mock adapter ONLY
-    // in explicit mock-mode development (no Firebase, non-production). A production or
-    // Firebase-backed deployment without Razorpay credentials must refuse the order
-    // outright — never silently create a pending order doomed to expire on a dead adapter.
+    // Provider selection is fail-closed AND environment-driven: Razorpay is the checkout
+    // gateway as soon as its API credentials exist in the deployment environment (the owner
+    // sets RAZORPAY_KEY_ID + RAZORPAY_KEY_SECRET in Vercel — exactly the pair the official
+    // integration guide requires). The settings document's seeded default ("mock") is not an
+    // owner veto: treating it as one kept correctly-keyed deployments stuck on "payments not
+    // configured". The mock adapter ONLY runs in explicit mock-mode development (no Firebase,
+    // non-production); a production or Firebase-backed deployment without Razorpay credentials
+    // refuses the order outright — never silently create a pending order doomed to expire on
+    // a dead adapter.
     let providerName: "cod" | "razorpay" | "mock";
     if (dto.paymentMethod === "cod") {
       providerName = "cod";
-    } else if (settings.payments.provider === "razorpay" && this.provider("razorpay").configured) {
+    } else if (this.providers.some((p) => p.name === "razorpay") && this.provider("razorpay").configured) {
       providerName = "razorpay";
     } else if (!this.env.isProduction && !this.env.firebaseConfigured) {
       providerName = "mock";

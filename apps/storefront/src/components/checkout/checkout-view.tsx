@@ -94,7 +94,11 @@ type FormState = typeof EMPTY_FORM;
 
 declare global {
   interface Window {
-    Razorpay?: new (options: Record<string, unknown>) => { open: () => void };
+    Razorpay?: new (options: Record<string, unknown>) => {
+      open: () => void;
+      /** Gateway lifecycle events — payment.failed is the standard failure signal. */
+      on?: (event: "payment.failed", handler: (response: unknown) => void) => void;
+    };
   }
 }
 
@@ -530,6 +534,9 @@ export function CheckoutView() {
         setPayLabel("Opening the secure Razorpay window…");
         const loaded = await loadRazorpaySdk();
         if (!loaded) throw new Error("Could not reach the payment gateway. Check your connection and try again.");
+        // Exactly one navigation out of the modal lifecycle: the first of success /
+        // gateway-reported failure / user dismissal wins, the rest are ignored.
+        let modalSettled = false;
         const rzp = new window.Razorpay!({
           key: p.keyId,
           order_id: p.providerOrderId,
@@ -544,6 +551,8 @@ export function CheckoutView() {
           },
           theme: { color: "#541620" },
           handler: async (response: Record<string, string>) => {
+            if (modalSettled) return;
+            modalSettled = true;
             try {
               const verifyRes = await fetch(`${PUBLIC_API_URL}/payments/razorpay/verify`, {
                 method: "POST",
@@ -564,9 +573,20 @@ export function CheckoutView() {
           modal: {
             ondismiss: () => {
               // Cancelled is not failed and definitely not paid — cart is kept.
+              if (modalSettled) return;
+              modalSettled = true;
               router.push(`${statusBase}&result=cancelled&attemptId=${p.attemptId}`);
             },
           },
+        });
+        // Gateway-reported failure (declined card, bank timeout…). The browser cannot forge
+        // server state — we only navigate to the honest failure screen; the attempt stays
+        // pending server-side until a verified event or a retry decides the outcome. The
+        // close that follows a failed payment also fires ondismiss — modalSettled guards it.
+        rzp.on?.("payment.failed", () => {
+          if (modalSettled) return;
+          modalSettled = true;
+          router.push(`${statusBase}&result=failure&attemptId=${p.attemptId}`);
         });
         rzp.open();
         return;

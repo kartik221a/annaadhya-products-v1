@@ -389,9 +389,12 @@ export default function SettingsPage() {
         <Card>
           <CardHeader title="Payments" subtitle="Provider wiring for checkout" />
           <CardBody className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Field label="Provider">
+            <Field
+              label="Provider"
+              hint="Checkout switches to Razorpay automatically once RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are set in the API environment (Vercel). This selector records your preference — without the environment keys online payments stay closed."
+            >
               <Select value={form.paymentProvider} onChange={(e) => update("paymentProvider", e.target.value as PaymentProviderName)} disabled={!canWrite}>
-                <option value="mock">Mock (development)</option>
+                <option value="mock">Demo / simulated (used when keys are absent)</option>
                 <option value="razorpay">Razorpay</option>
               </Select>
             </Field>

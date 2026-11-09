@@ -1,9 +1,11 @@
 /**
- * RazorpayAdapter — test-mode Razorpay integration.
+ * RazorpayAdapter — Razorpay Standard Checkout integration.
  *
- * ⚠️ STATUS: implemented but UNVERIFIED — it becomes "configured" only when RAZORPAY_KEY_ID +
- * RAZORPAY_KEY_SECRET + RAZORPAY_WEBHOOK_SECRET are set, and "verified" only after a real
- * sandbox transaction passes. Keep `payments.sandboxMode: true` until the owner approves launch.
+ * Activation contract: the gateway is LIVE as soon as RAZORPAY_KEY_ID + RAZORPAY_KEY_SECRET
+ * exist in the environment — exactly the credential pair the official integration guide
+ * requires. RAZORPAY_WEBHOOK_SECRET is OPTIONAL: it is only needed for the push webhook
+ * endpoint (payment.captured / payment.failed / refund.processed); the standard checkout
+ * handshake verifies every payment server-side without it (HMAC of order_id|payment_id).
  *
  * Implements:
  *  - provider order creation via the Razorpay Orders API
@@ -14,7 +16,7 @@
 import { Injectable } from "@nestjs/common";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { VerifiedEvent, PaymentProvider, ProviderPaymentInput } from "./provider.interface";
-import { AppError, serviceUnconfigured } from "@annaadhya/data-core";
+import { AppError, serviceUnconfigured, unprocessable } from "@annaadhya/data-core";
 import { Inject } from "@nestjs/common";
 import type { ApiEnv } from "../../config/env";
 import { API_ENV } from "../../data/data.module";
@@ -27,8 +29,11 @@ export class RazorpayProvider implements PaymentProvider {
 
   constructor(@Inject(API_ENV) private readonly env: ApiEnv) {}
 
+  /** Live when the credential pair from the integration guide exists. The webhook secret
+   *  is deliberately NOT part of this gate: it only enables the push webhook endpoint, and
+   *  requiring it here blocked standard checkout on correctly-keyed deployments. */
   get configured(): boolean {
-    return this.env.razorpayConfigured && Boolean(this.env.RAZORPAY_WEBHOOK_SECRET);
+    return this.env.razorpayConfigured;
   }
 
   private get keyId(): string {
@@ -44,8 +49,13 @@ export class RazorpayProvider implements PaymentProvider {
   async createPayment(input: ProviderPaymentInput) {
     if (!this.configured) {
       throw serviceUnconfigured(
-        "Razorpay is not configured (RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET / RAZORPAY_WEBHOOK_SECRET).",
+        "Razorpay is not configured (RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET).",
       );
+    }
+    // Razorpay refuses order amounts below ₹1 — fail with a clear message instead of a
+    // cryptic gateway 400.
+    if (input.attempt.amountPaise < 100) {
+      throw unprocessable("Razorpay requires a minimum order amount of ₹1.");
     }
     const res = await fetch(`${RAZORPAY_API}/orders`, {
       method: "POST",
@@ -79,6 +89,11 @@ export class RazorpayProvider implements PaymentProvider {
   }
 
   verifyWebhook({ headers, rawBody }: { headers: Record<string, string | string[] | undefined>; rawBody: Buffer }): VerifiedEvent {
+    if (!this.webhookSecret) {
+      throw serviceUnconfigured(
+        "Razorpay webhook secret is not configured (RAZORPAY_WEBHOOK_SECRET) — webhooks stay off until it is set.",
+      );
+    }
     const signature = header(headers, "x-razorpay-signature");
     if (!signature) throw new AppError("bad_request", "Missing Razorpay signature header", 400);
     const expected = createHmac("sha256", this.webhookSecret).update(rawBody).digest("hex");

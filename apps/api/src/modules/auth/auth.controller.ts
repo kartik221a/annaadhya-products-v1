@@ -114,7 +114,11 @@ export class AuthController {
     return {
       dataProvider: this.env.DATA_PROVIDER,
       authentication: this.env.firebaseConfigured ? ("firebase" as const) : ("mock-dev-tokens" as const),
-      payments: this.env.PAYMENT_PROVIDER,
+      // The storefront's checkout labels ("Pay Online" vs demo copy) key off this value, so
+      // it must reflect the ACTUAL gateway capability — whether the Razorpay credential pair
+      // exists in this environment — never a raw env flag that can advertise a gateway the
+      // backend cannot use.
+      payments: this.env.razorpayConfigured ? ("razorpay" as const) : ("mock" as const),
       razorpayConfigured: this.env.razorpayConfigured,
       cloudinaryConfigured: this.env.cloudinaryConfigured,
       sandbox: !this.env.isProduction,

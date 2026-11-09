@@ -577,3 +577,108 @@ describe("inventory policies — auto-track + backorders", () => {
     await expect(orderVariant(v, 1)).rejects.toThrow(/unavailable/i);
   });
 });
+
+describe("razorpay activation — the credential pair is the switch", () => {
+  const ACTIVATION_KEYS = ["rzp_test_activation", "activation-secret"];
+
+  function useActivationEnv(withWebhookSecret = false) {
+    resetEnvCache();
+    process.env.RAZORPAY_KEY_ID = ACTIVATION_KEYS[0];
+    process.env.RAZORPAY_KEY_SECRET = ACTIVATION_KEYS[1];
+    if (withWebhookSecret) process.env.RAZORPAY_WEBHOOK_SECRET = "whsec_test";
+    else delete process.env.RAZORPAY_WEBHOOK_SECRET;
+  }
+
+  function restoreEnv() {
+    delete process.env.RAZORPAY_KEY_ID;
+    delete process.env.RAZORPAY_KEY_SECRET;
+    delete process.env.RAZORPAY_WEBHOOK_SECRET;
+    resetEnvCache();
+    loadEnv(); // restore the pristine cached env for any later reads
+  }
+
+  it("activates on KEY_ID + KEY_SECRET alone and routes gateway checkout to Razorpay", async () => {
+    useActivationEnv();
+    try {
+      const env = loadEnv();
+      expect(env.razorpayConfigured).toBe(true);
+      const rzp = new RazorpayProvider(env);
+      expect(rzp.configured).toBe(true); // webhook secret deliberately absent
+
+      const svc = new CheckoutService(db, new SettingsService(db), new AuditService(db), env, [
+        new MockPaymentProvider(),
+        rzp,
+      ]);
+      const v = findVariant("AN-HNY-001-250G");
+      const quote = await svc.quote({ items: [{ variantId: v.id, qty: 1 }], pincode: "250002" });
+      expect(quote.unavailable).toHaveLength(0);
+
+      // Fake keys → the Razorpay Orders API call cannot succeed → createOrder rejects.
+      // What the assertion cares about: the attempt was created FOR the Razorpay provider.
+      // Either former gate (webhook-secret requirement / settings provider flag) would have
+      // thrown "Online payments are not configured yet" before any attempt existed.
+      try {
+        await svc.createOrder(
+          {
+            quoteId: quote.quoteId,
+            paymentMethod: "gateway",
+            customer: { displayName: "Test Customer", email: "cust@test.dev", phone: "9876543210" },
+            address: address(),
+            acceptTerms: true,
+            deliverToSomeoneElse: false,
+          },
+          customer,
+        );
+      } catch {
+        /* expected — gateway call with fake credentials fails */
+      }
+      const attempts = await db.list<PaymentAttemptDoc>(COLLECTIONS.paymentAttempts, {
+        where: [{ field: "provider", op: "==", value: "razorpay" }],
+      });
+      expect(attempts.length).toBeGreaterThan(0);
+      expect(attempts[0].status).toBe("failed"); // honest failure recorded on the attempt
+    } finally {
+      restoreEnv();
+    }
+  });
+
+  it("keeps the webhook endpoint closed while no webhook secret is configured", () => {
+    useActivationEnv();
+    try {
+      const rzp = new RazorpayProvider(loadEnv());
+      expect(rzp.configured).toBe(true); // checkout may run…
+      expect(() => rzp.verifyWebhook({ headers: {}, rawBody: Buffer.from("{}", "utf8") })).toThrow(
+        /webhook secret is not configured/i,
+      ); // …but webhooks stay explicitly off
+    } finally {
+      restoreEnv();
+    }
+  });
+
+  it("refuses Razorpay orders below the ₹1 minimum before any network call", async () => {
+    useActivationEnv();
+    try {
+      const rzp = new RazorpayProvider(loadEnv());
+      await expect(
+        rzp.createPayment({
+          order: { id: "ord_test_min", orderNumber: "AN-MIN-1" } as unknown as OrderDoc,
+          attempt: {
+            id: "pay_test_min",
+            orderId: "ord_test_min",
+            orderNumber: "AN-MIN-1",
+            provider: "razorpay",
+            status: "created",
+            amountPaise: 50,
+            attempts: 1,
+            refundPaise: 0,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            isDemo: false,
+          } as PaymentAttemptDoc,
+        }),
+      ).rejects.toThrow(/minimum order amount/i);
+    } finally {
+      restoreEnv();
+    }
+  });
+});
